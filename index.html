@@ -6,7 +6,7 @@
 <title>Tournament Manager</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: system-ui, sans-serif; background: #f8f8f6; color: #1a1a1a; padding: 1rem; }
+  body { font-family: system-ui, sans-serif; background: #f8f8f6; color: #1a1a1a; padding: 1rem; max-width: 950px; margin: 0 auto; }
   h2 { font-size: 18px; font-weight: 500; margin-bottom: 1rem; }
   h3 { font-size: 15px; font-weight: 500; margin-bottom: 0.75rem; }
   .card { background: #fff; border: 0.5px solid #ddd; border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1rem; }
@@ -153,29 +153,31 @@
   </div>
   <div id="setup-msg" style="margin-top:-0.5rem;margin-bottom:0.75rem;font-size:13px;color:#a32d2d;"></div>
 
-  <div class="card">
-    <h3>Add players</h3>
-    <div style="position:relative;margin-bottom:10px;">
-      <input type="text" id="player-input" placeholder="Type name to add or search existing..." autocomplete="off"
-        onkeydown="if(event.key==='Enter')addPlayer(); if(event.key==='Escape')closePlayerSearch();"
-        oninput="onPlayerInputChange(this.value)"
-        onfocus="onPlayerInputChange(this.value)"
-        onblur="setTimeout(closePlayerSearch, 150)"
-        style="flex:1;width:100%;"/>
-      <div id="player-search-results" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:0.5px solid #ccc;border-radius:8px;max-height:240px;overflow-y:auto;z-index:10;margin-top:2px;box-shadow:0 4px 12px rgba(0,0,0,0.08);"></div>
+  <div class="responsive-row">
+    <div class="card" style="flex:1;min-width:0;margin-bottom:0;">
+      <h3>Add players</h3>
+      <div style="position:relative;margin-bottom:10px;">
+        <input type="text" id="player-input" placeholder="Type name to add or search existing..." autocomplete="off"
+          onkeydown="if(event.key==='Enter')addPlayer(); if(event.key==='Escape')closePlayerSearch();"
+          oninput="onPlayerInputChange(this.value)"
+          onfocus="onPlayerInputChange(this.value)"
+          onblur="setTimeout(closePlayerSearch, 150)"
+          style="flex:1;width:100%;"/>
+        <div id="player-search-results" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:0.5px solid #ccc;border-radius:8px;max-height:240px;overflow-y:auto;z-index:10;margin-top:2px;box-shadow:0 4px 12px rgba(0,0,0,0.08);"></div>
+      </div>
+      <div class="flex" style="margin-bottom:12px;">
+        <button onclick="addPlayer()" style="flex:1;">+ Add as new</button>
+      </div>
+      <div id="player-list"></div>
     </div>
-    <div class="flex" style="margin-bottom:12px;">
-      <button onclick="addPlayer()" style="flex:1;">+ Add as new</button>
-    </div>
-    <div id="player-list"></div>
-  </div>
 
-  <div class="card">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;">
-      <h3>Database</h3>
-      <input type="text" id="elo-table-filter" placeholder="Filter..." oninput="renderEloTable()" style="font-size:12px;padding:4px 8px;width:140px;"/>
+    <div class="card" style="flex:1;min-width:0;margin-bottom:0;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;gap:6px;">
+        <h3 style="margin:0;">Registered players</h3>
+        <input type="text" id="elo-table-filter" placeholder="Filter..." oninput="renderEloTable()" style="font-size:12px;padding:4px 8px;width:110px;flex-shrink:0;"/>
+      </div>
+      <div id="elo-table-body"></div>
     </div>
-    <div id="elo-table-body"></div>
   </div>
 </div>
 
@@ -735,17 +737,12 @@ function renderRulesFromRows(rows){
     el.innerHTML = '<div style="padding:16px;background:#fafaf7;border-radius:8px;color:#888;font-style:italic;">No rules loaded. Make sure the Google Sheet has a tab named <b>Rules</b>.</div>';
     return;
   }
-  // First non-empty row is treated as header; rest as body
-  const [header, ...body] = rows;
   const maxCols = Math.max(...rows.map(r => r.length));
   const pad = r => r.concat(Array(Math.max(0, maxCols - r.length)).fill(''));
   el.innerHTML = `
     <table style="width:100%;border-collapse:collapse;font-size:13px;">
-      <thead>
-        <tr>${pad(header).map(h => `<th style="text-align:left;font-size:11px;color:#888;font-weight:500;padding:6px 10px 6px 0;border-bottom:0.5px solid #e0e0e0;">${escapeHtml(h)}</th>`).join('')}</tr>
-      </thead>
       <tbody>
-        ${body.map((row,i) => `<tr style="${i%2===1?'background:#fafafa;':''}">${pad(row).map(cell => `<td style="padding:6px 10px 6px 0;vertical-align:top;border-bottom:0.5px solid #f0f0f0;white-space:pre-wrap;">${escapeHtml(cell)}</td>`).join('')}</tr>`).join('')}
+        ${rows.map((row,i) => `<tr style="${i%2===1?'background:#fafafa;':''}">${pad(row).map(cell => `<td style="padding:6px 10px 6px 0;vertical-align:top;border-bottom:0.5px solid #f0f0f0;white-space:pre-wrap;">${escapeHtml(cell)}</td>`).join('')}</tr>`).join('')}
       </tbody>
     </table>`;
 }
@@ -1003,7 +1000,7 @@ function copyAppsScript(){
   const script = `// Apps Script for Tournament ELO sync + Rules + Seeds
 // Paste into Extensions → Apps Script, then deploy as web app (Anyone access)
 // Sheet tab "ELO" — columns: name, elo, test
-// Sheet tab "Rules" — free-form (column B & C are skipped on read; last column formatted as date)
+// Sheet tab "Rules" — all rows and columns returned; last column formatted as date if it's a Date
 // Sheet tab "Seeds" — columns: id, timestamp, label, blob (auto-created)
 const SHEET_NAME = 'ELO';
 const RULES_SHEET_NAME = 'Rules';
@@ -1051,18 +1048,16 @@ function loadRules() {
   const s = ss.getSheetByName(RULES_SHEET_NAME);
   if (!s) return { rows: [], error: 'Sheet "' + RULES_SHEET_NAME + '" not found' };
   const data = s.getDataRange().getValues();
-  const pad = n => String(n).padStart(2, '0');
   const rows = [];
   for (const r of data) {
-    // Drop columns B (index 1) and C (index 2)
-    const filtered = r.filter((_, i) => i !== 1 && i !== 2);
+    const filtered = r.slice(); // include all columns
     const hasAny = filtered.some(c => String(c).trim() !== '');
     if (!hasAny) continue;
     // Format the last column as a date only — no time, no timezone
     const lastIdx = filtered.length - 1;
     const last = filtered[lastIdx];
     if (last instanceof Date && !isNaN(last.getTime())) {
-      filtered[lastIdx] = pad(last.getDate()) + '/' + pad(last.getMonth()+1) + '/' + last.getFullYear();
+      filtered[lastIdx] = last.toDateString();
     }
     rows.push(filtered.map(c => String(c == null ? '' : c)));
   }
@@ -1318,17 +1313,20 @@ function renderPlayerList(){
       const elo=getElo(p.name);
       const isNew=!hasEloEntry(p.name, isTestingMode());
       const isElim=!!p.eliminated;
-      const paidStyle=p.paid?'color:#3b6d11;font-weight:500;text-decoration:underline dotted #3b6d11;':'';
       const elimStyle=isElim?'color:#aaa;text-decoration:line-through;':'';
+      const paidBtnStyle=p.paid
+        ? 'background:#1D9E75;color:#fff;border-color:#1D9E75;font-size:11px;padding:2px 8px;flex-shrink:0;font-weight:500;'
+        : 'font-size:11px;padding:2px 8px;flex-shrink:0;color:#aaa;';
       const paidTitle=p.paid?'Double-tap or long-press to mark unpaid':'Double-tap or long-press to mark paid';
       const abandonBtn = (tournamentStarted && !isElim)
-        ? `<button onclick="abandonPlayer(${i})" title="Abandon tournament" style="font-size:11px;padding:1px 5px;flex-shrink:0;margin-left:4px;color:#854f0b;border-color:#e6c58c;">⚑</button>`
+        ? `<button onclick="abandonPlayer(${i})" title="Abandon tournament" style="font-size:11px;padding:2px 5px;flex-shrink:0;margin-left:2px;color:#854f0b;border-color:#e6c58c;">⚑</button>`
         : '';
-      return `<div style="display:flex;align-items:center;gap:4px;padding:4px 4px 4px 6px;border-bottom:0.5px solid #eee;${i%2===1?'border-left:0.5px solid #eee;':''}">
-        <span onclick="paidTap(${i})" oncontextmenu="event.preventDefault();togglePaid(${i});" ontouchstart="paidTouchStart(${i},event)" ontouchend="paidTouchEnd(${i})" ontouchmove="paidTouchEnd(${i})" title="${paidTitle}" style="flex:1;font-size:12px;${elimStyle||paidStyle}white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;">${p.name}${isElim?' <span style="font-size:10px;color:#854f0b;">abandoned</span>':''}</span>
+      return `<div style="display:flex;align-items:center;gap:4px;padding:7px 4px 7px 6px;border-bottom:0.5px solid #eee;${i%2===1?'border-left:0.5px solid #eee;':''}">
+        <span onclick="paidTap(${i})" oncontextmenu="event.preventDefault();togglePaid(${i});" ontouchstart="paidTouchStart(${i},event)" ontouchend="paidTouchEnd(${i})" ontouchmove="paidTouchEnd(${i})" title="${paidTitle}" style="flex:1;font-size:13px;${elimStyle}white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;">${p.name}${isElim?' <span style="font-size:10px;color:#854f0b;">abandoned</span>':''}</span>
         <span style="font-size:11px;color:#aaa;flex-shrink:0;">${elo}${isNew?' ★':''}</span>
+        <button onclick="togglePaid(${i})" title="${paidTitle}" style="${paidBtnStyle}">${p.paid?'✓ paid':'paid'}</button>
         ${abandonBtn}
-        <button onclick="removePlayer(${i});this.textContent=_delPending['player-'+${i}]?'✕?':'✕'" style="font-size:11px;padding:1px 5px;flex-shrink:0;margin-left:4px;">✕</button>
+        <button onclick="removePlayer(${i});this.textContent=_delPending['player-'+${i}]?'✕?':'✕'" style="font-size:11px;padding:2px 5px;flex-shrink:0;margin-left:2px;">✕</button>
       </div>`;
     }).join('')+`</div>`+
     `<div style="display:flex;justify-content:space-between;font-size:12px;color:#aaa;margin-top:8px;">
@@ -1434,8 +1432,7 @@ function getElapsedLabel(){
 
 function autoSeedLabel(){
   const d = state.tournamentStartedAt ? new Date(state.tournamentStartedAt) : new Date();
-  const pad = n => String(n).padStart(2,'0');
-  const date = pad(d.getDate()) + '/' + pad(d.getMonth()+1) + '/' + d.getFullYear();
+  const date = d.toDateString(); // "Sun Apr 19 2026"
   return 'Drunken Draft · Round ' + (state.currentRound||1) + ' · ' + date + ' · ' + getElapsedLabel();
 }
 
@@ -1564,10 +1561,44 @@ function byeEligible(name, byeCounts){
   return byeCounts[name] <= minByes;
 }
 
+// Find a complete matching over `names`. When allowRematches=false, edges between
+// previous opponents are forbidden; if a complete matching is impossible, returns null.
+// When allowRematches=true, any pairing is allowed.
+// Returns array of [i,j] pairs or null. i<j in each pair. Index order follows `names`.
+function findMatching(names, prevOpp, allowRematches){
+  const n = names.length;
+  if(n === 0) return [];
+  if(n % 2 !== 0) return null;
+  const used = new Array(n).fill(false);
+  const pairs = [];
+
+  function backtrack(){
+    let i = -1;
+    for(let k=0;k<n;k++){ if(!used[k]){ i=k; break; } }
+    if(i === -1) return true;
+    used[i] = true;
+    for(let j=i+1; j<n; j++){
+      if(used[j]) continue;
+      if(!allowRematches){
+        const prev = prevOpp[names[i]] || new Set();
+        if(prev.has(names[j])) continue;
+      }
+      used[j] = true;
+      pairs.push([i, j]);
+      if(backtrack()) return true;
+      pairs.pop();
+      used[j] = false;
+    }
+    used[i] = false;
+    return false;
+  }
+
+  return backtrack() ? pairs : null;
+}
+
 function generatePairings(){
   const active = state.players.filter(p=>!p.eliminated);
   const prevOpp = getPrevOpponents();
-  const allowRematches = allPairsExhausted(active, prevOpp);
   const byeCounts = getByeCounts(active);
 
   if(state.phase==='roundrobin'){
@@ -1582,39 +1613,32 @@ function generatePairings(){
 
   // Only assign ONE BYE max. If odd, pick the lowest-priority eligible player.
   let byeCandidate = null;
+  let toPair = active;
   if(active.length % 2 === 1){
     for(let i=active.length-1;i>=0;i--){
       if(byeEligible(active[i].name, byeCounts)){ byeCandidate = active[i].name; break; }
     }
     if(!byeCandidate) byeCandidate = active[active.length-1].name;
+    toPair = active.filter(p => p.name !== byeCandidate);
   }
 
-  const pairs=[], paired=new Set();
-  if(byeCandidate){ pairs.push({p1:byeCandidate, p2:'BYE', result:'bye', rematch:false}); paired.add(byeCandidate); }
+  const pairs=[];
+  if(byeCandidate){ pairs.push({p1:byeCandidate, p2:'BYE', result:'bye', rematch:false}); }
 
-  for(let i=0;i<active.length;i++){
-    if(paired.has(active[i].name)) continue;
-    const partner = findPartner(i, active, paired, prevOpp, allowRematches);
-    if(partner){
-      pairs.push({p1:active[i].name, p2:partner.name, result:null, rematch: allowRematches && (prevOpp[active[i].name]||new Set()).has(partner.name)});
-      paired.add(active[i].name); paired.add(partner.name);
-    } else {
-      // Would-be second BYE: instead force a rematch with any available unpaired player
-      for(let j=0;j<active.length;j++){
-        if(!paired.has(active[j].name) && active[j].name!==active[i].name){
-          pairs.push({p1:active[i].name, p2:active[j].name, result:null, rematch:true});
-          paired.add(active[i].name); paired.add(active[j].name);
-          break;
-        }
-      }
-      // True last resort only if literally no other player exists
-      if(!paired.has(active[i].name)){
-        pairs.push({p1:active[i].name, p2:'BYE', result:'bye', rematch:false});
-        paired.add(active[i].name);
-      }
+  // Try a complete no-rematch matching first via backtracking.
+  // Fall back to allowing rematches only if no all-new matching exists.
+  const names = toPair.map(p => p.name);
+  let matching = findMatching(names, prevOpp, false);
+  if(!matching) matching = findMatching(names, prevOpp, true);
+
+  if(matching){
+    for(const [i, j] of matching){
+      const isRematch = (prevOpp[names[i]] || new Set()).has(names[j]);
+      pairs.push({p1: names[i], p2: names[j], result: null, rematch: isRematch});
     }
   }
-  state.pairings=pairs;
+
+  state.pairings = pairs;
   assignFirstPlayer();
 }
 
@@ -1910,6 +1934,25 @@ function calcPrizeAllocations(){
     return {rank:rank.label, target, chosen, actualValue};
   });
 
+  // Fairness pass: a higher rank must never receive less total value than a lower rank.
+  // If it does, add the cheapest available token (Token) to the higher rank and recheck.
+  const token = inv.find(p => p.name === 'Token' && p.value > 0) ||
+                inv.filter(p => p.value > 0).sort((a,b) => a.value - b.value)[0];
+  if(token){
+    for(let hi = 0; hi < allocs.length - 1; hi++){
+      for(let lo = hi + 1; lo < allocs.length; lo++){
+        while(allocs[hi].actualValue < allocs[lo].actualValue && token.maxQty > 0){
+          const ex = allocs[hi].chosen.find(c => c.name === token.name);
+          if(ex){ ex.qty++; ex.total += token.value; }
+          else allocs[hi].chosen.push({name:token.name, value:token.value, qty:1, total:token.value});
+          allocs[hi].actualValue += token.value;
+          grandTotal += token.value;
+          token.maxQty--;
+        }
+      }
+    }
+  }
+
   return {allocs, totalPool, grandTotal};
 }
 
@@ -2005,25 +2048,31 @@ function renderMatches(){
           ? `Round Robin — round ${roundNum}`
           : `Swiss — round ${roundNum - (state.settings.rrRounds||0)}`;
         const rows = round.map(m=>{
-          if(m.p2==='BYE') return `<tr><td>${m.p1}</td><td style="color:#aaa;text-align:center;">BYE</td><td></td><td style="color:#aaa;">—</td></tr>`;
-          let res, resColor;
-          if(m.result==='p1win'){res=`${m.p1} won`;resColor='#3b6d11';}
-          else if(m.result==='p2win'){res=`${m.p2} won`;resColor='#3b6d11';}
-          else if(m.result==='draw'){res='Draw / Timeout';resColor='#854f0b';}
-          else{res='No result';resColor='#aaa';}
-          if(m.forfeit) res += ' <span style="font-size:10px;background:#faeeda;color:#854f0b;border-radius:3px;padding:1px 5px;margin-left:4px;font-weight:500;">forfeit</span>';
-          const rematch=m.rematch?'<span style="font-size:11px;background:#faeeda;color:#854f0b;border-radius:4px;padding:1px 5px;margin-left:4px;">rematch</span>':'';
-          const fmtDelta = d => {
-            if(d===undefined||d===null) return '';
-            const sign = d>0?'+':'';
-            const color = d>0?'#3b6d11':d<0?'#a32d2d':'#888';
-            return ` <span style="font-size:11px;font-weight:500;color:${color};">${sign}${d}</span>`;
-          };
+          if(m.p2==='BYE') return `<tr><td style="font-weight:500;">${m.p1}</td><td colspan="3"><span style="font-size:10px;background:#f1f1ee;color:#555;border-radius:3px;padding:1px 5px;">BYE</span></td></tr>`;
+          const tags = [];
+          if(m.rematch) tags.push('<span style="font-size:10px;background:#faeeda;color:#854f0b;border-radius:3px;padding:1px 5px;">rematch</span>');
+          if(m.forfeit) tags.push('<span style="font-size:10px;background:#faeeda;color:#854f0b;border-radius:3px;padding:1px 5px;">forfeit</span>');
+          const tagsHtml = tags.join(' ');
+          let winner = '', winnerName = '', loserName = '';
+          if(m.result==='p1win'){ winner='p1'; winnerName=m.p1; loserName=m.p2; }
+          else if(m.result==='p2win'){ winner='p2'; winnerName=m.p2; loserName=m.p1; }
+          else { winnerName=m.p1; loserName=m.p2; }
+          const winnerDelta = winner==='p1' ? m.eloDelta1 : winner==='p2' ? m.eloDelta2 : null;
+          let deltaCell;
+          if(m.result==='draw'){
+            deltaCell = '<span style="color:#854f0b;font-weight:500;">Draw</span>';
+          } else if(winnerDelta!=null && winnerDelta!==undefined){
+            const sign = winnerDelta>0?'+':'';
+            const c = winnerDelta>0?'#3b6d11':winnerDelta<0?'#a32d2d':'#888';
+            deltaCell = `<span style="font-weight:500;color:${c};">${sign}${winnerDelta}</span>`;
+          } else {
+            deltaCell = '<span style="color:#aaa;">—</span>';
+          }
           return `<tr>
-            <td style="font-weight:500;">${m.p1}${fmtDelta(m.eloDelta1)}</td>
-            <td style="text-align:center;color:#bbb;font-size:11px;">vs</td>
-            <td style="font-weight:500;">${m.p2}${fmtDelta(m.eloDelta2)}${rematch}</td>
-            <td style="color:${resColor};font-weight:500;">${res}</td>
+            <td style="font-weight:500;white-space:nowrap;color:${m.result==='draw'?'#555':'#3b6d11'};">${winnerName}</td>
+            <td style="font-weight:500;white-space:nowrap;color:#555;">${loserName}</td>
+            <td style="white-space:nowrap;">${deltaCell}</td>
+            <td>${tagsHtml}</td>
           </tr>`;
         }).join('');
         html += `<div class="card" style="margin-bottom:0.75rem;">
@@ -2031,14 +2080,14 @@ function renderMatches(){
             <h3>${phase}</h3>${tsLabel(event.ts)}
           </div>
           <table>
-            <thead><tr><th>Player 1</th><th></th><th>Player 2</th><th>Result</th></tr></thead>
+            <thead><tr><th>Winner</th><th>Loser</th><th>ELO Δ</th><th>Tags</th></tr></thead>
             <tbody>${rows}</tbody>
           </table>
         </div>`;
         roundIndex++;
       }
     } else {
-      // event card (tournament-start, draft-end, or other)
+      // event card
       const icon = event.type==='tournament-start' ? '🏁' : event.type==='draft-end' ? '📋' : event.type==='tournament-timeout' ? '⏰' : event.type==='abandon' ? '⚑' : '•';
       const bg   = event.type==='tournament-start' ? '#eaf3de' : event.type==='draft-end' ? '#e6f1fb' : event.type==='tournament-timeout' ? '#fcebeb' : event.type==='abandon' ? '#faeeda' : '#f1f1ee';
       const color= event.type==='tournament-start' ? '#3b6d11' : event.type==='draft-end' ? '#185fa5' : event.type==='tournament-timeout' ? '#a32d2d' : event.type==='abandon' ? '#854f0b' : '#444';
@@ -2114,12 +2163,12 @@ function renderGroups(){
         const badge = !isKnown(p) ? '<span style="font-size:11px;background:#faeeda;color:#854f0b;border-radius:4px;padding:1px 6px;">new</span>' : '';
         return `<tr><td>${p.name}</td><td style="font-weight:500;">${elo}</td><td>${badge}</td></tr>`;
       }).join('');
-    return `<div class="card" style="border-left:3px solid ${color};padding:0.6rem 0.8rem;">
-      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:0.4rem;">
-        <h3 style="color:${color};font-size:13px;">Group ${g.id}</h3>
-        <div style="font-size:11px;color:#888;">${g.members.length}p &nbsp;avg ${avgElo} &nbsp;Δ${eloSpreads[gi]}</div>
+    return `<div class="card" style="border-left:3px solid ${color};padding:0.85rem 1rem;">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:0.5rem;">
+        <h3 style="color:${color};font-size:15px;margin:0;">Table ${g.id}</h3>
+        <div style="font-size:12px;color:#888;">${g.members.length}p · avg ${avgElo} · Δ${eloSpreads[gi]}</div>
       </div>
-      <table style="font-size:12px;">
+      <table style="font-size:13px;">
         <tbody>${rows}</tbody>
       </table>
     </div>`;
@@ -2127,10 +2176,10 @@ function renderGroups(){
 
   el.innerHTML = `
     <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:0.5rem;">
-      <div style="font-size:15px;font-weight:500;">${numGroups} group${numGroups>1?'s':''} &nbsp;·&nbsp; ${n} players</div>
+      <div style="font-size:15px;font-weight:500;">${numGroups} table${numGroups>1?'s':''} &nbsp;·&nbsp; ${n} players</div>
       <div style="font-size:12px;color:#888;">spread diff: ${spreadDiff}</div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;">
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;">
       ${groupsHtml}
     </div>`;
 }
