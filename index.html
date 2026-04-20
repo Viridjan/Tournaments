@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Swiss Tournament Manager</title>
+<title>Tournament Manager</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: system-ui, sans-serif; background: #f8f8f6; color: #1a1a1a; padding: 1rem; }
@@ -30,7 +30,7 @@
   th { font-weight: 500; font-size: 12px; color: #888; text-align: left; padding: 6px 8px; border-bottom: 0.5px solid #e0e0e0; }
   td { padding: 7px 8px; border-bottom: 0.5px solid #e0e0e0; vertical-align: middle; }
   tr:last-child td { border-bottom: none; }
-  .tabs { display: flex; gap: 4px; margin-bottom: 1rem; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 1rem; flex-wrap: wrap; }
   .tab { font-size: 13px; padding: 6px 14px; border-radius: 8px; cursor: pointer; border: 0.5px solid #bbb; background: transparent; color: #888; }
   .tab.active { background: #f1f1ee; color: #1a1a1a; font-weight: 500; }
   .section { display: none; }
@@ -66,19 +66,82 @@
   .timer-bar.urgent { background: #E24B4A; }
   .timer-controls { display: flex; gap: 6px; }
   #timer-start-btn { min-width: 64px; }
+
+  /* Landing screen */
+  #landing { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 80vh; gap: 0; }
+  #landing h1 { font-size: 22px; font-weight: 600; color: #1a1a1a; margin-bottom: 6px; }
+  #landing .subtitle { font-size: 13px; color: #888; margin-bottom: 36px; }
+  .tournament-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; width: 100%; max-width: 520px; }
+  .tournament-card { background: #fff; border: 0.5px solid #ddd; border-radius: 16px; padding: 1.5rem 1.25rem; cursor: pointer; text-align: center; transition: box-shadow 0.15s, transform 0.15s; user-select: none; }
+  .tournament-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); transform: translateY(-2px); }
+  .tournament-card:active { transform: translateY(0); box-shadow: none; }
+  .tournament-card .tc-icon { font-size: 36px; margin-bottom: 10px; }
+  .tournament-card .tc-name { font-size: 15px; font-weight: 600; color: #1a1a1a; margin-bottom: 4px; }
+  .tournament-card .tc-desc { font-size: 12px; color: #888; line-height: 1.4; }
+  .tournament-card.coming-soon { opacity: 0.45; cursor: default; }
+  .tournament-card.coming-soon:hover { box-shadow: none; transform: none; }
+
+  /* App wrapper */
+  #app { display: none; }
+  #app.visible { display: block; }
+  .back-btn { font-size: 12px; color: #888; border: none; background: none; padding: 0; cursor: pointer; margin-right: 8px; }
+  .back-btn:hover { color: #1a1a1a; background: none; }
+  /* Responsive — stack side-by-side rows on mobile */
+  .responsive-row { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 1rem; }
+  .responsive-row > * { min-width: 0; }
+  @media (max-width: 640px) {
+    .responsive-row { flex-direction: column; }
+    .responsive-row > .card { margin-bottom: 0; }
+    .grid3 { grid-template-columns: 1fr 1fr; }
+    .tabs { flex-wrap: wrap; }
+    .tournament-grid { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>
 
-<h2>Swiss Tournament Manager</h2>
+<!-- ═══════════ LANDING SCREEN ═══════════ -->
+<div id="landing">
+  <h1>Tournament Manager</h1>
+  <p class="subtitle">Select a tournament type to begin</p>
+  <div class="tournament-grid">
+
+    <div class="tournament-card" onclick="openTournament('drunken-draft')">
+      <div class="tc-icon">🍺</div>
+      <div class="tc-name">Drunken Draft</div>
+      <div class="tc-desc">Swiss + Round Robin with ELO tracking and prize allocation</div>
+    </div>
+
+    <div class="tournament-card coming-soon">
+      <div class="tc-icon">⚔️</div>
+      <div class="tc-name">Coming soon</div>
+      <div class="tc-desc">More tournament types will appear here</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════ DRUNKEN DRAFT APP ═══════════ -->
+<div id="app-drunken-draft" class="app" style="display:none;">
+
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+  <div style="display:flex;align-items:center;">
+    <button class="back-btn" onclick="goHome()">← Home</button>
+    <h2 style="margin:0;">🍺 Drunken Draft</h2>
+  </div>
+  <div id="elapsed-display" style="font-size:13px;color:#888;font-variant-numeric:tabular-nums;display:none;">⏱ <span id="elapsed-time">0h 0m</span></div>
+</div>
+
+<div id="not-started-banner" style="background:#faeeda;color:#854f0b;border:0.5px solid #f0cfa0;border-radius:8px;padding:8px 14px;margin-bottom:1rem;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;">
+  <span style="font-size:16px;">⚠</span>
+  <span>Tournament not started yet. Add players and press <b>Start tournament</b> to begin.</span>
+</div>
 
 <div class="tabs">
   <button class="tab" onclick="showSection('rules',this)" id="tab-rules">Rules</button>
   <button class="tab active" onclick="showSection('players',this)" id="tab-players">Players</button>
-  <button class="tab" onclick="showSection('groups',this)" id="tab-groups">Draft</button>
   <button class="tab" onclick="showSection('pairings',this)" id="tab-pairings">Matches</button>
   <button class="tab" onclick="showSection('standings',this)" id="tab-standings">Standings</button>
-  <button class="tab" onclick="showSection('matches',this)" id="tab-matches">Match log</button>
   <button class="tab" onclick="showSection('setup',this)" id="tab-setup">Settings</button>
   <button class="tab" onclick="showSection('testing',this)" id="tab-testing" style="display:none;border-color:#E24B4A;color:#E24B4A;">Testing</button>
 </div>
@@ -109,33 +172,57 @@
 
   <div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;">
-      <h3>ELO database</h3>
+      <h3>Database</h3>
       <input type="text" id="elo-table-filter" placeholder="Filter..." oninput="renderEloTable()" style="font-size:12px;padding:4px 8px;width:140px;"/>
     </div>
     <div id="elo-table-body"></div>
   </div>
 </div>
 
-<!-- PAIRINGS -->
+<!-- MATCHES HUB (Pairings + Draft + Log) -->
 <div class="section" id="section-pairings">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
-    <div>
-      <div id="round-label" style="font-size:16px;font-weight:500;color:#1a1a1a;"></div>
-      <div id="phase-label" style="font-size:12px;color:#888;margin-top:2px;"></div>
-    </div>
-    <button onclick="nextRound()">Next round ↗</button>
+
+  <!-- Subtab bar -->
+  <div class="tabs" style="margin-bottom:0.75rem;">
+    <button class="tab active" id="mtab-pairings" onclick="showMatchesSubtab('pairings',this)">Pairings</button>
+    <button class="tab" id="mtab-groups" onclick="showMatchesSubtab('groups',this)">Draft</button>
+    <button class="tab" id="mtab-matches" onclick="showMatchesSubtab('matches',this)">Log</button>
   </div>
 
-  <div class="timer-box">
-    <div id="timer-display" class="timer-display">20:00</div>
-    <div class="timer-bar-wrap"><div id="timer-bar" class="timer-bar" style="width:100%"></div></div>
-    <div class="timer-controls">
-      <button id="timer-start-btn" onclick="toggleTimer()">Start</button>
-      <button onclick="resetTimer()" title="Reset">↺</button>
+  <!-- PAIRINGS content -->
+  <div id="msub-pairings">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+      <div>
+        <div id="round-label" style="font-size:16px;font-weight:500;color:#1a1a1a;"></div>
+        <div id="phase-label" style="font-size:12px;color:#888;margin-top:2px;"></div>
+      </div>
+      <button onclick="nextRound()">Next round ↗</button>
     </div>
+    <div class="timer-box">
+      <div id="timer-display" class="timer-display">20:00</div>
+      <div class="timer-bar-wrap"><div id="timer-bar" class="timer-bar" style="width:100%"></div></div>
+      <div class="timer-controls">
+        <button id="timer-start-btn" onclick="toggleTimer()">Start</button>
+        <button onclick="resetTimer()" title="Reset">↺</button>
+      </div>
+    </div>
+    <div id="pairings-list"></div>
   </div>
 
-  <div id="pairings-list"></div>
+  <!-- DRAFT content -->
+  <div id="msub-groups" style="display:none;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+      <span style="font-size:15px;font-weight:500;color:#1a1a1a;">Draft</span>
+      <button onclick="logDraftEnded()" style="font-size:12px;">Draft ended ↗</button>
+    </div>
+    <div id="groups-content"></div>
+  </div>
+
+  <!-- LOG content -->
+  <div id="msub-matches" style="display:none;">
+    <div id="matches-list"></div>
+  </div>
+
 </div>
 
 <!-- STANDINGS -->
@@ -179,23 +266,9 @@
   </div>
 </div>
 
-<!-- GROUPS -->
-<div class="section" id="section-groups">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
-    <span style="font-size:15px;font-weight:500;color:#1a1a1a;">Draft</span>
-    <button onclick="logDraftEnded()" style="font-size:12px;">Draft ended ↗</button>
-  </div>
-  <div id="groups-content"></div>
-</div>
-
-<!-- MATCHES -->
-<div class="section" id="section-matches">
-  <div id="matches-list"></div>
-</div>
-
 <!-- SETUP (settings + ELO + prizes) -->
 <div class="section" id="section-setup">
-  <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:1rem;">
+  <div class="responsive-row">
     <div class="card" style="flex:1;min-width:0;margin-bottom:0;">
       <h3>Tournament settings</h3>
       <div class="flex" style="gap:12px;margin-bottom:10px;">
@@ -218,14 +291,13 @@
     </div>
 
     <div class="card" style="flex:1;min-width:0;margin-bottom:0;">
-      <h3>ELO database</h3>
+      <h3>Database</h3>
       <label style="font-size:13px;color:#444;font-weight:500;margin-bottom:6px;">Google Sheet URL</label>
       <input type="text" id="sheets-url" placeholder="Apps Script web app URL" oninput="onSheetsUrlChange(this.value)" style="font-size:12px;padding:5px 8px;margin-bottom:6px;"/>
       <div style="display:flex;gap:6px;margin-bottom:4px;">
         <button onclick="syncPull()" style="flex:1;font-size:12px;">⬇ Pull</button>
         <button onclick="syncPush()" style="flex:1;font-size:12px;">⬆ Push</button>
       </div>
-      <button onclick="clearSavedElo()" style="width:100%;font-size:11px;color:#888;margin-top:4px;">Clear saved ELO</button>
       <div id="sheets-status" style="font-size:11px;color:#888;min-height:14px;margin-top:6px;"></div>
       <div id="elo-status" style="font-size:12px;color:#888;min-height:16px;"></div>
       <details style="font-size:10px;color:#aaa;margin-top:6px;">
@@ -238,10 +310,23 @@
           <button onclick="copyAppsScript()" style="font-size:10px;padding:2px 6px;margin-top:4px;">📋 Copy Apps Script</button>
         </div>
       </details>
+
+      <div style="border-top:0.5px solid #eee;margin-top:12px;padding-top:10px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px;flex-wrap:wrap;">
+          <label style="font-size:13px;color:#444;font-weight:500;margin:0;">Tournament seeds</label>
+          <span id="seeds-status" style="font-size:11px;color:#888;"></span>
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
+          <button onclick="saveSeed()" style="font-size:12px;">💾 Save seed</button>
+          <input type="text" id="seed-load-id" placeholder="Paste seed ID…" style="font-size:12px;padding:5px 8px;flex:1;min-width:120px;" onkeydown="if(event.key==='Enter')loadSeedById()"/>
+          <button onclick="loadSeedById()" style="font-size:12px;">📂 Load</button>
+        </div>
+        <div id="seeds-list" style="font-size:12px;"></div>
+      </div>
     </div>
   </div>
 
-  <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:1rem;">
+  <div class="responsive-row">
     <div class="card" style="flex:1;min-width:0;margin-bottom:0;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;">
         <h3>Ranking payouts</h3>
@@ -302,7 +387,7 @@
       <input type="range" id="test-player-count" min="2" max="64" value="8" oninput="document.getElementById('test-count-display').textContent=this.value" style="flex:1;"/>
       <span id="test-count-display" style="font-size:18px;font-weight:500;min-width:28px;text-align:right;">8</span>
     </div>
-    <button onclick="injectTestPlayers()" style="width:100%;border-color:#E24B4A;color:#E24B4A;margin-bottom:8px;">Insert players</button>
+    <button onclick="injectTestPlayers()" style="width:100%;border-color:#E24B4A;color:#E24B4A;margin-bottom:8px;">Insert players + start tournament</button>
     <button onclick="autoSelectWinners()" style="width:100%;border-color:#E24B4A;color:#E24B4A;margin-bottom:8px;">Auto select winners</button>
     <button onclick="nextRound()" style="width:100%;margin-bottom:8px;">Next round ↗</button>
     <button onclick="fullReset()" style="width:100%;border-color:#E24B4A;color:#E24B4A;">Full reset</button>
@@ -396,7 +481,7 @@ function startGlobalTimeout(){
       stopGlobalTimeout();
       playAlarm();
       logEvent('tournament-timeout', `Tournament timeout reached — ${val}`);
-      if(document.getElementById('section-matches').classList.contains('active')) renderMatches();
+      if(document.getElementById('msub-matches').style.display!=='none'&&document.getElementById('section-pairings').classList.contains('active')) renderMatches();
     }
   }, 1000);
 }
@@ -427,22 +512,49 @@ function renderLPHearts(lp, startLP) {
 }
 
 /* Sections */
-function showSection(name,el){
+let _activeMatchesSubtab = 'pairings';
+
+function showMatchesSubtab(name, el){
+  _activeMatchesSubtab = name;
+  ['pairings','groups','matches'].forEach(t=>{
+    document.getElementById('msub-'+t).style.display = t===name ? '' : 'none';
+    const btn = document.getElementById('mtab-'+t);
+    if(btn) btn.classList.toggle('active', t===name);
+  });
+  if(name==='pairings') renderPairings();
+  if(name==='groups') renderGroups();
+  if(name==='matches') renderMatches();
+}
+
+function showSection(name, el){
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  document.getElementById('section-'+name).classList.add('active'); el.classList.add('active');
+  // groups and matches are now subtabs inside pairings hub
+  const sectionName = (name==='groups'||name==='matches') ? 'pairings' : name;
+  document.getElementById('section-'+sectionName).classList.add('active');
+  if(el) el.classList.add('active');
+  // Restore the correct top-level tab active class
+  const topTabId = 'tab-'+(sectionName==='pairings'?'pairings':sectionName);
+  const topTab = document.getElementById(topTabId);
+  if(topTab) topTab.classList.add('active');
   if(name==='standings'){ showStandingsTab(_activeStandingsTab || 'prizes'); renderStandings(); }
-  if(name==='pairings') renderPairings();
-  if(name==='matches') renderMatches();
-  if(name==='groups') renderGroups();
-  if(name==='setup') renderPrizes();
+  if(name==='pairings'){ showMatchesSubtab(_activeMatchesSubtab || 'pairings'); }
+  if(name==='groups')  { showMatchesSubtab('groups'); }
+  if(name==='matches') { showMatchesSubtab('matches'); }
+  if(name==='setup'){ renderPrizes(); refreshSeedList(); }
 }
+
 function switchToTab(name){
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  document.getElementById('section-'+name).classList.add('active');
-  document.getElementById('tab-'+name).classList.add('active');
+  const sectionName = (name==='groups'||name==='matches') ? 'pairings' : name;
+  document.getElementById('section-'+sectionName).classList.add('active');
+  const topTab = document.getElementById('tab-'+(sectionName==='pairings'?'pairings':sectionName));
+  if(topTab) topTab.classList.add('active');
   if(name==='standings') showStandingsTab(_activeStandingsTab || 'prizes');
+  if(name==='pairings') showMatchesSubtab(_activeMatchesSubtab || 'pairings');
+  if(name==='groups')   showMatchesSubtab('groups');
+  if(name==='matches')  showMatchesSubtab('matches');
 }
 
 let _activeStandingsTab = 'prizes';
@@ -545,7 +657,7 @@ function onSheetsUrlChange(url){
   } catch(e){}
 }
 
-const DEFAULT_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzreSUEk5nCA2DWNaf5Sc3xBBqSEGvpBgACKt-H8VCPqYQNqz5kIDZEC-VTBw-plMcFDg/exec';
+const DEFAULT_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbx8sDgX42VqF-SGLtf8xa4PleW6jBAT-BXc-bZd5Xt3U2g3djs0UJR0uuP8UKCwqEG4Pw/exec';
 
 function getSheetsUrl(){
   try { return localStorage.getItem(SHEETS_URL_KEY) || DEFAULT_SHEETS_URL; } catch(e){ return DEFAULT_SHEETS_URL; }
@@ -678,23 +790,237 @@ async function loadRules(force){
   }
 }
 
+/* ─────────── SEEDS (tournament state save/load) ─────────── */
+function seedsStatus(msg, color='#888'){
+  const el = document.getElementById('seeds-status');
+  if(el){ el.textContent = msg; el.style.color = color; }
+}
+
+function makeSeedId(){
+  // Short random ID: 6 chars, URL-safe
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  let id = '';
+  for(let i=0;i<6;i++) id += chars[Math.floor(Math.random()*chars.length)];
+  return id;
+}
+
+function serializeTournament(){
+  // Deep-clone state and strip fields that bloat size unnecessarily
+  const st = JSON.parse(JSON.stringify(state));
+  // Strip per-player eloStart (reconstructable from ELO db)
+  (st.players||[]).forEach(p => { delete p.eloStart; });
+  // Strip eloDelta from history matches (reconstructable, saves ~30% space)
+  (st.history||[]).forEach(round => round.forEach(m => {
+    delete m.eloDelta1; delete m.eloDelta2;
+  }));
+  return {
+    version: 2,
+    savedAt: new Date().toISOString(),
+    state: st,
+    tournamentStarted: !!tournamentStarted,
+    prizesState: prizesState,
+    testingMode: isTestingMode(),
+    settings: {
+      startLP: parseInt((document.getElementById('starting-lp')||{}).value)||4,
+      rrRounds: parseInt((document.getElementById('num-rounds')||{}).value)||2,
+      roundMinutes: parseInt((document.getElementById('round-minutes')||{}).value)||20,
+      timeoutTime: (document.getElementById('tournament-timeout')||{}).value||'00:00',
+      entryCost: parseFloat((document.getElementById('entry-cost')||{}).value)||0,
+      decideFirst: !!(document.getElementById('decide-first')||{}).checked
+    }
+  };
+}
+
+function applyTournamentSnapshot(snap){
+  if(!snap || typeof snap !== 'object') throw new Error('Invalid snapshot');
+  // State
+  if(snap.state){
+    state = snap.state;
+    // Ensure all expected arrays exist
+    state.players = state.players || [];
+    state.pairings = state.pairings || [];
+    state.history = state.history || [];
+    state.matchLog = state.matchLog || [];
+    state.settings = state.settings || { startLP:4, rrRounds:2, roundMinutes:20 };
+  }
+  tournamentStarted = !!snap.tournamentStarted;
+  if(snap.prizesState) prizesState = snap.prizesState;
+  if(tournamentStarted && state.tournamentStartedAt) startElapsedTimer();
+  else stopElapsedTimer();
+  updateNotStartedBanner();
+
+  // Restore form fields
+  if(snap.settings){
+    const s = snap.settings;
+    const set = (id, v) => { const el = document.getElementById(id); if(el && v !== undefined) el.value = v; };
+    set('starting-lp', s.startLP);
+    set('num-rounds', s.rrRounds);
+    set('round-minutes', s.roundMinutes);
+    set('tournament-timeout', s.timeoutTime);
+    set('entry-cost', s.entryCost);
+    const df = document.getElementById('decide-first'); if(df && typeof s.decideFirst === 'boolean') df.checked = s.decideFirst;
+  }
+  // Testing mode — set checkbox to match snapshot (may still be locked if players exist)
+  const tcb = document.getElementById('testing-enable');
+  if(tcb && typeof snap.testingMode === 'boolean'){
+    const wasLocked = tcb.disabled;
+    tcb.disabled = false;
+    tcb.checked = !!snap.testingMode;
+    toggleTestingTab(tcb.checked);
+    tcb.disabled = wasLocked;
+  }
+
+  // Rerender everything
+  renderPlayerList();
+  updateTestingCheckboxState();
+  if(typeof renderPairings === 'function') renderPairings();
+  if(typeof renderGroups === 'function') renderGroups();
+  if(typeof renderMatches === 'function') renderMatches();
+  if(typeof renderStandings === 'function') renderStandings();
+  if(typeof renderPrizes === 'function') renderPrizes();
+}
+
+const SEED_CHUNK_SIZE = 40000; // safe under Google Sheets 50k cell limit
+
+async function saveSeed(){
+  const url = getSheetsUrl();
+  if(!url){ seedsStatus('⚠ No Google Sheet URL configured.', '#a32d2d'); return; }
+  if(!state.players.length){ seedsStatus('⚠ Nothing to save — no players yet.', '#a32d2d'); return; }
+  const label = autoSeedLabel();
+  const id = makeSeedId();
+  const blob = JSON.stringify(serializeTournament());
+
+  // Split into chunks to stay within Google Sheets cell limits
+  const chunks = [];
+  for(let i=0; i<blob.length; i+=SEED_CHUNK_SIZE) chunks.push(blob.slice(i, i+SEED_CHUNK_SIZE));
+
+  seedsStatus('Saving… (' + chunks.length + ' chunk' + (chunks.length>1?'s':'') + ')');
+  try {
+    await fetch(url, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action:'seed_save', id: id, label: label, chunks: chunks })
+    });
+    seedsStatus('✓ Saved · ID: ' + id, '#3b6d11');
+    alert('Seed saved!\n\nYour seed ID is:\n\n    ' + id + '\n\nSave this ID to load the tournament later.' + (label ? '\n\nLabel: ' + label : ''));
+    setTimeout(refreshSeedList, 800);
+  } catch(e){
+    seedsStatus('✗ Save failed: ' + e.message, '#a32d2d');
+  }
+}
+
+async function loadSeedById(idArg){
+  const url = getSheetsUrl();
+  if(!url){ seedsStatus('⚠ No Google Sheet URL configured.', '#a32d2d'); return; }
+  const id = (idArg || (document.getElementById('seed-load-id')||{}).value || '').trim().toUpperCase();
+  if(!id){ seedsStatus('⚠ Enter a seed ID first.', '#a32d2d'); return; }
+  if(!confirm(`Load seed "${id}"?\n\nThis will REPLACE the current tournament state. The ELO database is unaffected.`)) return;
+  seedsStatus('Loading…');
+  try {
+    const res = await fetch(url + '?action=seed_load&id=' + encodeURIComponent(id), { method:'GET' });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if(!data || !data.ok) throw new Error(data && data.error || 'Not found');
+    // Reassemble chunks
+    const blob = (data.chunks || [data.blob || '']).join('');
+    if(!blob) throw new Error('Empty seed blob');
+    let snap;
+    try { snap = JSON.parse(blob); }
+    catch(e){ throw new Error('Seed data is corrupted or was truncated. Try saving again.'); }
+    applyTournamentSnapshot(snap);
+    seedsStatus('✓ Loaded "' + id + '" · ' + (data.label || 'no label'), '#3b6d11');
+    const loadInput = document.getElementById('seed-load-id'); if(loadInput) loadInput.value = '';
+  } catch(e){
+    seedsStatus('✗ Load failed: ' + e.message, '#a32d2d');
+  }
+}
+
+async function refreshSeedList(){
+  const url = getSheetsUrl();
+  const el = document.getElementById('seeds-list');
+  if(!el) return;
+  if(!url){ el.innerHTML = '<div style="color:#aaa;">No Google Sheet URL configured.</div>'; return; }
+  el.innerHTML = '<div style="color:#888;">Loading seed list…</div>';
+  try {
+    const res = await fetch(url + '?action=seed_list', { method:'GET' });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    const seeds = (data && data.seeds) || [];
+    if(!seeds.length){ el.innerHTML = '<div style="color:#aaa;">No seeds saved yet.</div>'; return; }
+    // Sort newest first
+    seeds.sort((a,b) => (b.timestamp||'').localeCompare(a.timestamp||''));
+    el.innerHTML = `
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr>
+            <th style="text-align:left;font-size:11px;color:#888;font-weight:500;padding:4px 6px 4px 0;border-bottom:0.5px solid #e0e0e0;">ID</th>
+            <th style="text-align:left;font-size:11px;color:#888;font-weight:500;padding:4px 6px;border-bottom:0.5px solid #e0e0e0;">Saved</th>
+            <th style="text-align:left;font-size:11px;color:#888;font-weight:500;padding:4px 6px;border-bottom:0.5px solid #e0e0e0;">Label</th>
+            <th style="border-bottom:0.5px solid #e0e0e0;width:110px;"></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${seeds.map((s,i)=>{
+            const ts = s.timestamp ? new Date(s.timestamp).toLocaleString() : '';
+            const idJs = JSON.stringify(s.id).replace(/"/g,'&quot;');
+            return `<tr style="${i%2===1?'background:#fafafa;':''}">
+              <td style="padding:5px 6px 5px 0;font-family:ui-monospace,monospace;font-weight:500;">${escapeHtml(s.id)}</td>
+              <td style="padding:5px 6px;color:#888;font-size:11px;">${escapeHtml(ts)}</td>
+              <td style="padding:5px 6px;">${escapeHtml(s.label||'')}</td>
+              <td style="padding:3px 6px;text-align:right;white-space:nowrap;">
+                <button onclick="loadSeedById(${idJs})" style="font-size:11px;padding:2px 8px;">Load</button>
+                <button onclick="deleteSeedById(${idJs})" style="font-size:11px;padding:2px 6px;color:#a32d2d;">✕</button>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+  } catch(e){
+    el.innerHTML = `<div style="color:#a32d2d;font-size:12px;">Failed to load: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+async function deleteSeedById(id){
+  const url = getSheetsUrl();
+  if(!url) return;
+  if(!confirm(`Delete seed "${id}"? This cannot be undone.`)) return;
+  try {
+    await fetch(url, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action:'seed_delete', id: id })
+    });
+    seedsStatus('✓ Deleted ' + id, '#3b6d11');
+    setTimeout(refreshSeedList, 800);
+  } catch(e){
+    seedsStatus('✗ Delete failed: ' + e.message, '#a32d2d');
+  }
+}
+
 function copyAppsScript(){
-  const script = `// Apps Script for Tournament ELO sync + Rules
+  const script = `// Apps Script for Tournament ELO sync + Rules + Seeds
 // Paste into Extensions → Apps Script, then deploy as web app (Anyone access)
-// Sheet tab "ELO" is used with columns: name, elo, test
-// Sheet tab "Rules" is read as the rules (any shape; rendered as a table)
+// Sheet tab "ELO" — columns: name, elo, test
+// Sheet tab "Rules" — free-form (column B & C are skipped on read; last column formatted as date)
+// Sheet tab "Seeds" — columns: id, timestamp, label, blob (auto-created)
 const SHEET_NAME = 'ELO';
 const RULES_SHEET_NAME = 'Rules';
 function doGet(e) {
   const action = (e && e.parameter && e.parameter.action) || 'load';
   if (action === 'load') return json(loadElo());
   if (action === 'rules') return json(loadRules());
+  if (action === 'seed_list') return json(listSeeds());
+  if (action === 'seed_load') return json(loadSeed(String((e.parameter && e.parameter.id)||'').trim()));
   return json({error:'unknown action'});
 }
 function doPost(e) {
   try {
     const body = JSON.parse(e.postData.contents);
     if (body.action === 'save') { saveElo(body.entries || [], !!body.test); return json({ok:true}); }
+    if (body.action === 'seed_save') { return json(saveSeed(String(body.id||'').trim(), body.label||'', body.chunks||[body.blob||''])); }
+    if (body.action === 'seed_delete') { return json(deleteSeed(String(body.id||'').trim())); }
     return json({error:'unknown action'});
   } catch (err) { return json({error:String(err)}); }
 }
@@ -742,7 +1068,70 @@ function loadRules() {
   }
   return { rows };
 }
-  return { rows };
+// ──────────── SEEDS ──────────────────────────────────────────────
+const SEEDS_SHEET_NAME = 'Seeds';
+function getSeedsSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let s = ss.getSheetByName(SEEDS_SHEET_NAME);
+  if (!s) { s = ss.insertSheet(SEEDS_SHEET_NAME); s.appendRow(['id','timestamp','label','chunk','data']); }
+  // Migrate old 4-col format to 5-col if needed
+  const hdr = s.getRange(1,1,1,5).getValues()[0];
+  if (hdr[3] !== 'chunk') s.getRange(1,1,1,5).setValues([['id','timestamp','label','chunk','data']]);
+  return s;
+}
+// Save seed as multiple chunk rows. Deletes old rows for this id first.
+function saveSeed(id, label, chunks) {
+  const s = getSeedsSheet();
+  const ts = new Date().toISOString();
+  // Delete any existing rows for this id (reverse order to avoid index shift)
+  const data = s.getDataRange().getValues();
+  const toDelete = [];
+  for (let i=1; i<data.length; i++) {
+    if (String(data[i][0]||'').trim() === id) toDelete.push(i+1);
+  }
+  for (let i=toDelete.length-1; i>=0; i--) s.deleteRow(toDelete[i]);
+  // Append one row per chunk
+  const rows = (chunks||['']).map((c, idx) => [id, ts, idx===0 ? (label||'') : '', idx, c]);
+  if (rows.length) s.getRange(s.getLastRow()+1, 1, rows.length, 5).setValues(rows);
+  return { ok: true, id: id };
+}
+function loadSeed(id) {
+  const s = getSeedsSheet();
+  const data = s.getDataRange().getValues();
+  const chunkRows = [];
+  let label = '', timestamp = '';
+  for (let i=1; i<data.length; i++) {
+    if (String(data[i][0]||'').trim() !== id) continue;
+    const chunkIdx = parseInt(data[i][3])||0;
+    chunkRows[chunkIdx] = String(data[i][4]||'');
+    if (chunkIdx === 0) { label = String(data[i][2]||''); timestamp = String(data[i][1]||''); }
+  }
+  if (!chunkRows.length) return { ok: false, error: 'Seed not found' };
+  return { ok: true, id: id, timestamp: timestamp, label: label, chunks: chunkRows };
+}
+function listSeeds() {
+  const s = getSeedsSheet();
+  const data = s.getDataRange().getValues();
+  const seen = {}, seeds = [];
+  for (let i=1; i<data.length; i++) {
+    const id = String(data[i][0]||'').trim();
+    const chunkIdx = parseInt(data[i][3])||0;
+    if (!id || chunkIdx !== 0 || seen[id]) continue;
+    seen[id] = true;
+    seeds.push({ id: id, timestamp: String(data[i][1]||''), label: String(data[i][2]||'') });
+  }
+  return { seeds };
+}
+function deleteSeed(id) {
+  const s = getSeedsSheet();
+  const data = s.getDataRange().getValues();
+  const toDelete = [];
+  for (let i=1; i<data.length; i++) {
+    if (String(data[i][0]||'').trim() === id) toDelete.push(i+1);
+  }
+  if (!toDelete.length) return { ok: false, error: 'Seed not found' };
+  for (let i=toDelete.length-1; i>=0; i--) s.deleteRow(toDelete[i]);
+  return { ok: true };
 }
 // Replace only rows matching the given test flag; keep the other partition intact
 function saveElo(incoming, testFlag) {
@@ -775,7 +1164,7 @@ function saveElo(incoming, testFlag) {
 
 function logDraftEnded(){
   logEvent('draft-end', 'Draft ended');
-  if(document.getElementById('section-matches').classList.contains('active')) renderMatches();
+  if(document.getElementById('msub-matches').style.display!=='none'&&document.getElementById('section-pairings').classList.contains('active')) renderMatches();
 }
 
 function fullReset(){
@@ -783,9 +1172,12 @@ function fullReset(){
   stopGlobalTimeout();
   state.players=[]; state.settings={startLP:4,rrRounds:2,roundMinutes:20}; state.currentRound=0;
   state.phase='roundrobin'; state.pairings=[]; state.history=[]; state.matchLog=[];
+  state.tournamentStartedAt = null;
   eloDb={};
   try { localStorage.removeItem(ELO_STORAGE_KEY); } catch(e){}
   tournamentStarted=false; startConfirmPending=false;
+  stopElapsedTimer();
+  updateNotStartedBanner();
   roundSeconds=20*60; timerSecondsLeft=roundSeconds;
   pauseTimer();
   updateTimerUI();
@@ -881,7 +1273,7 @@ function abandonPlayer(i){
   renderPlayerList();
   if(document.getElementById('section-pairings').classList.contains('active')) renderPairings();
   if(document.getElementById('section-standings').classList.contains('active')) renderStandings();
-  if(document.getElementById('section-matches').classList.contains('active')) renderMatches();
+  if(document.getElementById('msub-matches').style.display!=='none'&&document.getElementById('section-pairings').classList.contains('active')) renderMatches();
 }
 
 // Cross-platform double-tap + long-press for paid toggle
@@ -997,6 +1389,56 @@ function renderEloTable(){
 let tournamentStarted = false;
 let startConfirmPending = false;
 
+/* Elapsed tournament time */
+let _elapsedInterval = null;
+
+function updateNotStartedBanner(){
+  const el = document.getElementById('not-started-banner');
+  if(!el) return;
+  el.style.display = tournamentStarted ? 'none' : 'flex';
+}
+
+function startElapsedTimer(){
+  if(!state.tournamentStartedAt) state.tournamentStartedAt = Date.now();
+  const display = document.getElementById('elapsed-display');
+  if(display) display.style.display = '';
+  if(_elapsedInterval) clearInterval(_elapsedInterval);
+  _elapsedInterval = setInterval(updateElapsedDisplay, 10000);
+  updateElapsedDisplay();
+}
+
+function stopElapsedTimer(){
+  if(_elapsedInterval){ clearInterval(_elapsedInterval); _elapsedInterval = null; }
+  const display = document.getElementById('elapsed-display');
+  if(display) display.style.display = 'none';
+}
+
+function updateElapsedDisplay(){
+  if(!state.tournamentStartedAt) return;
+  const ms = Date.now() - state.tournamentStartedAt;
+  const totalMin = Math.floor(ms / 60000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  const el = document.getElementById('elapsed-time');
+  if(el) el.textContent = h + 'h ' + m + 'm';
+}
+
+function getElapsedLabel(){
+  if(!state.tournamentStartedAt) return '';
+  const ms = Date.now() - state.tournamentStartedAt;
+  const totalMin = Math.floor(ms / 60000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return h + 'h ' + m + 'm played';
+}
+
+function autoSeedLabel(){
+  const d = state.tournamentStartedAt ? new Date(state.tournamentStartedAt) : new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const date = pad(d.getDate()) + '/' + pad(d.getMonth()+1) + '/' + d.getFullYear();
+  return 'Drunken Draft · Round ' + (state.currentRound||1) + ' · ' + date + ' · ' + getElapsedLabel();
+}
+
 function rankLabel(i){
   if(i===0) return 'Winner';
   const n=i+1;
@@ -1021,12 +1463,10 @@ function defaultRankPcts(numRanks){
 }
 
 function rebuildDefaultRanks(){
-  const n=state.players.length;
-  const numRanks=Math.min(8, Math.floor(n/2));
-  if(numRanks<1){ prizesState.ranks=[]; return; }
-  const pcts=defaultRankPcts(numRanks);
-  const lowerHalfStart = Math.ceil(numRanks/2); // e.g. 8 ranks → start at index 4 (5th place)
-  prizesState.ranks=pcts.map((pct,i)=>({label:rankLabel(i),pct,roundDown:i>=lowerHalfStart}));
+  const NUM_RANKS = 8;
+  const pcts = defaultRankPcts(NUM_RANKS);
+  const lowerHalfStart = Math.ceil(NUM_RANKS/2);
+  prizesState.ranks = pcts.map((pct,i)=>({label:rankLabel(i), pct, roundDown:i>=lowerHalfStart}));
 }
 
 function handleStartTournament(){
@@ -1054,10 +1494,12 @@ function startTournament(){
   state.settings={startLP,rrRounds,roundMinutes};
   state.players.forEach(p=>{p.lp=startLP;p.w=0;p.d=0;p.l=0;p.eliminated=false;p.eloStart=getElo(p.name);p.firstCount=0;});
   state.currentRound=1; state.phase='roundrobin'; state.history=[]; state.matchLog=[];
+  state.tournamentStartedAt = Date.now();
   tournamentStarted=true;
   logEvent('tournament-start', `Tournament started — ${state.players.length} players`);
-  // Now that auto-sync is active, push any pending ELO state
   schedulePush();
+  startElapsedTimer();
+  updateNotStartedBanner();
   rebuildDefaultRanks();
   startGlobalTimeout();
   generatePairings(); resetTimer(); switchToTab('groups'); renderGroups();
@@ -1336,6 +1778,11 @@ function calcPrizeAllocations(){
   const totalPool = entryCost * state.players.length;
   if(!totalPool || !prizesState.ranks.length || !prizesState.prizes.length) return null;
 
+  // Only the top half (rounded down) of ranks actually receive prizes
+  const activeRankCount = Math.floor(state.players.length / 2);
+  if(activeRankCount < 1) return null;
+  const activeRanks = prizesState.ranks.slice(0, activeRankCount);
+
   // Shared inventory (mutable copies, list order preserved)
   const inv = prizesState.prizes.map(p=>({...p}));
 
@@ -1343,7 +1790,7 @@ function calcPrizeAllocations(){
   const guaranteedByRank = {}; // rankIdx → [{name, value, qty:1, total:value}, ...]
   inv.forEach(p => {
     const g = p.guaranteed || 0;
-    if(g > 0 && g <= prizesState.ranks.length && p.maxQty > 0){
+    if(g > 0 && g <= activeRanks.length && p.maxQty > 0){
       if(!guaranteedByRank[g-1]) guaranteedByRank[g-1] = [];
       guaranteedByRank[g-1].push({name:p.name, value:p.value, qty:1, total:p.value, _src:p});
       p.maxQty--;
@@ -1399,8 +1846,8 @@ function calcPrizeAllocations(){
 
   let grandTotal = 0;
 
-  const allocs = prizesState.ranks.map((rank, rankIdx) => {
-    const n = prizesState.ranks.length;
+  const allocs = activeRanks.map((rank, rankIdx) => {
+    const n = activeRanks.length;
     const lowerHalfStart = Math.ceil(n/2);
     const roundDown = rank.roundDown !== undefined ? !!rank.roundDown : rankIdx >= lowerHalfStart;
     const target    = totalPool * rank.pct / 100;
@@ -1509,9 +1956,8 @@ function renderStandings(){
   if(allocResult && allocResult.allocs.length && sorted.length){
     allocCard.style.display='';
     if(allocEmpty) allocEmpty.style.display='none';
-    const sorted2=[...state.players].sort((a,b)=>b.lp-a.lp||b.w-a.w);
     allocBody.innerHTML = allocResult.allocs.map((alloc,i)=>{
-      const player = sorted2[i];
+      const player = sorted[i];
       const prizeList = alloc.chosen.length
         ? alloc.chosen.map(c=>`<span style="display:inline-block;margin-right:6px;margin-bottom:3px;background:#eaf3de;color:#3b6d11;font-size:12px;border-radius:4px;padding:2px 7px;">${c.qty > 1 ? c.qty+'× ' : ''}${c.name} <span style="opacity:0.7;">€${c.total.toFixed(2)}</span></span>`).join('')
         : '<span style="font-size:12px;color:#aaa;">No prizes</span>';
@@ -1693,6 +2139,7 @@ function renderGroups(){
 let prizesState = {
   prizes: [
     {name:'Pauper',  value:7, maxQty:1,  maxQtyPerPlayer:1,  guaranteed:1},
+    {name:'Drunken', value:5, maxQty:1,  maxQtyPerPlayer:1,  guaranteed:2},
     {name:'Booster', value:6, maxQty:99, maxQtyPerPlayer:99, guaranteed:0},
     {name:'Token',   value:3, maxQty:99, maxQtyPerPlayer:1,  guaranteed:0},
   ],
@@ -1932,10 +2379,8 @@ function renderPrizes(){
   if(rl){
     const totalPool=(parseFloat(document.getElementById('entry-cost').value)||0)*state.players.length;
     const pctSum=prizesState.ranks.reduce((s,r)=>s+r.pct,0);
-    if(!prizesState.ranks.length){
-      rl.innerHTML=`<div style="font-size:13px;color:#aaa;padding:4px 0;">Start the tournament first to auto-generate rank rows.</div>`;
-    } else {
-      rl.innerHTML=`
+    const activePlayers = state.players.length;
+    rl.innerHTML=`
         <table style="width:100%;border-collapse:collapse;font-size:13px;">
           <thead>
             <tr>
@@ -1945,28 +2390,32 @@ function renderPrizes(){
               <th style="font-size:11px;color:#888;font-weight:500;text-align:center;padding:4px 6px;border-bottom:0.5px solid #e0e0e0;width:80px;">Round down</th>
             </tr>
           </thead>
-          <tbody>`+prizesState.ranks.map((r,i)=>`
-            <tr style="${i%2===1?'background:#fafafa;':''}">
+          <tbody>`+prizesState.ranks.map((r,i)=>{
+            const inactive = activePlayers > 0 && i >= Math.floor(activePlayers / 2);
+            const rowStyle = (i%2===1?'background:#fafafa;':'') + (inactive?'opacity:0.35;':'');
+            return `<tr style="${rowStyle}">
               <td style="font-weight:500;padding:5px 8px 5px 0;border-bottom:0.5px solid #f0f0f0;">${r.label}</td>
               <td style="padding:4px 6px;border-bottom:0.5px solid #f0f0f0;text-align:center;">
                 <input type="text" value="${r.pct}" oninput="updateRank(${i},'pct',this.value)" style="font-size:13px;padding:4px 6px;width:70px;text-align:center;"/>
               </td>
-              <td style="padding:4px 6px;border-bottom:0.5px solid #f0f0f0;text-align:center;font-weight:500;" id="rank-payout-${i}">€${(totalPool*r.pct/100).toFixed(2)}</td>
+              <td style="padding:4px 6px;border-bottom:0.5px solid #f0f0f0;text-align:center;font-weight:500;" id="rank-payout-${i}">${inactive?'—':'€'+(totalPool*r.pct/100).toFixed(2)}</td>
               <td style="padding:4px 6px;border-bottom:0.5px solid #f0f0f0;text-align:center;">
                 <input type="checkbox" ${r.roundDown?'checked':''} onchange="toggleRankRoundDown(${i})" style="width:14px;height:14px;accent-color:#1D9E75;cursor:pointer;vertical-align:middle;"/>
               </td>
-            </tr>`).join('')+`
+            </tr>`;
+          }).join('')+`
           </tbody>
         </table>
-        <div id="pct-warning" style="font-size:12px;color:#a32d2d;margin-top:6px;display:${Math.abs(pctSum-100)>0.01&&prizesState.ranks.length>0?'block':'none'};">
+        ${activePlayers===0?'<div style="font-size:11px;color:#aaa;margin-top:6px;">Add players to see active payouts.</div>':''}
+        <div id="pct-warning" style="font-size:12px;color:#a32d2d;margin-top:6px;display:${Math.abs(pctSum-100)>0.01?'block':'none'};">
           ⚠ Percentages sum to ${pctSum.toFixed(1)}% (should be 100%)</div>`;
-    }
   }
 
   recalcPrizes();
 }
 
 loadEloDb();
+if(!prizesState.ranks.length) rebuildDefaultRanks();
 // Populate Sheets URL field (default or saved) and auto-pull; render after pull completes
 (async function initSheetsSync(){
   const url = getSheetsUrl();
@@ -1977,9 +2426,58 @@ loadEloDb();
   }
   renderPlayerList();
   updateTestingCheckboxState();
+  updateNotStartedBanner();
   // Load rules (uses cached copy immediately if available, then fetches fresh)
   loadRules(false);
 })();
+
+/* ─── Auto-save on tab close ─── */
+// navigator.sendBeacon is the only reliable way to send data during unload —
+// regular fetch() is often cancelled by the browser. It posts a small blob to
+// the Apps Script synchronously from the browser's perspective, without blocking.
+function autoSaveOnClose(){
+  if(!tournamentStarted) return;
+  const url = getSheetsUrl();
+  if(!url || !navigator.sendBeacon) return;
+  try {
+    const blob = JSON.stringify(serializeTournament());
+    const chunks = [];
+    for(let i=0; i<blob.length; i+=SEED_CHUNK_SIZE) chunks.push(blob.slice(i, i+SEED_CHUNK_SIZE));
+    const body = JSON.stringify({
+      action: 'seed_save',
+      id: makeSeedId(),
+      label: 'AUTO · ' + autoSeedLabel(),
+      chunks: chunks
+    });
+    // Apps Script requires text/plain (no preflight) — pass a Blob with that type
+    navigator.sendBeacon(url, new Blob([body], { type: 'text/plain;charset=utf-8' }));
+  } catch(e){ /* best-effort; ignore */ }
+}
+
+window.addEventListener('beforeunload', function(e){
+  if(!tournamentStarted) return;
+  autoSaveOnClose();
+  // Show native "are you sure" dialog — modern browsers ignore custom text
+  e.preventDefault();
+  e.returnValue = '';
+  return '';
+});
+
+/* ─── Landing / navigation ─── */
+function openTournament(id){
+  document.getElementById('landing').style.display = 'none';
+  document.querySelectorAll('.app').forEach(a => a.style.display = 'none');
+  const app = document.getElementById('app-' + id);
+  if(app) app.style.display = 'block';
+}
+
+function goHome(){
+  document.querySelectorAll('.app').forEach(a => a.style.display = 'none');
+  document.getElementById('landing').style.display = 'flex';
+}
 </script>
+
+</div><!-- /app-drunken-draft -->
+
 </body>
 </html>
