@@ -96,8 +96,8 @@
   .responsive-row { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 1rem; }
   .responsive-row > * { min-width: 0; }
   @media (max-width: 640px) {
-    .responsive-row { flex-direction: column; }
-    .responsive-row > .card { margin-bottom: 0; }
+    .responsive-row { flex-direction: column; gap: 0.75rem; }
+    .responsive-row > * { width: 100%; }
     .grid3 { grid-template-columns: 1fr 1fr; }
     .tournament-grid { grid-template-columns: 1fr; }
   }
