@@ -33,6 +33,12 @@
   .tabs { display: flex; gap: 4px; margin-bottom: 1rem; flex-wrap: wrap; }
   .tab { font-size: 13px; padding: 6px 14px; border-radius: 8px; cursor: pointer; border: 0.5px solid #bbb; background: transparent; color: #888; }
   .tab.active { background: #f1f1ee; color: #1a1a1a; font-weight: 500; }
+  @media (max-width: 640px) {
+    .tabs { gap: 0; border-radius: 8px; overflow: hidden; border: 0.5px solid #ddd; margin-bottom: 1rem; }
+    .tab { flex: 1; border-radius: 0; border: none; border-right: 0.5px solid #ddd; text-align: center; padding: 8px 4px; font-size: 12px; }
+    .tab:last-child { border-right: none; }
+    .tab.active { background: #f1f1ee; }
+  }
   .section { display: none; }
   .section.active { display: block; }
   .pairing-card { background: #fff; border: 0.5px solid #ddd; border-radius: 8px; padding: 6px 10px; margin-bottom: 6px; }
@@ -93,7 +99,6 @@
     .responsive-row { flex-direction: column; }
     .responsive-row > .card { margin-bottom: 0; }
     .grid3 { grid-template-columns: 1fr 1fr; }
-    .tabs { flex-wrap: wrap; }
     .tournament-grid { grid-template-columns: 1fr; }
   }
   /* Tournament banner states */
