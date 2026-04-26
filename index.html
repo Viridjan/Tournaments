@@ -358,7 +358,7 @@
         <input type="text" id="tournament-timeout" value="00:00" placeholder="HH:MM" maxlength="5" style="font-size:13px;padding:5px 8px;border:0.5px solid #ccc;border-radius:8px;outline:none;width:72px;"/>
       </label>
 
-      <div style="font-size:12px;color:#888;line-height:1.6;"><span style="font-weight:500;color:#444;">Phase 1 — Round Robin:</span> paired by ELO.<br><span style="font-weight:500;color:#444;">Phase 2 — Swiss:</span> paired by win rate until one remains.</div>
+      <div style="font-size:12px;color:#888;line-height:1.6;"><span style="font-weight:500;color:#444;">Phase 1 — Round Robin:</span> paired by ELO.<br><span style="font-weight:500;color:#444;">Phase 2 — Swiss:</span> paired by win rate.</div>
     </div>
 
     <div class="card" style="flex:1;min-width:0;margin-bottom:0;">
@@ -800,7 +800,7 @@ function onSheetsUrlChange(url){
   } catch(e){}
 }
 
-const DEFAULT_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbweRNuBXIBWFJ8ZsUqn5MAU8W6XzoIIpsqRsaiCu6oe5ufu8oIdYELxRaknyMeVVNvW6A/exec';
+const DEFAULT_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbwin5UafitOMiNahorK6aIFZKBclkxP-l7jXV4HpUg9Ya8ozKz7oBhWo6A-xDKu3VIr5Q/exec';
 
 function getSheetsUrl(){
   try { return localStorage.getItem(SHEETS_URL_KEY) || DEFAULT_SHEETS_URL; } catch(e){ return DEFAULT_SHEETS_URL; }
@@ -929,7 +929,7 @@ async function loadRules(force){
     if(data && Array.isArray(data.rows)){
       renderRulesFromRows(data.rows, tName);
       try { localStorage.setItem(cacheKey, JSON.stringify(data.rows)); } catch(e){}
-      if(statusEl) statusEl.textContent = '✓ Updated · ' + new Date().toLocaleTimeString();
+      if(statusEl) statusEl.textContent = '✓ Updated · ' + new Date().toLocaleTimeString() + ' · showing: ' + (tName || 'all');
     } else if(data && data.error){
       if(statusEl) statusEl.textContent = '✗ ' + data.error;
     } else {
@@ -1127,7 +1127,7 @@ async function refreshSeedList(){
               <td style="padding:5px 6px;">${escapeHtml(s.label||'')}</td>
               <td style="padding:3px 6px;text-align:right;white-space:nowrap;">
                 <button onclick="loadSeedById(${idJs})" style="font-size:11px;padding:2px 8px;">Load</button>
-                <button onclick="deleteSeedById(${idJs})" style="font-size:11px;padding:2px 6px;color:#a32d2d;">✕</button>
+                
               </td>
             </tr>`;
           }).join('')}
@@ -1135,24 +1135,6 @@ async function refreshSeedList(){
       </table>`;
   } catch(e){
     el.innerHTML = `<div style="color:#a32d2d;font-size:12px;">Failed to load: ${escapeHtml(e.message)}</div>`;
-  }
-}
-
-async function deleteSeedById(id){
-  const url = getSheetsUrl();
-  if(!url) return;
-  if(!confirm(`Delete seed "${id}"? This cannot be undone.`)) return;
-  try {
-    await fetch(url, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action:'seed_delete', id: id })
-    });
-    seedsStatus('✓ Deleted ' + id, '#3b6d11');
-    setTimeout(refreshSeedList, 800);
-  } catch(e){
-    seedsStatus('✗ Delete failed: ' + e.message, '#a32d2d');
   }
 }
 
@@ -1182,7 +1164,6 @@ function doPost(e) {
     const body = JSON.parse(e.postData.contents);
     if (body.action === 'save') { saveElo(body.entries || [], !!body.test); return json({ok:true}); }
     if (body.action === 'seed_save') { return json(saveSeed(String(body.id||'').trim(), body.label||'', body.chunks||[body.blob||''])); }
-    if (body.action === 'seed_delete') { return json(deleteSeed(String(body.id||'').trim())); }
     return json({error:'unknown action'});
   } catch (err) { return json({error:String(err)}); }
 }
@@ -1288,17 +1269,6 @@ function listSeeds() {
   }
   return { seeds };
 }
-function deleteSeed(id) {
-  const s = getSeedsSheet();
-  const data = s.getDataRange().getValues();
-  const toDelete = [];
-  for (let i=1; i<data.length; i++) {
-    if (String(data[i][0]||'').trim() === id) toDelete.push(i+1);
-  }
-  if (!toDelete.length) return { ok: false, error: 'Seed not found' };
-  for (let i=toDelete.length-1; i>=0; i--) s.deleteRow(toDelete[i]);
-  return { ok: true };
-}
 // Replace only rows matching the given test flag; keep the other partition intact
 function saveElo(incoming, testFlag) {
   const s = getSheet();
@@ -1402,7 +1372,7 @@ async function showSeedsHistory(){
           <span style="font-size:11px;color:#888;flex:1;">${s.label||''}</span>
           <span style="font-size:10px;color:#aaa;">${ts}</span>
           <button onclick="loadSeedById(${idJs})" style="font-size:11px;padding:2px 8px;">Load</button>
-          <button onclick="deleteSeedById(${idJs})" style="font-size:11px;padding:2px 6px;color:#a32d2d;">✕</button>
+          
         </div>`;
       }).join('') + `<div style="font-size:10px;color:#aaa;margin-top:4px;">${seeds.length} seed${seeds.length!==1?'s':''} saved</div>`;
     }
