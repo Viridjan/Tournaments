@@ -763,7 +763,18 @@ function autoSelectWinners(){
     return;
   }
   state.pairings.forEach(m=>{
-    if(m.p2==='BYE' || m.result) return;
+    if(m.result) return; // already resolved
+
+    if(m.type === 'multi'){
+      // Assign a random integer score (0–20) to each player
+      m.players.forEach(name => {
+        m.scores[name] = String(Math.floor(Math.random() * 21));
+      });
+      m.result = 'submitted';
+      return;
+    }
+
+    if(m.p2 === 'BYE') return;
     m.result = Math.random() < 0.5 ? 'p1win' : 'p2win';
   });
   document.getElementById('test-status').textContent = '✓ Winners auto-selected.';
@@ -783,7 +794,7 @@ function onSheetsUrlChange(url){
   } catch(e){}
 }
 
-const DEFAULT_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzfTKMtcfLLug5LZkMyNFt1uTX_dFv8FcgZjVDmbZ6cYOsypAFs06RVF-EGOpJNrXIuhA/exec';
+const DEFAULT_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzZ1VfnofPCE3catvQJabT4G5L8aVs-oGzyK0a5CbD7suF6UzfSEVjx3CgjeXla2lE57w/exec';
 
 function getSheetsUrl(){
   try { return localStorage.getItem(SHEETS_URL_KEY) || DEFAULT_SHEETS_URL; } catch(e){ return DEFAULT_SHEETS_URL; }
@@ -1198,7 +1209,8 @@ function loadRules() {
     const lastIdx = filtered.length - 1;
     const last = filtered[lastIdx];
     if (last instanceof Date && !isNaN(last.getTime())) {
-      filtered[lastIdx] = last.toDateString();
+      const pad = n => String(n).padStart(2,'0');
+      filtered[lastIdx] = pad(last.getDate()) + '/' + pad(last.getMonth()+1) + '/' + last.getFullYear();
     }
     rows.push(filtered.map(c => String(c == null ? '' : c)));
   }
