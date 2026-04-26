@@ -629,9 +629,14 @@ function updateTimerUI() {
 // SCORE DISPLAY — ♥ hearts for lifepoints mode, "Xpt" badge otherwise
 // ─────────────────────────────────────────────────────────────
 function renderScore(score, startScore) {
-  if((state.settings.scoringMode || 'lifepoints') !== 'lifepoints'){
+  const scoring = state.settings.scoringMode || 'lifepoints';
+  if(scoring === 'points'){
     return `<span style="font-size:12px;font-weight:600;color:#8b5cf6;">${score}pt</span>`;
   }
+  if(scoring === 'swiss'){
+    return ''; // no display in pairing cards for swiss — score shown in standings
+  }
+  // lifepoints — hearts
   let h='';
   for(let i=0;i<startScore;i++){const v=score-i; h+=v>=1?'<span class="hp-full">♥</span>':v>=0.5?'<span class="hp-half">♥</span>':'<span class="hp-empty">♡</span>';}
   return h;
@@ -669,6 +674,7 @@ function showSection(name, el){
   if(name==='pairings'){ showMatchesSubtab(_activeMatchesSubtab || 'pairings'); }
   if(name==='groups')  { showMatchesSubtab('groups'); }
   if(name==='matches') { showMatchesSubtab('matches'); }
+  if(name==='rules'){ loadRules(false); }
   if(name==='setup'){ renderPrizes(); refreshSeedList(); }
   if(name==='spinner'){ renderSpinnerOptions(); drawSpinnerWheel(); }
 }
@@ -794,7 +800,7 @@ function onSheetsUrlChange(url){
   } catch(e){}
 }
 
-const DEFAULT_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzZ1VfnofPCE3catvQJabT4G5L8aVs-oGzyK0a5CbD7suF6UzfSEVjx3CgjeXla2lE57w/exec';
+const DEFAULT_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbweRNuBXIBWFJ8ZsUqn5MAU8W6XzoIIpsqRsaiCu6oe5ufu8oIdYELxRaknyMeVVNvW6A/exec';
 
 function getSheetsUrl(){
   try { return localStorage.getItem(SHEETS_URL_KEY) || DEFAULT_SHEETS_URL; } catch(e){ return DEFAULT_SHEETS_URL; }
@@ -867,14 +873,19 @@ function schedulePush(){
 // ─────────────────────────────────────────────────────────────
 // RULES TAB — fetches from Google Sheet "Rules" tab, caches locally
 // ─────────────────────────────────────────────────────────────
-const RULES_CACHE_KEY = 'tournament_rules_cache_v1';
+const RULES_CACHE_KEY = 'tournament_rules_cache_v2_'; // suffix with tournament name
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
-function renderRulesFromRows(rows){
+function currentTournamentName(){
+  const meta = Object.values(TOURNAMENT_META).find(m => m.mode === tournamentMode);
+  return meta ? meta.name : '';
+}
+
+function renderRulesFromRows(rows, tName){
   const el = document.getElementById('rules-content');
   if(!el) return;
   if(!rows || !rows.length){
-    el.innerHTML = '<div style="padding:16px;background:#fafaf7;border-radius:8px;color:#888;font-style:italic;">No rules loaded. Make sure the Google Sheet has a tab named <b>Rules</b>.</div>';
+    el.innerHTML = `<div style="padding:16px;background:#fafaf7;border-radius:8px;color:#888;font-style:italic;">No rules found for <b>${escapeHtml(tName||'this tournament')}</b>. Add rows with that name in column A of the Rules sheet.</div>`;
     return;
   }
   const maxCols = Math.max(...rows.map(r => r.length));
@@ -891,13 +902,15 @@ async function loadRules(force){
   const statusEl = document.getElementById('rules-status');
   if(statusEl) statusEl.textContent = 'Loading rules…';
 
+  const tName = currentTournamentName();
+  const cacheKey = RULES_CACHE_KEY + tName;
+
   // Try cache first for instant render (unless force-refresh)
   if(!force){
     try {
-      const cached = localStorage.getItem(RULES_CACHE_KEY);
+      const cached = localStorage.getItem(cacheKey);
       if(cached){
-        const rows = JSON.parse(cached);
-        renderRulesFromRows(rows);
+        renderRulesFromRows(JSON.parse(cached), tName);
         if(statusEl) statusEl.textContent = 'Loaded from cache · fetching latest…';
       }
     } catch(e){}
@@ -910,12 +923,12 @@ async function loadRules(force){
   }
 
   try {
-    const res = await fetch(url + '?action=rules', { method:'GET' });
+    const res = await fetch(url + '?action=rules&tournament=' + encodeURIComponent(tName), { method:'GET' });
     if(!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
     if(data && Array.isArray(data.rows)){
-      renderRulesFromRows(data.rows);
-      try { localStorage.setItem(RULES_CACHE_KEY, JSON.stringify(data.rows)); } catch(e){}
+      renderRulesFromRows(data.rows, tName);
+      try { localStorage.setItem(cacheKey, JSON.stringify(data.rows)); } catch(e){}
       if(statusEl) statusEl.textContent = '✓ Updated · ' + new Date().toLocaleTimeString();
     } else if(data && data.error){
       if(statusEl) statusEl.textContent = '✗ ' + data.error;
@@ -1159,7 +1172,7 @@ const RULES_SHEET_NAME = 'Rules';
 function doGet(e) {
   const action = (e && e.parameter && e.parameter.action) || 'load';
   if (action === 'load') return json(loadElo());
-  if (action === 'rules') return json(loadRules());
+  if (action === 'rules') return json(loadRules(e.parameter.tournament || ''));
   if (action === 'seed_list') return json(listSeeds());
   if (action === 'seed_load') return json(loadSeed(String((e.parameter && e.parameter.id)||'').trim()));
   return json({error:'unknown action'});
@@ -1195,17 +1208,22 @@ function loadElo() {
   }
   return { entries };
 }
-function loadRules() {
+function loadRules(tournament) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const s = ss.getSheetByName(RULES_SHEET_NAME);
   if (!s) return { rows: [], error: 'Sheet "' + RULES_SHEET_NAME + '" not found' };
   const data = s.getDataRange().getValues();
   const rows = [];
   for (const r of data) {
-    const filtered = r.slice(); // include all columns
+    // Column A = tournament filter. Keep row if it matches current tournament or is 'All' or blank.
+    const filter = String(r[0] || '').trim();
+    const t = String(tournament || '').trim();
+    if (filter && filter.toLowerCase() !== 'all' && filter !== t) continue;
+    // Strip column A (the filter column) — show cols B onwards
+    const filtered = r.slice(1);
     const hasAny = filtered.some(c => String(c).trim() !== '');
     if (!hasAny) continue;
-    // Format the last column as a date only — no time, no timezone
+    // Format last column as dd/mm/yyyy if it's a Date
     const lastIdx = filtered.length - 1;
     const last = filtered[lastIdx];
     if (last instanceof Date && !isNaN(last.getTime())) {
