@@ -248,7 +248,7 @@
   <div id="msub-groups" style="display:none;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
       <span style="font-size:15px;font-weight:500;color:#1a1a1a;">Draft</span>
-      <button onclick="logDraftEnded()" style="font-size:12px;">Draft ended ↗</button>
+      <button onclick="logDraftEnded()" style="font-size:12px;">End draft ↗</button>
     </div>
     <div id="groups-content"></div>
   </div>
@@ -1461,7 +1461,9 @@ function computeGPScore(playerName){
 
 function logDraftEnded(){
   logEvent('draft-end', 'Draft ended');
-  if(document.getElementById('msub-matches').style.display!=='none'&&document.getElementById('section-pairings').classList.contains('active')) renderMatches();
+  // Jump to Pairings subtab so the user can immediately start entering results
+  showMatchesSubtab('pairings', document.getElementById('mtab-pairings'));
+  renderPairings();
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -2089,7 +2091,7 @@ function renderPairings(){
 
     const p2=getPlayer(m.p2), r=m.result;
     const e1=getElo(m.p1), e2=getElo(m.p2);
-    const rematch = m.rematch ? '<span class="tag tag-amber" style="margin-left:3px;">re</span>' : '';
+    const rematch = m.rematch ? '<span class="tag tag-amber" style="margin-left:3px;">rematch</span>' : '';
     const d1=showDrawTag&&p1&&p1.d>0?`<span class="tag tag-grey" style="margin-left:3px;">${p1.d}d</span>`:'';
     const d2=showDrawTag&&p2&&p2.d>0?`<span class="tag tag-grey" style="margin-right:3px;">${p2.d}d</span>`:'';
     const s1 = p1 ? renderScore(p1.score, state.settings.startScore) : '';
