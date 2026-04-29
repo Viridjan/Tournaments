@@ -1460,9 +1460,18 @@ function computeGPScore(playerName){
 }
 
 function logDraftEnded(){
+  if(state.draftEnded) return; // already pressed once this round
+  if(!confirm('End the draft?\n\nPlayers will move to entering match results. The Draft tab stays viewable but this action only fires once per round.')) return;
+  state.draftEnded = true;
   logEvent('draft-end', 'Draft ended');
-  // Jump to Pairings subtab so the user can immediately start entering results
-  showMatchesSubtab('pairings', document.getElementById('mtab-pairings'));
+  // Disable the button visually so user sees it's done
+  document.querySelectorAll('button[onclick="logDraftEnded()"]').forEach(b => {
+    b.disabled = true;
+    b.style.opacity = '0.4';
+    b.textContent = '✓ Draft ended';
+  });
+  // Jump to Pairings so user can start entering results
+  switchToTab('pairings');
   renderPairings();
 }
 
@@ -1475,6 +1484,7 @@ function fullReset(){
   state.players=[]; state.settings={startScore:4,rrRounds:2,roundMinutes:20}; state.currentRound=0;
   state.phase='roundrobin'; state.pairings=[]; state.history=[]; state.matchLog=[];
   state.tournamentStartedAt = null;
+  state.draftEnded = false;
   eloDb={};
   try { localStorage.removeItem(ELO_STORAGE_KEY); } catch(e){}
   tournamentStarted=false; 
@@ -1836,6 +1846,7 @@ function startTournament(){
   state.players.forEach(p=>{p.score=startScore;p.w=0;p.d=0;p.l=0;p.eliminated=false;p.eloStart=getElo(p.name);p.firstCount=0;});
   state.currentRound=1; state.phase = rrRounds > 0 ? 'roundrobin' : 'swiss'; state.history=[]; state.matchLog=[];
   state.tournamentStartedAt = Date.now();
+  state.draftEnded = false;
   tournamentStarted=true;
   logEvent('tournament-start', `Tournament started — ${state.players.length} players`);
   schedulePush();
@@ -2272,6 +2283,13 @@ function nextRound(){
     state.phase='swiss';
   }
 
+  // Reset the End-draft button state for the new round
+  state.draftEnded = false;
+  document.querySelectorAll('button[onclick="logDraftEnded()"]').forEach(b => {
+    b.disabled = false;
+    b.style.opacity = '';
+    b.textContent = 'End draft ↗';
+  });
   generatePairings(); resetTimer(); renderPairings();
   updateBanner();
   localBackup();
