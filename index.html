@@ -2200,6 +2200,10 @@ function nextRound(){
   });
   if(unfinished.length&&!confirm(`${unfinished.length} match${unfinished.length>1?'es':''} still unresolved. Advance to the next round anyway?`)) return;
 
+  // Mode flags must live at function scope so the winner-check below can see them
+  const scoring = state.settings.scoringMode || 'lifepoints';
+  const lpMode = scoring === 'lifepoints';
+
   // Apply score changes — mode-sensitive
   state.pairings.forEach(m=>{
     if(m.type === 'multi'){
@@ -2207,6 +2211,7 @@ function nextRound(){
       const sorted = [...m.players]
         .filter(name => String(m.scores[name]).trim() !== '')
         .sort((a,b)=>parseFloat(m.scores[b]||0)-parseFloat(m.scores[a]||0));
+      if(!sorted.length) return;
       const topScore = parseFloat(m.scores[sorted[0]]||0);
       sorted.forEach(name=>{
         const p = getPlayer(name); if(!p) return;
@@ -2220,9 +2225,7 @@ function nextRound(){
 
     if(m.p2==='BYE') return;
     const p1=getPlayer(m.p1),p2=getPlayer(m.p2); if(!p1||!p2||!m.result) return;
-    const scoring = state.settings.scoringMode || 'lifepoints';
-    const lpMode = scoring === 'lifepoints';
-    if(scoring === 'lifepoints'){
+    if(lpMode){
       // LP: loser loses 1 LP; draws cost 0.5 × cumulative draws; eliminated at 0
       if(m.result==='p1win'){p1.w++;p2.score=Math.max(0,p2.score-1);p2.l++;if(p2.score<=0)p2.eliminated=true;}
       else if(m.result==='p2win'){p2.w++;p1.score=Math.max(0,p1.score-1);p1.l++;if(p1.score<=0)p1.eliminated=true;}
@@ -3322,7 +3325,7 @@ let tournamentMode = 'drunken'; // 'drunken' | 'vintage' — used for defaults o
 
 const TOURNAMENT_META = {
   'drunken-draft':   { mode:'drunken', icon:'🍺', name:'Drunken Draft',   rrDefault:2, timerDefault:20,  scoringMode:'lifepoints', riskMode:false, draftEnabled:true,  timeoutEnabled:true,  matchMin:2, matchMax:2, decideFirst:true  },
-  'vintage-draft':   { mode:'vintage', icon:'🪷', name:'Vintage Draft',   rrDefault:0, timerDefault:50,  scoringMode:'swiss',      riskMode:false, draftEnabled:true,  timeoutEnabled:true,  matchMin:2, matchMax:2, decideFirst:true  },
+  'vintage-draft':   { mode:'vintage', icon:'🪷', name:'Vintage Draft',   rrDefault:0, timerDefault:50,  scoringMode:'swiss',      riskMode:false, draftEnabled:true,  timeoutEnabled:true,  matchMin:2, matchMax:2, decideFirst:false },
   'risk-grand-prix': { mode:'risk',    icon:'🪖', name:'Risk Grand Prix', rrDefault:0, timerDefault:120, scoringMode:'points',     riskMode:true,  draftEnabled:false, timeoutEnabled:false, matchMin:3, matchMax:4, decideFirst:false },
 };
 
