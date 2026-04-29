@@ -229,6 +229,8 @@
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         <button onclick="nextRound()">Next round ↗</button>
+        <button id="new-session-btn" onclick="startNewGPSession()" style="display:none;border-color:#e63946;color:#e63946;" title="Start a new day — keeps player history and GP scores">New session ＋</button>
+        <button id="end-tournament-btn" onclick="endTournamentManually()" style="display:none;border-color:#a32d2d;color:#a32d2d;" title="Officially end the tournament and show final standings">End tournament</button>
       </div>
     </div>
     <div class="timer-box">
@@ -271,22 +273,6 @@
     <button class="tab active" id="stab-prizes" onclick="showStandingsTab('prizes',this)">Prizes</button>
     <button class="tab" id="stab-rankings" onclick="showStandingsTab('rankings',this)">Rankings</button>
     <button class="tab" id="stab-elo" onclick="showStandingsTab('elo',this)">ELO</button>
-    <button class="tab" id="stab-end" onclick="showStandingsTab('end',this)">End tournament</button>
-  </div>
-
-  <div id="stab-end-content" style="display:none;">
-    <div class="card" style="display:flex;flex-direction:column;gap:12px;">
-      <div>
-        <div style="font-size:14px;font-weight:500;margin-bottom:4px;">End tournament</div>
-        <div style="font-size:12px;color:#888;margin-bottom:10px;">Closes the tournament, locks the final standings, and shows the winner in the banner.</div>
-        <button id="end-tournament-btn" onclick="endTournamentManually()" style="border-color:#a32d2d;color:#a32d2d;">🏁 End tournament</button>
-      </div>
-      <div id="new-session-wrap" style="display:none;border-top:0.5px solid #eee;padding-top:12px;">
-        <div style="font-size:14px;font-weight:500;margin-bottom:4px;">New session</div>
-        <div style="font-size:12px;color:#888;margin-bottom:10px;">Start a new day — keeps all match history and GP scores, resets only the round counter and pairings.</div>
-        <button id="new-session-btn" onclick="startNewGPSession()" style="border-color:#e63946;color:#e63946;">New session ＋</button>
-      </div>
-    </div>
   </div>
 
   <div id="stab-prizes-content">
@@ -299,7 +285,7 @@
   <div id="stab-rankings-content" style="display:none;">
     <div class="card">
       <table>
-        <thead><tr><th>#</th><th>Player</th><th>ELO</th><th>${state.settings.scoringMode!=='lifepoints'?'Pts':'LP'}</th><th>W/D/L</th><th>Status</th></tr></thead>
+        <thead><tr><th>#</th><th>Player</th><th>ELO</th><th id="standings-score-th">Score</th><th>W/D/L</th><th>Status</th></tr></thead>
         <tbody id="standings-body"></tbody>
       </table>
     </div>
@@ -487,7 +473,6 @@
       </div>
       <button onclick="spinWheel()" id="spin-btn" style="font-size:15px;padding:10px 32px;border-color:#8b5cf6;color:#8b5cf6;font-weight:500;">Spin!</button>
       <div id="spin-result" style="font-size:18px;font-weight:600;color:#8b5cf6;min-height:28px;text-align:center;"></div>
-      <div id="spin-history" style="font-size:11px;color:#aaa;text-align:center;min-height:14px;"></div>
     </div>
   </div>
 
@@ -554,7 +539,6 @@ function isTestingMode(){
 // ─────────────────────────────────────────────────────────────
 const LOCAL_BACKUP_KEY = 'tournament_local_backup';
 
-// Snapshots state to localStorage; tryRestoreLocalBackup() is called on app load
 function localBackup(){
   if(!tournamentStarted || !state.players.length) return;
   try { localStorage.setItem(LOCAL_BACKUP_KEY, JSON.stringify({state, tournamentMode, savedAt:Date.now()})); }
@@ -690,7 +674,6 @@ function renderScore(score, startScore) {
 // ─────────────────────────────────────────────────────────────
 let _activeMatchesSubtab = 'pairings';
 
-// Switches between Draft / Pairings / Log subtabs in the Matches section
 function showMatchesSubtab(name, el){
   _activeMatchesSubtab = name;
   ['pairings','groups','matches'].forEach(t=>{
@@ -737,10 +720,9 @@ function switchToTab(name){
 }
 
 let _activeStandingsTab = 'prizes';
-// Switches between Prizes / Rankings / ELO / End subtabs in the Standings section
 function showStandingsTab(name, el){
   _activeStandingsTab = name;
-  ['prizes','rankings','elo','end'].forEach(t=>{
+  ['prizes','rankings','elo'].forEach(t=>{
     document.getElementById('stab-'+t+'-content').style.display = t===name ? '' : 'none';
     document.getElementById('stab-'+t).classList.toggle('active', t===name);
   });
@@ -781,7 +763,6 @@ const TEST_NAMES = [
   'Elsa','Finn','Greta','Hugo','Ingrid','Jonas','Katia','Luca'
 ];
 
-// Adds 6 dummy test players with predictable names to speed up testing
 function injectTestPlayers(){
   // Force testing mode ON before adding (test players need test:true)
   const cb = document.getElementById('testing-enable');
@@ -828,7 +809,7 @@ function autoSelectWinners(){
     m.result = Math.random() < 0.5 ? 'p1win' : 'p2win';
   });
   document.getElementById('test-status').textContent = '✓ Winners auto-selected.';
-  renderPairings(); // always re-render so user can see results from any tab
+  if(document.getElementById('section-pairings').classList.contains('active')) renderPairings();
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -837,7 +818,6 @@ function autoSelectWinners(){
 const SHEETS_URL_KEY = 'tournament_sheets_url_v1';
 let sheetsPushTimer = null;
 
-// Persists the user's chosen Sheets URL to localStorage as they type
 function onSheetsUrlChange(url){
   try {
     if(url && url.trim()) localStorage.setItem(SHEETS_URL_KEY, url.trim());
@@ -847,7 +827,6 @@ function onSheetsUrlChange(url){
 
 const DEFAULT_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbwin5UafitOMiNahorK6aIFZKBclkxP-l7jXV4HpUg9Ya8ozKz7oBhWo6A-xDKu3VIr5Q/exec';
 
-// Returns saved URL if present, otherwise the default deployed Apps Script URL
 function getSheetsUrl(){
   try { return localStorage.getItem(SHEETS_URL_KEY) || DEFAULT_SHEETS_URL; } catch(e){ return DEFAULT_SHEETS_URL; }
 }
@@ -920,7 +899,6 @@ function schedulePush(){
 // RULES TAB — fetches from Google Sheet "Rules" tab, caches locally
 // ─────────────────────────────────────────────────────────────
 const RULES_CACHE_KEY = 'tournament_rules_cache_v2_'; // suffix with tournament name
-// HTML escape for safe insertion of arbitrary text into innerHTML
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 function currentTournamentName(){
@@ -1023,6 +1001,7 @@ function serializeTournament(){
       timeoutTime: (document.getElementById('tournament-timeout')||{}).value||'00:00',
       entryCost: parseFloat((document.getElementById('entry-cost')||{}).value)||0,
       decideFirst: !!(document.getElementById('decide-first')||{}).checked,
+      lpMode: (document.getElementById('scoring-mode')?.value||'lifepoints')==='lifepoints',
       scoringMode: document.getElementById('scoring-mode')?.value||'lifepoints'
     }
   };
@@ -1085,7 +1064,6 @@ function applyTournamentSnapshot(snap){
 
 const SEED_CHUNK_SIZE = 40000; // safe under Google Sheets 50k cell limit
 
-// Serializes current state and pushes a new seed entry to the Sheet
 async function saveSeed(){
   const url = getSheetsUrl();
   if(!url){ seedsStatus('⚠ No Google Sheet URL configured.', '#a32d2d'); return; }
@@ -1443,12 +1421,9 @@ function isGrandPrix(){
 function startNewGPSession(){
   if(!isGrandPrix()) return;
   if(!confirm('Start a new session?\n\nPlayer history and GP scores are kept — only the round counter and current pairings reset.')) return;
-  const label = prompt('Session name (optional, e.g. "Day 2", "Saturday"):', '');
   state.pairings = [];
   state.currentRound = 1;
   state.phase = state.settings.rrRounds > 0 ? 'roundrobin' : 'swiss';
-  if(label && label.trim()) logEvent('gp-session', `New session: ${label.trim()}`);
-  else logEvent('gp-session', 'New session');
   generatePairings();
   resetTimer();
   renderPairings();
@@ -1458,17 +1433,10 @@ function startNewGPSession(){
 // Collect scores in chronological order (state.history preserves round order).
 // Take the LAST 3 matches the player participated in.
 // Drop the single worst score among them, sum the remaining ones.
-// Per-render cache; cleared when state.history changes
-let _gpScoreCache = null;
-let _gpScoreCacheRoundCount = -1;
 function computeGPScore(playerName){
+  // Only apply GP logic when the Grand Prix checkbox is checked;
+  // otherwise just return the player's raw accumulated score.
   if(!isGrandPrix()) return getPlayer(playerName)?.score ?? 0;
-  // Invalidate cache if history grew
-  if(_gpScoreCacheRoundCount !== state.history.length){
-    _gpScoreCache = {};
-    _gpScoreCacheRoundCount = state.history.length;
-  }
-  if(_gpScoreCache[playerName] !== undefined) return _gpScoreCache[playerName];
 
   const scores = []; // chronological
   state.history.forEach(round => round.forEach(m => {
@@ -1476,38 +1444,13 @@ function computeGPScore(playerName){
     const s = parseFloat(m.scores?.[playerName]);
     if(!isNaN(s)) scores.push(s);
   }));
-  let total;
-  if(!scores.length) total = 0;
-  else {
-    const last3 = scores.slice(-3);
-    if(last3.length < 2) total = last3.reduce((s,v)=>s+v, 0);
-    else {
-      const worst = Math.min(...last3);
-      const worstIdx = last3.lastIndexOf(worst);
-      last3.splice(worstIdx, 1);
-      total = last3.reduce((s,v)=>s+v, 0);
-    }
-  }
-  _gpScoreCache[playerName] = total;
-  return total;
-}
-
-// Returns the breakdown: { all: [...], used: [...], dropped: number|null }
-function computeGPBreakdown(playerName){
-  const scores = [];
-  state.history.forEach(round => round.forEach(m => {
-    if(m.type !== 'multi' || !m.players.includes(playerName)) return;
-    const s = parseFloat(m.scores?.[playerName]);
-    if(!isNaN(s)) scores.push(s);
-  }));
-  if(!scores.length) return { all:[], used:[], dropped:null };
+  if(!scores.length) return 0;
   const last3 = scores.slice(-3);
-  if(last3.length < 2) return { all:scores, used:[...last3], dropped:null };
+  if(last3.length < 2) return last3.reduce((s,v)=>s+v, 0);
   const worst = Math.min(...last3);
   const worstIdx = last3.lastIndexOf(worst);
-  const used = [...last3];
-  used.splice(worstIdx, 1);
-  return { all:scores, used, dropped:worst };
+  last3.splice(worstIdx, 1);
+  return last3.reduce((s,v)=>s+v, 0);
 }
 
 function logDraftEnded(){
@@ -1524,7 +1467,6 @@ function fullReset(){
   state.players=[]; state.settings={startScore:4,rrRounds:2,roundMinutes:20}; state.currentRound=0;
   state.phase='roundrobin'; state.pairings=[]; state.history=[]; state.matchLog=[];
   state.tournamentStartedAt = null;
-  state.endedAt = null;
   eloDb={};
   try { localStorage.removeItem(ELO_STORAGE_KEY); } catch(e){}
   tournamentStarted=false; 
@@ -1602,8 +1544,6 @@ function closePlayerSearch(){
 
 /* Players */
 const _delPending = {};
-// Two-click confirmation for destructive actions.
-// First call arms a 600ms timer; second call within that window executes the action.
 function confirmDelete(key, fn){
   if(_delPending[key]){ clearTimeout(_delPending[key]); delete _delPending[key]; fn(); return; }
   _delPending[key]=setTimeout(()=>{ delete _delPending[key]; },600);
@@ -1639,7 +1579,6 @@ const _paidPress = {};        // long-press timers per index
 const DOUBLE_TAP_MS = 400;
 const LONG_PRESS_MS = 450;
 
-// Click handler for the green "Paid" badge — toggles paid state with confirm-delete
 function paidTap(i){
   // Desktop/mouse double-click path via two single clicks within window
   const now = Date.now();
@@ -1761,26 +1700,14 @@ function updateBanner(){
   if(!el) return;
   const active = state.players.filter(p=>!p.eliminated);
   const scoring = state.settings.scoringMode||'lifepoints'; const isVintage = scoring !== 'lifepoints';
-  // Tournament is ended either by manual flag (state.endedAt) or LP-mode elimination to 1 player
-  const ended = tournamentStarted && (!!state.endedAt || (!isVintage && active.length <= 1));
-  // Winner: explicit endedAt → highest by current sort; LP-mode → last active player
-  let winner = null;
-  if(ended){
-    if(state.endedAt){
-      const gp = isGrandPrix();
-      const getScore = p => gp ? computeGPScore(p.name) : p.score;
-      const sorted = [...state.players].sort((a,b)=> getScore(b)-getScore(a) || b.w-a.w || getElo(a.name)-getElo(b.name));
-      winner = sorted[0]?.name || null;
-    } else if(active.length === 1){
-      winner = active[0].name;
-    }
-  }
+  const ended = tournamentStarted && !isVintage && active.length <= 1;
+  const winner = ended && active.length === 1 ? active[0].name : null;
 
-  // Show "New session" wrap only in Grand Prix mode; End tournament button always in non-lp modes
-  const nsWrap = document.getElementById('new-session-wrap');
-  if(nsWrap) nsWrap.style.display = (tournamentStarted && isGrandPrix()) ? '' : 'none';
+  // Show "New session" button only in Grand Prix mode
+  const nsBtn = document.getElementById('new-session-btn');
+  if(nsBtn) nsBtn.style.display = (tournamentStarted && isGrandPrix()) ? '' : 'none';
   const etBtn = document.getElementById('end-tournament-btn');
-  if(etBtn) etBtn.style.display = (tournamentStarted && !ended) ? '' : 'none';
+  if(etBtn) etBtn.style.display = (tournamentStarted && (state.settings.scoringMode||'lifepoints') !== 'lifepoints' && !ended) ? '' : 'none';
 
   ['tab-pairings','tab-standings'].forEach(id=>{
     const t = document.getElementById(id);
@@ -1894,28 +1821,13 @@ function startTournament(){
   const startScore = lpMode ? (parseInt(document.getElementById('starting-lp').value)||4) : 0;
   const rrRounds = parseInt(document.getElementById('num-rounds').value)||0;
   const roundMinutes=parseInt(document.getElementById('round-minutes').value)||20;
-  const draftOn = !!(document.getElementById('draft-enabled')?.checked);
+  roundSeconds = roundMinutes * 60;
   const matchMin = parseInt(document.getElementById('match-min-players')?.value)||2;
   const matchMax = parseInt(document.getElementById('match-max-players')?.value)||2;
-
-  // Confirm with summary so accidental starts are recoverable
-  const scoringLabel = scoringMode==='lifepoints'?`Lifepoints (start ${startScore})`:scoringMode==='swiss'?'Swiss score (3/1/0)':'Points';
-  const playerLine = scoringMode==='points'?` · ${matchMin}–${matchMax} per match`:'';
-  const summary = `Start tournament with these settings?\n\n` +
-    `• ${state.players.length} players\n` +
-    `• Scoring: ${scoringLabel}${playerLine}\n` +
-    `• Rounds: ${rrRounds} RR + Swiss\n` +
-    `• Round timer: ${roundMinutes} min\n` +
-    `• Draft: ${draftOn?'on':'off'}\n\n` +
-    `You can save the state at any time via Settings → Database → Save seed.`;
-  if(!confirm(summary)) return;
-
-  roundSeconds = roundMinutes * 60;
   state.settings={startScore, rrRounds, roundMinutes, scoringMode, matchMin, matchMax};
   state.players.forEach(p=>{p.score=startScore;p.w=0;p.d=0;p.l=0;p.eliminated=false;p.eloStart=getElo(p.name);p.firstCount=0;});
   state.currentRound=1; state.phase = rrRounds > 0 ? 'roundrobin' : 'swiss'; state.history=[]; state.matchLog=[];
   state.tournamentStartedAt = Date.now();
-  state.endedAt = null;
   tournamentStarted=true;
   logEvent('tournament-start', `Tournament started — ${state.players.length} players`);
   schedulePush();
@@ -1923,6 +1835,7 @@ function startTournament(){
   updateBanner();
   rebuildDefaultRanks();
   startGlobalTimeout();
+  const draftOn = !!(document.getElementById('draft-enabled')?.checked);
   if(draftOn){
     generatePairings(); resetTimer(); switchToTab('groups'); renderGroups();
   } else {
@@ -2001,12 +1914,6 @@ function findMatching(names, prevOpp, allowRematches){
   return backtrack() ? pairs : null;
 }
 
-// ─────────────────────────────────────────────────────────────
-// PAIRING GENERATION
-// Points mode → multi-player groups (generateMultiPairings)
-// Swiss/LP mode → backtracking 1v1 matcher (generateSwissPairings)
-// Rematches only allowed when no fresh pairing exists for all players.
-// ─────────────────────────────────────────────────────────────
 function generatePairings(){
   if(state.settings.scoringMode === 'points'){
     generateMultiPairings();
@@ -2157,14 +2064,16 @@ function renderPairings(){
 
     const p1=getPlayer(m.p1);
 
+    const showDrawTag = (state.settings.scoringMode||'lifepoints') === 'lifepoints';
     if(m.p2==='BYE'){
       const e1=getElo(m.p1);
-      const drawTag=p1&&p1.d>0?` <span class="tag tag-grey">${p1.d}d</span>`:'';
+      const drawTag=showDrawTag&&p1&&p1.d>0?` <span class="tag tag-grey">${p1.d}d</span>`:'';
+      const s = p1 ? renderScore(p1.score, state.settings.startScore) : '';
       return `<div class="pairing-card bye-card">
         <div class="match-players">
           <div>
             <div class="player-name">${m.p1}</div>
-            <div class="player-elo">${e1} ELO${drawTag} &nbsp; ${p1?renderScore(p1.score,state.settings.startScore):''}</div>
+            <div class="player-elo">${e1} ELO${drawTag}${s?' &nbsp; '+s:''}</div>
           </div>
           <div class="vs"></div>
           <div class="player-col-right"><span class="bye-label">BYE</span></div>
@@ -2174,14 +2083,16 @@ function renderPairings(){
 
     const p2=getPlayer(m.p2), r=m.result;
     const e1=getElo(m.p1), e2=getElo(m.p2);
-    const rematch=m.rematch?'<span class="tag tag-amber" style="margin-left:3px;">re</span>':'';
-    const d1=p1&&p1.d>0?`<span class="tag tag-grey" style="margin-left:3px;">${p1.d}d</span>`:'';
-    const d2=p2&&p2.d>0?`<span class="tag tag-grey" style="margin-right:3px;">${p2.d}d</span>`:'';
+    const rematch = m.rematch ? '<span class="tag tag-amber" style="margin-left:3px;">re</span>' : '';
+    const d1=showDrawTag&&p1&&p1.d>0?`<span class="tag tag-grey" style="margin-left:3px;">${p1.d}d</span>`:'';
+    const d2=showDrawTag&&p2&&p2.d>0?`<span class="tag tag-grey" style="margin-right:3px;">${p2.d}d</span>`:'';
+    const s1 = p1 ? renderScore(p1.score, state.settings.startScore) : '';
+    const s2 = p2 ? renderScore(p2.score, state.settings.startScore) : '';
     return `<div class="pairing-card">
       <div style="display:grid;grid-template-columns:2fr 1fr 2fr;gap:4px;align-items:stretch;">
         <button class="result-btn ${r==='p1win'?'selected-win':''}" onclick="setResult(${i},'p1win')" style="display:flex;flex-direction:column;align-items:flex-start;padding:6px 8px;height:auto;text-align:left;">
           <span style="font-size:12px;font-weight:500;line-height:1.3;">${m.p1}${rematch}</span>
-          <span style="font-size:11px;opacity:0.75;margin-top:1px;">${p1?renderScore(p1.score,state.settings.startScore):''}</span>
+          ${s1?`<span style="font-size:11px;opacity:0.75;margin-top:1px;">${s1}</span>`:''}
           <span style="font-size:10px;opacity:0.6;">${e1} ELO${d1}</span>
         </button>
         <button class="result-btn ${r==='draw'?'selected-timeout':''}" onclick="setResult(${i},'draw')" style="display:flex;align-items:center;justify-content:center;padding:6px 4px;align-self:stretch;">
@@ -2189,7 +2100,7 @@ function renderPairings(){
         </button>
         <button class="result-btn ${r==='p2win'?'selected-win':''}" onclick="setResult(${i},'p2win')" style="display:flex;flex-direction:column;align-items:flex-end;padding:6px 8px;height:auto;text-align:right;">
           <span style="font-size:12px;font-weight:500;line-height:1.3;">${d2}${m.p2}</span>
-          <span style="font-size:11px;opacity:0.75;margin-top:1px;">${p2?renderScore(p2.score,state.settings.startScore):''}</span>
+          ${s2?`<span style="font-size:11px;opacity:0.75;margin-top:1px;">${s2}</span>`:''}
           <span style="font-size:10px;opacity:0.6;">${e2} ELO</span>
         </button>
       </div>
@@ -2210,7 +2121,7 @@ function renderMultiPairingCard(m, i){
       : `${elo} ELO · ${p?p.score:0}pt`;
     return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:0.5px solid #f0f0f0;">
       <span style="flex:1;font-size:13px;font-weight:500;">${name}</span>
-      <span style="font-size:11px;color:#aaa;min-width:80px;text-align:right;">${scoreInfo}</span>
+      <span style="font-size:11px;color:#aaa;">${scoreInfo}</span>
       <input type="text" inputmode="numeric" placeholder="—"
         value="${scoreVal}"
         oninput="setMultiScore(${i},'${name.replace(/'/g,"\\'")}',this.value)"
@@ -2226,19 +2137,15 @@ function renderMultiPairingCard(m, i){
 function setMultiScore(matchIdx, playerName, val){
   if(!state.pairings[matchIdx]) return;
   state.pairings[matchIdx].scores[playerName] = val.replace(/[^0-9\-]/g,'');
-  // No re-render — would steal focus from the input on every keystroke
 }
 
-// Pool-split ELO for N players (Option 4 — pairwise decomposition).
+// Pool-split ELO for N players (Option 4).
 // For every pair (i,j): higher scorer "beats" lower scorer (tie = draw).
-// K = ELO_MAX_DELTA / (N-1) — scales by number of opponents, not total players.
-// Each player's total Δ = sum of pairwise deltas vs all N-1 opponents.
+// K = 50 / N per pair. Each player's total delta = sum over all opponents.
 function applyMultiElo(m){
   const n = m.players.length;
   if(n < 2) return;
-  // Guard: skip if any score is missing/NaN
-  if(m.players.some(p => isNaN(parseFloat(m.scores[p])))) return;
-  const K = ELO_MAX_DELTA / (n - 1); // K scales by number of opponents, not total players
+  const K = 50 / n;
   const deltas = Object.fromEntries(m.players.map(p=>[p,0]));
 
   for(let i=0;i<n;i++){
@@ -2288,20 +2195,18 @@ function applyEloForRound(round){
 /* Next round */
 function nextRound(){
   const unfinished = state.pairings.filter(m=>{
-    if(m.type === 'multi') return false; // scores captured at next round press
+    if(m.type === 'multi') return false; // always proceed, empty scores = player absent
     return m.p2 !== 'BYE' && !m.result;
   });
   if(unfinished.length&&!confirm(`${unfinished.length} match${unfinished.length>1?'es':''} still unresolved. Advance to the next round anyway?`)) return;
 
   // Apply score changes — mode-sensitive
-  const scoring = state.settings.scoringMode || 'lifepoints';
-  const lpMode = scoring === 'lifepoints';
   state.pairings.forEach(m=>{
     if(m.type === 'multi'){
+      // Use whatever scores are entered; skip players with no score
       const sorted = [...m.players]
         .filter(name => String(m.scores[name]).trim() !== '')
         .sort((a,b)=>parseFloat(m.scores[b]||0)-parseFloat(m.scores[a]||0));
-      if(!sorted.length) return; // no scores — skip entirely
       const topScore = parseFloat(m.scores[sorted[0]]||0);
       sorted.forEach(name=>{
         const p = getPlayer(name); if(!p) return;
@@ -2315,6 +2220,8 @@ function nextRound(){
 
     if(m.p2==='BYE') return;
     const p1=getPlayer(m.p1),p2=getPlayer(m.p2); if(!p1||!p2||!m.result) return;
+    const scoring = state.settings.scoringMode || 'lifepoints';
+    const lpMode = scoring === 'lifepoints';
     if(scoring === 'lifepoints'){
       // LP: loser loses 1 LP; draws cost 0.5 × cumulative draws; eliminated at 0
       if(m.result==='p1win'){p1.w++;p2.score=Math.max(0,p2.score-1);p2.l++;if(p2.score<=0)p2.eliminated=true;}
@@ -2361,9 +2268,13 @@ function nextRound(){
 
 // Manual end for points/swiss tournaments (no auto-elimination)
 function endTournamentManually(){
-  if(!confirm('End the tournament?\n\nFinal standings will be shown. You can still view history and ELO changes.')) return;
   if(!tournamentStarted) return;
-  state.endedAt = Date.now(); // marker for updateBanner / standings rendering
+  if(!confirm('End the tournament?\n\nFinal standings will be shown. You can still view history and ELO changes.')) return;
+  // Determine leader by current sort and eliminate everyone else so the winner banner shows
+  const gp = isGrandPrix();
+  const getScore = p => gp ? computeGPScore(p.name) : p.score;
+  const sorted = [...state.players].sort((a,b)=> getScore(b)-getScore(a) || b.w-a.w || getElo(a.name)-getElo(b.name));
+  sorted.slice(1).forEach(p=>{ p.eliminated = true; });
   stopElapsedTimer();
   localStorage.removeItem(LOCAL_BACKUP_KEY);
   updateBanner();
@@ -2593,21 +2504,22 @@ function renderStandings(){
     const status=p.eliminated?'<span class="tag tag-amber">Out</span>':i===0?'<span class="tag tag-green">Leader</span>':'';
     const rank=prizesState.ranks[i];
     const rankBadge=rank?`<br><span style="font-size:11px;color:#3b6d11;font-weight:500;">${rank.label}</span>`:'';
-    const displayScore = getDisplayScore(p);
     let scoreCell;
     if(scoringMode === 'lifepoints'){
       scoreCell = `${renderScore(p.score, state.settings.startScore)} <span style="font-size:11px;color:#aaa;">(${p.score})</span>`;
-    } else if(gp){
-      const bd = computeGPBreakdown(p.name);
-      const usedStr = bd.used.length ? bd.used.join('+') : '0';
-      const droppedStr = bd.dropped !== null ? ` <span style="text-decoration:line-through;opacity:0.5;">−${bd.dropped}</span>` : '';
-      scoreCell = `<span style="font-weight:600;">${displayScore}pt</span> <span style="font-size:11px;color:#aaa;">(${usedStr}${droppedStr})</span>`;
+    } else if(scoringMode === 'points'){
+      const total = gp ? computeGPScore(p.name) : p.score;
+      scoreCell = `<span style="font-weight:600;">${total}pt</span>`;
     } else {
-      scoreCell = `<span style="font-weight:600;">${displayScore}pt</span>`;
+      // swiss — show just the raw score number, no "pt" suffix
+      scoreCell = `<span style="font-weight:600;">${p.score}</span>`;
     }
-    const editBtn = `<button onclick="adjustScore(${state.players.indexOf(p)})" title="Adjust score" style="font-size:10px;padding:1px 5px;color:#888;">✎</button>`;
-    return `<tr><td style="font-weight:500;">${i+1}</td><td>${p.name}${rankBadge}</td><td style="font-weight:500;">${currentElo}</td><td>${scoreCell} ${editBtn}</td><td style="color:#888;">${p.w}/${p.d}/${p.l}</td><td>${status}</td></tr>`;
+    return `<tr><td style="font-weight:500;">${i+1}</td><td>${p.name}${rankBadge}</td><td style="font-weight:500;">${currentElo}</td><td>${scoreCell}</td><td style="color:#888;">${p.w}/${p.d}/${p.l}</td><td>${status}</td></tr>`;
   }).join('');
+
+  // Update score column header to match the active scoring mode
+  const scoreTh = document.getElementById('standings-score-th');
+  if(scoreTh) scoreTh.textContent = scoringMode === 'lifepoints' ? 'LP' : scoringMode === 'points' ? 'Pts' : 'Score';
 
   if(state.history.length>0){
     document.getElementById('elo-changes-body').innerHTML=state.players.map(p=>{
@@ -2876,7 +2788,6 @@ const BRACKETS = [
   {key:'16+',   min:16, max:999,places:8},
 ];
 
-// Returns the prize bracket matching current player count
 function getActiveBracket(){
   const n = state.players.length;
   return BRACKETS.find(b=>n>=b.min&&n<=b.max) || BRACKETS[BRACKETS.length-1];
@@ -3193,7 +3104,6 @@ function autoSaveOnClose(){
   } catch(e){ /* best-effort; ignore */ }
 }
 
-// Show "⟳ Last auto-saved at HH:MM" if a recent localBackup snapshot exists
 function showLastAutosave(){
   try {
     const ts = localStorage.getItem('last_autosave_ts');
@@ -3228,7 +3138,6 @@ let spinnerOptions = [
 ];
 let _spinnerAngle = 0;
 let _spinning = false;
-let _spinHistory = []; // last 5 results, most recent first
 
 function spinnerTotalWeight(){ return spinnerOptions.reduce((s,o)=>s+(o.weight||0),0); }
 
@@ -3351,11 +3260,6 @@ function spinWheel(){
       requestAnimationFrame(frame);
     } else {
       if(result) result.textContent = '🎲 ' + spinnerOptions[winnerIdx].name;
-      // Track last 5 results
-      _spinHistory.unshift(spinnerOptions[winnerIdx].name);
-      if(_spinHistory.length > 5) _spinHistory.length = 5;
-      const histEl = document.getElementById('spin-history');
-      if(histEl && _spinHistory.length > 1) histEl.textContent = 'Recent: ' + _spinHistory.slice(1).join(' · ');
       if(btn) btn.disabled = false;
       _spinning = false;
     }
@@ -3422,7 +3326,6 @@ const TOURNAMENT_META = {
   'risk-grand-prix': { mode:'risk',    icon:'🪖', name:'Risk Grand Prix', rrDefault:0, timerDefault:120, scoringMode:'points',     riskMode:true,  draftEnabled:false, timeoutEnabled:false, matchMin:3, matchMax:4, decideFirst:false },
 };
 
-// Opens a tournament from the landing page: sets mode, defaults, and shows the app
 function openTournament(id){
   const meta = TOURNAMENT_META[id] || TOURNAMENT_META['drunken-draft'];
   tournamentMode = meta.mode;
