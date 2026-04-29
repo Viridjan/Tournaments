@@ -1411,7 +1411,13 @@ async function showSeedsHistory(){
 // GRAND PRIX — sum of best 3 match scores (worst dropped)
 // ─────────────────────────────────────────────────────────────
 function isGrandPrix(){
-  return !!(document.getElementById('grand-prix-mode')?.checked);
+  // Only true when both: the GP checkbox exists & is checked, AND the row is actually visible
+  // (the row only displays for Risk Grand Prix). This prevents leakage into Drunken/Vintage.
+  const cb = document.getElementById('grand-prix-mode');
+  const row = document.getElementById('grand-prix-row');
+  if(!cb || !cb.checked) return false;
+  if(row && row.style.display === 'none') return false;
+  return true;
 }
 
 // Starts a new GP session (new day): resets round counter and pairings
