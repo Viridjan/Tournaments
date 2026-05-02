@@ -248,7 +248,7 @@
   <div id="msub-groups" style="display:none;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
       <span style="font-size:15px;font-weight:500;color:#1a1a1a;">Draft</span>
-      <button onclick="logDraftEnded()" style="font-size:12px;">End draft ↗</button>
+      <button onclick="logDraftEnded()" style="font-size:12px;">Draft ended ↗</button>
     </div>
     <div id="groups-content"></div>
   </div>
@@ -285,7 +285,7 @@
   <div id="stab-rankings-content" style="display:none;">
     <div class="card">
       <table>
-        <thead><tr><th>#</th><th>Player</th><th>ELO</th><th id="standings-score-th">Score</th><th>W/D/L</th><th>Status</th></tr></thead>
+        <thead><tr><th>#</th><th>Player</th><th>ELO</th><th>${state.settings.scoringMode!=='lifepoints'?'Pts':'LP'}</th><th>W/D/L</th><th>Status</th></tr></thead>
         <tbody id="standings-body"></tbody>
       </table>
     </div>
@@ -1411,13 +1411,7 @@ async function showSeedsHistory(){
 // GRAND PRIX — sum of best 3 match scores (worst dropped)
 // ─────────────────────────────────────────────────────────────
 function isGrandPrix(){
-  // Only true when both: the GP checkbox exists & is checked, AND the row is actually visible
-  // (the row only displays for Risk Grand Prix). This prevents leakage into Drunken/Vintage.
-  const cb = document.getElementById('grand-prix-mode');
-  const row = document.getElementById('grand-prix-row');
-  if(!cb || !cb.checked) return false;
-  if(row && row.style.display === 'none') return false;
-  return true;
+  return !!(document.getElementById('grand-prix-mode')?.checked);
 }
 
 // Starts a new GP session (new day): resets round counter and pairings
@@ -1460,19 +1454,8 @@ function computeGPScore(playerName){
 }
 
 function logDraftEnded(){
-  if(state.draftEnded) return; // already pressed once this round
-  if(!confirm('End the draft?\n\nPlayers will move to entering match results. The Draft tab stays viewable but this action only fires once per round.')) return;
-  state.draftEnded = true;
   logEvent('draft-end', 'Draft ended');
-  // Disable the button visually so user sees it's done
-  document.querySelectorAll('button[onclick="logDraftEnded()"]').forEach(b => {
-    b.disabled = true;
-    b.style.opacity = '0.4';
-    b.textContent = '✓ Draft ended';
-  });
-  // Jump to Pairings so user can start entering results
-  switchToTab('pairings');
-  renderPairings();
+  if(document.getElementById('msub-matches').style.display!=='none'&&document.getElementById('section-pairings').classList.contains('active')) renderMatches();
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1484,7 +1467,6 @@ function fullReset(){
   state.players=[]; state.settings={startScore:4,rrRounds:2,roundMinutes:20}; state.currentRound=0;
   state.phase='roundrobin'; state.pairings=[]; state.history=[]; state.matchLog=[];
   state.tournamentStartedAt = null;
-  state.draftEnded = false;
   eloDb={};
   try { localStorage.removeItem(ELO_STORAGE_KEY); } catch(e){}
   tournamentStarted=false; 
@@ -1846,7 +1828,6 @@ function startTournament(){
   state.players.forEach(p=>{p.score=startScore;p.w=0;p.d=0;p.l=0;p.eliminated=false;p.eloStart=getElo(p.name);p.firstCount=0;});
   state.currentRound=1; state.phase = rrRounds > 0 ? 'roundrobin' : 'swiss'; state.history=[]; state.matchLog=[];
   state.tournamentStartedAt = Date.now();
-  state.draftEnded = false;
   tournamentStarted=true;
   logEvent('tournament-start', `Tournament started — ${state.players.length} players`);
   schedulePush();
@@ -2083,16 +2064,14 @@ function renderPairings(){
 
     const p1=getPlayer(m.p1);
 
-    const showDrawTag = (state.settings.scoringMode||'lifepoints') === 'lifepoints';
     if(m.p2==='BYE'){
       const e1=getElo(m.p1);
-      const drawTag=showDrawTag&&p1&&p1.d>0?` <span class="tag tag-grey">${p1.d}d</span>`:'';
-      const s = p1 ? renderScore(p1.score, state.settings.startScore) : '';
+      const drawTag=p1&&p1.d>0?` <span class="tag tag-grey">${p1.d}d</span>`:'';
       return `<div class="pairing-card bye-card">
         <div class="match-players">
           <div>
             <div class="player-name">${m.p1}</div>
-            <div class="player-elo">${e1} ELO${drawTag}${s?' &nbsp; '+s:''}</div>
+            <div class="player-elo">${e1} ELO${drawTag} &nbsp; ${p1?renderScore(p1.score,state.settings.startScore):''}</div>
           </div>
           <div class="vs"></div>
           <div class="player-col-right"><span class="bye-label">BYE</span></div>
@@ -2102,16 +2081,14 @@ function renderPairings(){
 
     const p2=getPlayer(m.p2), r=m.result;
     const e1=getElo(m.p1), e2=getElo(m.p2);
-    const rematch = m.rematch ? '<span class="tag tag-amber" style="margin-left:3px;">rematch</span>' : '';
-    const d1=showDrawTag&&p1&&p1.d>0?`<span class="tag tag-grey" style="margin-left:3px;">${p1.d}d</span>`:'';
-    const d2=showDrawTag&&p2&&p2.d>0?`<span class="tag tag-grey" style="margin-right:3px;">${p2.d}d</span>`:'';
-    const s1 = p1 ? renderScore(p1.score, state.settings.startScore) : '';
-    const s2 = p2 ? renderScore(p2.score, state.settings.startScore) : '';
+    const rematch=m.rematch?'<span class="tag tag-amber" style="margin-left:3px;">re</span>':'';
+    const d1=p1&&p1.d>0?`<span class="tag tag-grey" style="margin-left:3px;">${p1.d}d</span>`:'';
+    const d2=p2&&p2.d>0?`<span class="tag tag-grey" style="margin-right:3px;">${p2.d}d</span>`:'';
     return `<div class="pairing-card">
       <div style="display:grid;grid-template-columns:2fr 1fr 2fr;gap:4px;align-items:stretch;">
         <button class="result-btn ${r==='p1win'?'selected-win':''}" onclick="setResult(${i},'p1win')" style="display:flex;flex-direction:column;align-items:flex-start;padding:6px 8px;height:auto;text-align:left;">
           <span style="font-size:12px;font-weight:500;line-height:1.3;">${m.p1}${rematch}</span>
-          ${s1?`<span style="font-size:11px;opacity:0.75;margin-top:1px;">${s1}</span>`:''}
+          <span style="font-size:11px;opacity:0.75;margin-top:1px;">${p1?renderScore(p1.score,state.settings.startScore):''}</span>
           <span style="font-size:10px;opacity:0.6;">${e1} ELO${d1}</span>
         </button>
         <button class="result-btn ${r==='draw'?'selected-timeout':''}" onclick="setResult(${i},'draw')" style="display:flex;align-items:center;justify-content:center;padding:6px 4px;align-self:stretch;">
@@ -2119,7 +2096,7 @@ function renderPairings(){
         </button>
         <button class="result-btn ${r==='p2win'?'selected-win':''}" onclick="setResult(${i},'p2win')" style="display:flex;flex-direction:column;align-items:flex-end;padding:6px 8px;height:auto;text-align:right;">
           <span style="font-size:12px;font-weight:500;line-height:1.3;">${d2}${m.p2}</span>
-          ${s2?`<span style="font-size:11px;opacity:0.75;margin-top:1px;">${s2}</span>`:''}
+          <span style="font-size:11px;opacity:0.75;margin-top:1px;">${p2?renderScore(p2.score,state.settings.startScore):''}</span>
           <span style="font-size:10px;opacity:0.6;">${e2} ELO</span>
         </button>
       </div>
@@ -2219,10 +2196,6 @@ function nextRound(){
   });
   if(unfinished.length&&!confirm(`${unfinished.length} match${unfinished.length>1?'es':''} still unresolved. Advance to the next round anyway?`)) return;
 
-  // Mode flags must live at function scope so the winner-check below can see them
-  const scoring = state.settings.scoringMode || 'lifepoints';
-  const lpMode = scoring === 'lifepoints';
-
   // Apply score changes — mode-sensitive
   state.pairings.forEach(m=>{
     if(m.type === 'multi'){
@@ -2230,7 +2203,6 @@ function nextRound(){
       const sorted = [...m.players]
         .filter(name => String(m.scores[name]).trim() !== '')
         .sort((a,b)=>parseFloat(m.scores[b]||0)-parseFloat(m.scores[a]||0));
-      if(!sorted.length) return;
       const topScore = parseFloat(m.scores[sorted[0]]||0);
       sorted.forEach(name=>{
         const p = getPlayer(name); if(!p) return;
@@ -2244,7 +2216,9 @@ function nextRound(){
 
     if(m.p2==='BYE') return;
     const p1=getPlayer(m.p1),p2=getPlayer(m.p2); if(!p1||!p2||!m.result) return;
-    if(lpMode){
+    const scoring = state.settings.scoringMode || 'lifepoints';
+    const lpMode = scoring === 'lifepoints';
+    if(scoring === 'lifepoints'){
       // LP: loser loses 1 LP; draws cost 0.5 × cumulative draws; eliminated at 0
       if(m.result==='p1win'){p1.w++;p2.score=Math.max(0,p2.score-1);p2.l++;if(p2.score<=0)p2.eliminated=true;}
       else if(m.result==='p2win'){p2.w++;p1.score=Math.max(0,p1.score-1);p1.l++;if(p1.score<=0)p1.eliminated=true;}
@@ -2283,13 +2257,6 @@ function nextRound(){
     state.phase='swiss';
   }
 
-  // Reset the End-draft button state for the new round
-  state.draftEnded = false;
-  document.querySelectorAll('button[onclick="logDraftEnded()"]').forEach(b => {
-    b.disabled = false;
-    b.style.opacity = '';
-    b.textContent = 'End draft ↗';
-  });
   generatePairings(); resetTimer(); renderPairings();
   updateBanner();
   localBackup();
@@ -2533,22 +2500,15 @@ function renderStandings(){
     const status=p.eliminated?'<span class="tag tag-amber">Out</span>':i===0?'<span class="tag tag-green">Leader</span>':'';
     const rank=prizesState.ranks[i];
     const rankBadge=rank?`<br><span style="font-size:11px;color:#3b6d11;font-weight:500;">${rank.label}</span>`:'';
-    let scoreCell;
-    if(scoringMode === 'lifepoints'){
-      scoreCell = `${renderScore(p.score, state.settings.startScore)} <span style="font-size:11px;color:#aaa;">(${p.score})</span>`;
-    } else if(scoringMode === 'points'){
-      const total = gp ? computeGPScore(p.name) : p.score;
-      scoreCell = `<span style="font-weight:600;">${total}pt</span>`;
-    } else {
-      // swiss — show just the raw score number, no "pt" suffix
-      scoreCell = `<span style="font-weight:600;">${p.score}</span>`;
-    }
-    return `<tr><td style="font-weight:500;">${i+1}</td><td>${p.name}${rankBadge}</td><td style="font-weight:500;">${currentElo}</td><td>${scoreCell}</td><td style="color:#888;">${p.w}/${p.d}/${p.l}</td><td>${status}</td></tr>`;
+    const displayScore = getDisplayScore(p);
+    const scoreCell = scoringMode==='lifepoints'
+      ? `${renderScore(p.score, state.settings.startScore)} <span style="font-size:11px;color:#aaa;">(${p.score})</span>`
+      : gp
+        ? `<span style="font-weight:600;">${displayScore}pt</span> <span style="font-size:11px;color:#aaa;">GP</span>`
+        : `<span style="font-weight:600;">${displayScore}pt</span>`;
+    const editBtn = `<button onclick="adjustScore(${state.players.indexOf(p)})" title="Adjust score" style="font-size:10px;padding:1px 5px;color:#888;">✎</button>`;
+    return `<tr><td style="font-weight:500;">${i+1}</td><td>${p.name}${rankBadge}</td><td style="font-weight:500;">${currentElo}</td><td>${scoreCell} ${editBtn}</td><td style="color:#888;">${p.w}/${p.d}/${p.l}</td><td>${status}</td></tr>`;
   }).join('');
-
-  // Update score column header to match the active scoring mode
-  const scoreTh = document.getElementById('standings-score-th');
-  if(scoreTh) scoreTh.textContent = scoringMode === 'lifepoints' ? 'LP' : scoringMode === 'points' ? 'Pts' : 'Score';
 
   if(state.history.length>0){
     document.getElementById('elo-changes-body').innerHTML=state.players.map(p=>{
@@ -3351,7 +3311,7 @@ let tournamentMode = 'drunken'; // 'drunken' | 'vintage' — used for defaults o
 
 const TOURNAMENT_META = {
   'drunken-draft':   { mode:'drunken', icon:'🍺', name:'Drunken Draft',   rrDefault:2, timerDefault:20,  scoringMode:'lifepoints', riskMode:false, draftEnabled:true,  timeoutEnabled:true,  matchMin:2, matchMax:2, decideFirst:true  },
-  'vintage-draft':   { mode:'vintage', icon:'🪷', name:'Vintage Draft',   rrDefault:0, timerDefault:50,  scoringMode:'swiss',      riskMode:false, draftEnabled:true,  timeoutEnabled:true,  matchMin:2, matchMax:2, decideFirst:false },
+  'vintage-draft':   { mode:'vintage', icon:'🪷', name:'Vintage Draft',   rrDefault:0, timerDefault:50,  scoringMode:'swiss',      riskMode:false, draftEnabled:true,  timeoutEnabled:true,  matchMin:2, matchMax:2, decideFirst:true  },
   'risk-grand-prix': { mode:'risk',    icon:'🪖', name:'Risk Grand Prix', rrDefault:0, timerDefault:120, scoringMode:'points',     riskMode:true,  draftEnabled:false, timeoutEnabled:false, matchMin:3, matchMax:4, decideFirst:false },
 };
 
