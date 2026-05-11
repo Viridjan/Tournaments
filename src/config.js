@@ -1,5 +1,4 @@
 // Tournament configs — each tournament is just a settings object
-import{useState,useReducer,useEffect,useRef,useCallback,useMemo}from"react";
 
 const T={
 "drunken-draft":{id:"drunken-draft",name:"Drunken Draft",icon:"🍺",desc:"Classic lifepoints elimination",features:{scoring:"lifepoints",startScore:4,winPoints:3,drawPoints:1,lossPoints:0,cumulativeDrawPenalty:true,pairing:"1v1",rrRounds:2,timerMinutes:20,draft:true,elo:true,eloKMax:50,firstPlayer:true,grandPrix:false,gpBestOfLast:3,gpDropWorst:1,prizes:true,timeout:true,timeoutTime:"23:00",spinner:false,rules:true,matchMin:2,matchMax:2}},
@@ -9,4 +8,3 @@ const T={
 
 const ED=1000,EM=50,ES=500,EK="tournament_elo_db_v2",SK="tournament_sheets_url_v1",BK="tournament_local_backup";
 const DU="https://script.google.com/macros/s/AKfycbwin5UafitOMiNahorK6aIFZKBclkxP-l7jXV4HpUg9Ya8ozKz7oBhWo6A-xDKu3VIr5Q/exec";
-
