@@ -1,0 +1,58 @@
+// ═══════════════════════════════════════════════════════
+// Initial state and reducer — all state transitions
+// All app state lives in this reducer. Key groups:
+
+//   Navigation: OPEN_TOURNAMENT, GO_HOME, SET_TAB
+const init={screen:"landing",tournamentId:null,players:[],currentRound:0,phase:"roundrobin",pairings:[],history:[],matchLog:[],tournamentStarted:false,startedAt:null,eloDb:lLS(EK,{}),activeTab:"players",matchSubTab:"pairings",standingsSubTab:"rankings",
+prizes:[{name:"Pauper",value:7,maxQty:1,maxQtyPerPlayer:1,guaranteed:"1",avoid:""},{name:"Tournament",value:5,maxQty:1,maxQtyPerPlayer:1,guaranteed:"2",avoid:""},{name:"Booster",value:6,maxQty:99,maxQtyPerPlayer:99,guaranteed:"",avoid:""},{name:"Token",value:3,maxQty:99,maxQtyPerPlayer:1,guaranteed:"",avoid:""}],
+ranks:defRanks(),entryCost:3,prizePct:50,prizePctRoundUp:false,roundUpPct:50,roundUpPctRoundUp:true,spinnerOptions:[{name:"Small decks",weight:20},{name:"Plancia commanders",weight:13},{name:"Two heads bozos",weight:20},{name:"Vintage lands",weight:20},{name:"Drafting commanders",weight:13},{name:"Ante",weight:20},{name:"Pain rare",weight:20}],featureOverrides:{},testMode:false,experimental:false,advancedSetup:false,sheetsUrl:gSU()};
+
+function reducer(st,a){switch(a.type){
+case"OPEN_TOURNAMENT":return{...st,screen:"tournament",tournamentId:a.id,activeTab:"players"};
+case"GO_HOME":return{...st,screen:"landing"};
+case"SET_TAB":return{...st,activeTab:a.tab};
+case"SET_MATCH_SUBTAB":return{...st,matchSubTab:a.tab};
+case"SET_STANDINGS_SUBTAB":return{...st,standingsSubTab:a.tab};
+case"ADD_PLAYER":{const n=a.name.trim();if(!n||st.players.some(p=>p.name.toLowerCase()===n.toLowerCase()))return st;return{...st,players:[...st.players,{name:n,score:0,w:0,d:0,l:0,eliminated:false,paid:false,firstCount:0}]}}
+case"REMOVE_PLAYER":return{...st,players:st.players.filter((_,i)=>i!==a.index)};
+case"TOGGLE_PAID":return{...st,players:st.players.map((p,i)=>i===a.index?{...p,paid:!p.paid}:p)};
+case"ABANDON_PLAYER":{const ab=st.players[a.index];if(!ab)return st;const pl=st.players.map((p,i)=>i===a.index?{...p,eliminated:true,score:0}:p);const pa=st.pairings.map(m=>{if(m.result||m.p2==="BYE"||m.type==="multi")return m;if(m.p1===ab.name)return{...m,result:"p2win",noElo:true,forfeit:true};if(m.p2===ab.name)return{...m,result:"p1win",noElo:true,forfeit:true};return m});return{...st,players:pl,pairings:pa,matchLog:[...st.matchLog,{type:"abandon",label:`${ab.name} abandoned`,ts:now()}]}}
+case"START_TOURNAMENT":{const c={...T[st.tournamentId]?.features,...st.featureOverrides};if(!c)return st;const ss=c.startScore??0;const pl=st.players.map(p=>({...p,score:ss,w:0,d:0,l:0,eliminated:false,firstCount:0,eloStart:gE(st.eloDb,p.name)}));const ph=c.rrRounds>0?"roundrobin":"swiss";const ns={...st,players:pl,currentRound:1,phase:ph,history:[],tournamentStarted:true,startedAt:Date.now(),matchLog:[{type:"start",label:`Tournament started — ${pl.length} players`,ts:now()}],activeTab:"matches",matchSubTab:c.draft?"draft":"pairings"};return{...ns,pairings:mkP(ns,pl,[],ph)}}
+case"SET_RESULT":return{...st,pairings:st.pairings.map((m,i)=>i===a.index?{...m,result:a.result}:m)};
+case"SET_MULTI_SCORE":return{...st,pairings:st.pairings.map((m,i)=>i!==a.matchIndex?m:{...m,scores:{...m.scores,[a.playerName]:a.value.replace(/[^0-9\-]/g,"")}})};
+case"NEXT_ROUND":{const c={...T[st.tournamentId]?.features,...st.featureOverrides};if(!c)return st;let pl=st.players.map(p=>({...p})),db={...st.eloDb};const sc=c.scoring,rp=st.pairings.map(m=>({...m}));
+rp.forEach(m=>{if(m.type==="multi"){const fl=m.players.filter(n=>String(m.scores[n]).trim()!==""),so=[...fl].sort((a,b)=>parseFloat(m.scores[b]||0)-parseFloat(m.scores[a]||0)),top=so.length?parseFloat(m.scores[so[0]]||0):0;so.forEach(n=>{const p=pl.find(x=>x.name===n);if(!p)return;parseFloat(m.scores[n]||0)===top?(p.w++,p.score+=(c.winPoints||3)):p.l++});
+if(c.elo){const n=m.players.length,K=(c.eloKMax||50)/n,dl=Object.fromEntries(m.players.map(p=>[p,0]));for(let i=0;i<n;i++)for(let j=i+1;j<n;j++){const pA=m.players[i],pB=m.players[j],sA=parseFloat(m.scores[pA]||0),sB=parseFloat(m.scores[pB]||0),rA=gE(db,pA),rB=gE(db,pB),eA=1/(1+Math.pow(10,(rB-rA)/ES)),scA=sA>sB?1:sA<sB?0:0.5;dl[pA]+=K*(scA-eA);dl[pB]+=K*((1-scA)-(1-eA))}m.eloDeltas={};m.players.forEach(p=>{const d=Math.round(dl[p]);m.eloDeltas[p]=d;db=sE(db,p,gE(db,p)+d,db[p.toLowerCase()]?.test)})}return}
+if(m.p2==="BYE"||!m.result)return;const p1=pl.find(x=>x.name===m.p1),p2=pl.find(x=>x.name===m.p2);if(!p1||!p2)return;
+if(sc==="lifepoints"){if(m.result==="p1win"){p1.w++;p2.l++;p2.score=Math.max(0,p2.score-1);if(p2.score<=0)p2.eliminated=true}else if(m.result==="p2win"){p2.w++;p1.l++;p1.score=Math.max(0,p1.score-1);if(p1.score<=0)p1.eliminated=true}else{p1.d++;p2.d++;const dp=c.cumulativeDrawPenalty?0.5*p1.d:0.5;const dp2=c.cumulativeDrawPenalty?0.5*p2.d:0.5;p1.score=Math.max(0,p1.score-dp);p2.score=Math.max(0,p2.score-dp2);if(p1.score<=0)p1.eliminated=true;if(p2.score<=0)p2.eliminated=true}}else{if(m.result==="p1win"){p1.w++;p1.score+=(c.winPoints||3);p2.l++;p2.score+=(c.lossPoints||0)}else if(m.result==="p2win"){p2.w++;p2.score+=(c.winPoints||3);p1.l++;p1.score+=(c.lossPoints||0)}else{p1.d++;p2.d++;p1.score+=(c.drawPoints||1);p2.score+=(c.drawPoints||1)}}
+if(c.elo&&!m.noElo){const rA=gE(db,m.p1),rB=gE(db,m.p2),scA=m.result==="p1win"?1:m.result==="p2win"?0:0.5,{dA,dB}=eCalc(rA,rB,scA,c.eloKMax);m.eloDelta1=dA;m.eloDelta2=dB;db=sE(db,m.p1,rA+dA,db[m.p1.toLowerCase()]?.test);db=sE(db,m.p2,rB+dB,db[m.p2.toLowerCase()]?.test)}});
+const h=[...st.history,rp],nr=st.currentRound+1;let ph=st.phase;if(ph==="roundrobin"&&nr>c.rrRounds)ph="swiss";const ac=pl.filter(p=>!p.eliminated),go=c.scoring==="lifepoints"&&ac.length<=1;
+const ns={...st,players:pl,eloDb:db,history:h,currentRound:nr,phase:ph,matchLog:[...st.matchLog,{type:"round",label:`Round ${st.currentRound} completed`,ts:now()}],activeTab:go?"standings":st.activeTab};sLS(EK,db);return{...ns,pairings:go?[]:mkP(ns,pl,h,ph)}}
+case"END_TOURNAMENT":{try{localStorage.removeItem(BK)}catch{}const so=[...st.players].sort((a,b)=>b.score-a.score||b.w-a.w);return{...st,players:st.players.map(p=>p.name===so[0]?.name?p:{...p,eliminated:true}),activeTab:"standings"}}
+case"NEW_GP_SESSION":{const c={...T[st.tournamentId]?.features,...st.featureOverrides};if(!c)return st;const ph=c.rrRounds>0?"roundrobin":"swiss";const ns={...st,currentRound:1,phase:ph,pairings:[]};return{...ns,pairings:mkP(ns,st.players,st.history,ph)}}
+case"MERGE_ELO_DB":{const db={...st.eloDb,...a.db};sLS(EK,db);return{...st,eloDb:db}}
+case"ADD_PRIZE":return{...st,prizes:[...st.prizes,{name:"",value:0,maxQty:1,maxQtyPerPlayer:1,guaranteed:"",avoid:""}]};
+case"REMOVE_PRIZE":return{...st,prizes:st.prizes.filter((_,i)=>i!==a.index)};
+case"UPDATE_PRIZE":return{...st,prizes:st.prizes.map((p,i)=>i===a.index?{...p,[a.field]:a.value}:p)};
+case"UPDATE_RANK":return{...st,ranks:st.ranks.map((r,i)=>i===a.index?{...r,[a.field]:a.value}:r)};
+case"SET_ENTRY_COST":return{...st,entryCost:a.value};
+case"SET_PRIZE_PCT":return{...st,prizePct:a.value};
+case"SET_PRIZE_PCT_ROUNDUP":return{...st,prizePctRoundUp:a.value};
+case"SET_ROUNDUP_PCT":return{...st,roundUpPct:a.value};
+case"SET_ROUNDUP_PCT_ROUNDUP":return{...st,roundUpPctRoundUp:a.value};
+case"ADD_SPINNER_OPTION":return{...st,spinnerOptions:[...st.spinnerOptions,a.option]};
+case"REMOVE_SPINNER_OPTION":return{...st,spinnerOptions:st.spinnerOptions.filter((_,i)=>i!==a.index)};
+case"UPDATE_SPINNER_WEIGHT":return{...st,spinnerOptions:st.spinnerOptions.map((o,i)=>i===a.index?{...o,weight:Math.max(1,parseInt(a.value)||1)}:o)};
+case"INJECT_TEST_PLAYERS":{const ns=["Alice","Bob","Carol","Dave","Eve","Frank","Grace","Hank","Iris","Jack","Karen","Leo","Mia","Ned","Olivia","Pete","Quinn","Rose","Sam","Tina","Uma","Victor","Wendy","Xander","Yara","Zoe","Aaron","Beth","Caleb","Diana","Ethan","Fiona","George","Hannah","Ivan","Julia"];let db={...st.eloDb};const pl=[];for(let i=0;i<a.count;i++){const n=ns[i]||`Player ${i+1}`;db=sE(db,n,800+Math.floor(Math.random()*800),true);pl.push({name:n,score:0,w:0,d:0,l:0,eliminated:false,paid:false,firstCount:0})}return{...st,players:pl,eloDb:db}}
+case"AUTO_SELECT_WINNERS":return{...st,pairings:st.pairings.map(m=>{if(m.result)return m;if(m.type==="multi"){const sc={...m.scores};m.players.forEach(n=>{sc[n]=String(Math.floor(Math.random()*21))});return{...m,scores:sc}}if(m.p2==="BYE")return m;return{...m,result:Math.random()<0.5?"p1win":"p2win"}})};
+case"FULL_RESET":try{localStorage.removeItem(BK)}catch{}return{...init,eloDb:{},screen:"tournament",tournamentId:st.tournamentId,activeTab:"players",sheetsUrl:st.sheetsUrl};
+case"SET_SHEETS_URL":try{if(a.url)localStorage.setItem(SK,a.url);else localStorage.removeItem(SK)}catch{}return{...st,sheetsUrl:a.url};
+case"LOG_EVENT":return{...st,matchLog:[...st.matchLog,{type:a.eventType,label:a.label,ts:now()}]};
+case"TOGGLE_FEATURE":{const ov={...st.featureOverrides};const base=T[st.tournamentId]?.features||{};if(ov[a.key]!==undefined)delete ov[a.key];else ov[a.key]=!base[a.key];return{...st,featureOverrides:ov}}
+case"SET_FEATURE":{const ov={...st.featureOverrides};const base=T[st.tournamentId]?.features||{};if(a.value===base[a.key])delete ov[a.key];else ov[a.key]=a.value;return{...st,featureOverrides:ov}}
+case"SET_TEST_MODE":return{...st,testMode:a.value};
+case"SET_EXPERIMENTAL":return{...st,experimental:a.value};
+case"SET_ADVANCED":return{...st,advancedSetup:a.value};
+case"RESTORE_SNAPSHOT":{const snap=a.snapshot;return{...st,...snap.state,tournamentStarted:!!snap.tournamentStarted,tournamentId:snap.tournamentMode||st.tournamentId,prizes:snap.prizes||st.prizes,ranks:snap.ranks||st.ranks,entryCost:snap.entryCost??st.entryCost,prizePct:snap.prizePct??st.prizePct,prizePctRoundUp:snap.prizePctRoundUp??st.prizePctRoundUp,roundUpPct:snap.roundUpPct??st.roundUpPct,roundUpPctRoundUp:snap.roundUpPctRoundUp??st.roundUpPctRoundUp,featureOverrides:snap.featureOverrides||st.featureOverrides,testMode:snap.testMode??st.testMode,experimental:snap.experimental??st.experimental,advancedSetup:snap.advancedSetup??st.advancedSetup,screen:"tournament",activeTab:snap.tournamentStarted?"matches":"players"}}
+default:return st}}
+
