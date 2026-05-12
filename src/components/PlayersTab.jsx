@@ -1,12 +1,11 @@
 // Left card: add players with autocomplete dropdown from ELO database
-// Players tab — add/remove, paid toggle, autocomplete, ELO list
 //   - Dropdown shows up to 6 matches, filtered by test mode
-function PlayersTab({state,dispatch,config}){const[input,setInput]=useState(""),[filter,setFilter]=useState(""),[acFocused,setAcFocused]=useState(false);
 //   - Player list with paid toggle, abandon button, remove button
-const dbE=useMemo(()=>Object.values(state.eloDb).filter(e=>e?.name&&(!filter||e.name.toLowerCase().includes(filter.toLowerCase()))&&(state.testMode?!!e.test:!e.test)).sort((a,b)=>(b.elo||0)-(a.elo||0)),[state.eloDb,filter,state.testMode]);
 // Right card: full registered players table with ELO, filter search
-const addS=useMemo(()=>new Set(state.players.map(p=>p.name.toLowerCase())),[state.players]);const pc=state.players.filter(p=>p.paid).length;
 //   - Filters by test flag based on testMode state
+function PlayersTab({state,dispatch,config}){const[input,setInput]=useState(""),[filter,setFilter]=useState(""),[acFocused,setAcFocused]=useState(false);
+const dbE=useMemo(()=>Object.values(state.eloDb).filter(e=>e?.name&&(!filter||e.name.toLowerCase().includes(filter.toLowerCase()))&&(state.testMode?!!e.test:!e.test)).sort((a,b)=>(b.elo||0)-(a.elo||0)),[state.eloDb,filter,state.testMode]);
+const addS=useMemo(()=>new Set(state.players.map(p=>p.name.toLowerCase())),[state.players]);const pc=state.players.filter(p=>p.paid).length;
 const suggestions=useMemo(()=>{if(!input.trim()||input.length<1)return[];return Object.values(state.eloDb).filter(e=>e?.name&&e.name.toLowerCase().includes(input.toLowerCase())&&!addS.has(e.name.toLowerCase())&&(state.testMode?!!e.test:!e.test)).sort((a,b)=>(b.elo||0)-(a.elo||0)).slice(0,6)},[input,state.eloDb,addS,state.testMode]);
 const addPlayer=(name)=>{dispatch({type:"ADD_PLAYER",name});setInput("")};
 return <div><div style={{display:"flex",justifyContent:"flex-end",marginBottom:16}}><Btn onClick={()=>{if(state.players.length<2)return;if(state.tournamentStarted?!confirm("Restart?"):!confirm(`Start with ${state.players.length}?`))return;dispatch({type:"START_TOURNAMENT"})}} disabled={state.players.length<2}>Start tournament ↗</Btn></div>
@@ -19,7 +18,7 @@ return <div><div style={{display:"flex",justifyContent:"flex-end",marginBottom:1
 </div>
 <Btn onClick={()=>{if(input.trim())addPlayer(input)}} style={{width:"100%",marginTop:8}}>+ Add player</Btn>
 {!state.players.length?<div style={{textAlign:"center",padding:24,color:C.faint,fontSize:14}}>No players added</div>:<>
-<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:0,marginTop:12}}>{state.players.map((p,i)=><div key={p.name} style={{display:"flex",alignItems:"center",gap:4,padding:"7px 4px 7px 6px",borderBottom:"0.5px solid #eee",...(i%2===1?{borderLeft:"0.5px solid #eee"}:{})}}>
+<div style={{maxHeight:320,overflowY:"auto",marginTop:12,borderTop:`0.5px solid ${C.border}`}}>{state.players.map((p,i)=><div key={p.name} style={{display:"flex",alignItems:"center",gap:4,padding:"7px 6px",borderBottom:"0.5px solid #eee"}}>
 <span onClick={()=>dispatch({type:"TOGGLE_PAID",index:i})} title={p.paid?"Unmark":"Mark paid"} style={{flex:1,fontSize:13,cursor:"pointer",userSelect:"none",textDecoration:p.eliminated?"line-through":"none",color:p.eliminated?C.faint:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.name}{p.eliminated&&<span style={{fontSize:10,color:C.amber,marginLeft:4}}>out</span>}</span>
 <span style={{fontSize:11,color:C.faint,flexShrink:0}}>{gE(state.eloDb,p.name)}</span>
 <Btn onClick={()=>dispatch({type:"TOGGLE_PAID",index:i})} style={{fontSize:11,padding:"2px 8px",flexShrink:0,fontWeight:p.paid?500:400,...(p.paid?{background:C.accent,color:"#fff",borderColor:C.accent}:{color:C.faint})}}>{p.paid?"✓":"paid"}</Btn>
@@ -29,11 +28,12 @@ return <div><div style={{display:"flex",justifyContent:"flex-end",marginBottom:1
 <Card style={{flex:1,minWidth:260}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:12,gap:6}}><h3 style={{fontSize:15,fontWeight:500,margin:0}}>Registered</h3>
 <input type="text" value={filter} placeholder="Filter..." onChange={e=>setFilter(e.target.value)} style={{...S.input,fontSize:12,padding:"4px 8px",width:110,flexShrink:0}}/></div>
 {!dbE.length?<div style={{textAlign:"center",padding:16,color:C.faint,fontSize:12}}>No ELO entries.</div>:<>
-<table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}><thead><tr><th style={{fontSize:11,color:C.muted,fontWeight:500,textAlign:"left",padding:"4px 6px 4px 0",borderBottom:`0.5px solid ${C.border}`}}>Name</th>
-<th style={{fontSize:11,color:C.muted,fontWeight:500,textAlign:"center",padding:"4px 6px",borderBottom:`0.5px solid ${C.border}`,width:60}}>ELO</th>
-<th style={{borderBottom:`0.5px solid ${C.border}`,width:40}}></th></tr></thead>
+<div style={{maxHeight:400,overflowY:"auto"}}>
+<table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}><thead><tr><th style={{fontSize:11,color:C.muted,fontWeight:500,textAlign:"left",padding:"4px 6px 4px 0",borderBottom:`0.5px solid ${C.border}`,position:"sticky",top:0,background:C.card}}>Name</th>
+<th style={{fontSize:11,color:C.muted,fontWeight:500,textAlign:"center",padding:"4px 6px",borderBottom:`0.5px solid ${C.border}`,width:60,position:"sticky",top:0,background:C.card}}>ELO</th>
+<th style={{borderBottom:`0.5px solid ${C.border}`,width:40,position:"sticky",top:0,background:C.card}}></th></tr></thead>
 <tbody>{dbE.map((e,i)=>{const ad=addS.has(e.name.toLowerCase());return <tr key={e.name} style={{background:i%2===1?"#fafafa":"",opacity:ad?0.45:1}}>
 <td style={{padding:"5px 6px 5px 0",fontWeight:500}}>{e.name}</td><td style={{padding:"5px 6px",textAlign:"center",color:C.muted}}>{e.elo}</td>
 <td style={{padding:"3px",textAlign:"center"}}>{ad?<span style={{fontSize:10,color:C.green}}>✓</span>:<Btn onClick={()=>dispatch({type:"ADD_PLAYER",name:e.name})} style={{fontSize:11,padding:"1px 8px"}}>+</Btn>}</td></tr>})}</tbody></table>
+</div>
 <div style={{fontSize:11,color:C.faint,marginTop:6}}>{dbE.length} entries</div></>}</Card></div></div>}
-
