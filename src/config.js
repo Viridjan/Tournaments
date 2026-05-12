@@ -11,5 +11,5 @@ const T={
 };
 
 const ED=1000,EM=50,ES=500,EK="tournament_elo_db_v2",SK="tournament_sheets_url_v1",BK="tournament_local_backup";
-const DU="https://script.google.com/macros/s/AKfycbwin5UafitOMiNahorK6aIFZKBclkxP-l7jXV4HpUg9Ya8ozKz7oBhWo6A-xDKu3VIr5Q/exec";
+const DU="https://script.google.com/macros/s/AKfycbw-G8HSUp8bTX1vfXzTVhSo_fPazHz1Mb09QVM9nLwmCUAOgTN03uJso-gLZiqhpRI_/exec";
 
