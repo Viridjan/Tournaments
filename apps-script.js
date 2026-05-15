@@ -54,16 +54,22 @@ function loadElo() {
   if (!sheet) return jsonResponse({ entries: [] });
 
   var data = sheet.getDataRange().getValues();
-  var entries = [];
-
+  // Deduplicate by lowercase name — last row wins
+  var seen = {};
   for (var i = 1; i < data.length; i++) {
     var name = String(data[i][0] || "").trim();
     if (!name) continue;
-    entries.push({
+    var key = name.toLowerCase();
+    seen[key] = {
       name: name,
       elo: parseInt(data[i][1]) || 1000,
       test: data[i][2] === true || String(data[i][2]).toLowerCase() === "true"
-    });
+    };
+  }
+
+  var entries = [];
+  for (var k in seen) {
+    entries.push(seen[k]);
   }
 
   return jsonResponse({ entries: entries });
@@ -79,13 +85,33 @@ function saveElo(data) {
   var entries = data.entries || [];
   if (!entries.length) return jsonResponse({ ok: true, count: 0 });
 
+  // First: remove all duplicate rows (keep first occurrence of each name)
   var existing = sheet.getDataRange().getValues();
+  var seenNames = {};
+  var rowsToDelete = [];
+  for (var i = 1; i < existing.length; i++) {
+    var name = String(existing[i][0] || "").trim().toLowerCase();
+    if (!name) continue;
+    if (seenNames[name]) {
+      rowsToDelete.push(i + 1); // 1-indexed row
+    } else {
+      seenNames[name] = i + 1;
+    }
+  }
+  // Delete from bottom up to avoid index shifting
+  for (var d = rowsToDelete.length - 1; d >= 0; d--) {
+    sheet.deleteRow(rowsToDelete[d]);
+  }
+
+  // Re-read after cleanup
+  existing = sheet.getDataRange().getValues();
   var rowMap = {};
   for (var i = 1; i < existing.length; i++) {
     var name = String(existing[i][0] || "").trim().toLowerCase();
     if (name) rowMap[name] = i + 1;
   }
 
+  // Update existing or append new
   for (var j = 0; j < entries.length; j++) {
     var e = entries[j];
     var key = e.name.toLowerCase();
@@ -113,8 +139,6 @@ function saveSeed(data) {
   var id = data.id || "";
   var label = data.label || "";
   var timestamp = new Date().toISOString();
-
-  // Support both new format (data as string) and old format (chunks array)
   var stored = data.data || JSON.stringify(data.chunks || []);
 
   sheet.appendRow([id, label, timestamp, stored]);
@@ -133,13 +157,10 @@ function loadSeed(id) {
     if (String(data[i][0]).toUpperCase() === id) {
       var raw = String(data[i][3]);
       try {
-        // Try parsing as direct JSON snapshot (v3)
         var parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
-          // Old format: chunks array
           return jsonResponse({ ok: true, chunks: parsed });
         } else {
-          // New format: direct data or snapshot object
           return jsonResponse({ ok: true, data: raw });
         }
       } catch (e) {
@@ -158,7 +179,6 @@ function deleteSeed(data) {
   var id = (data.id || "").toUpperCase();
   var rows = sheet.getDataRange().getValues();
 
-  // Delete from bottom up to avoid row index shifting
   for (var i = rows.length - 1; i >= 1; i--) {
     if (String(rows[i][0]).toUpperCase() === id) {
       sheet.deleteRow(i + 1);
