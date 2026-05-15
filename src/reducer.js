@@ -14,7 +14,14 @@ const init = {
   matchLog: [],
   tournamentStarted: false,
   startedAt: null,
-  eloDb: lLS(EK, {}),
+  eloDb: (() => {
+    const raw = lLS(EK, {});
+    const db = {};
+    Object.values(raw).forEach((e) => {
+      if (e?.name) db[e.name.toLowerCase()] = e;
+    });
+    return db;
+  })(),
   activeTab: "players",
   matchSubTab: "pairings",
   standingsSubTab: "rankings",
@@ -280,7 +287,11 @@ function reducer(st, a) {
       return { ...ns, pairings: mkP(ns, st.players, st.history, ph) };
     }
     case "MERGE_ELO_DB": {
-      const db = { ...st.eloDb, ...a.db };
+      const merged = { ...st.eloDb, ...a.db };
+      const db = {};
+      Object.values(merged).forEach((e) => {
+        if (e?.name) db[e.name.toLowerCase()] = e;
+      });
       sLS(EK, db);
       return { ...st, eloDb: db };
     }

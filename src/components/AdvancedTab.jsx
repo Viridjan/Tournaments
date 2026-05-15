@@ -642,19 +642,27 @@ function AdvancedTab({ state, dispatch, config }) {
                 style={{
                   fontSize: 11,
                   color: C.muted,
-                  lineHeight: 1.7,
                   marginBottom: 10,
                   padding: "6px 8px",
                   background: C.subtle,
                   borderRadius: 6,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 3,
                 }}
               >
-                <span style={{ fontWeight: 600 }}>€</span> value ·{" "}
-                <span style={{ fontWeight: 600 }}>Q</span> total quantity ·{" "}
-                <span style={{ fontWeight: 600 }}>L</span> limit 1 per player ·{" "}
-                <span style={{ fontWeight: 600 }}>G</span> guaranteed to rank(s) ·{" "}
-                <span style={{ fontWeight: 600 }}>A</span> avoid for rank(s) · use commas for
-                multiple ranks
+                {[
+                  ["€", "value in euros"],
+                  ["Q", "total quantity available"],
+                  ["L", "limit 1 per player"],
+                  ["G", "guaranteed to rank(s) — e.g. 1,2"],
+                  ["A", "avoid for rank(s) — e.g. 3,4"],
+                ].map(([abbr, desc]) => (
+                  <div key={abbr} style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
+                    <span style={{ fontWeight: 700, minWidth: 14, fontFamily: "monospace" }}>{abbr}</span>
+                    <span>{desc}</span>
+                  </div>
+                ))}
               </div>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
@@ -850,10 +858,6 @@ function AdvancedTab({ state, dispatch, config }) {
                   ))}
                 </tbody>
               </table>
-              <div style={{ fontSize: 10, color: C.faint, marginTop: 6, lineHeight: 1.6 }}>
-                Example: G = 1,2 → guaranteed to ranks 1 and 2 · A = 3,4 → ranks 3-4 won't get this
-                prize
-              </div>
             </Card>
           </div>
           <div
