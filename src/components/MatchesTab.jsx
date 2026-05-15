@@ -290,7 +290,16 @@ function MatchesTab({ state, dispatch, config }) {
                   const u = state.pairings.filter(
                     (m) => m.type !== "multi" && m.p2 !== "BYE" && !m.result,
                   );
-                  if (u.length && !confirm(`${u.length} unresolved.`)) return;
+                  const uMulti = state.pairings.filter(
+                    (m) =>
+                      m.type === "multi" &&
+                      m.players.every((n) => !String(m.scores[n]).trim()),
+                  );
+                  if (
+                    (u.length || uMulti.length) &&
+                    !confirm(`${u.length + uMulti.length} unresolved.`)
+                  )
+                    return;
                   dispatch({ type: "NEXT_ROUND" });
                 }}
               >

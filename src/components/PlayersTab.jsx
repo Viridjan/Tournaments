@@ -75,7 +75,7 @@ function PlayersTab({ state, dispatch, config }) {
               onBlur={() => setTimeout(() => setAcFocused(false), 150)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && input.trim()) {
-                  if (suggestions.length === 1) addPlayer(suggestions[0].name);
+                  if (suggestions.length > 0) addPlayer(suggestions[0].name);
                   else addPlayer(input);
                 }
               }}
