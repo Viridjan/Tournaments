@@ -232,7 +232,7 @@ function gen1v1(pl, h, ph, rr, db, fp) {
 }
 function genMulti(pl, mn, mx, db) {
   const ac = pl.filter((p) => !p.eliminated);
-  ac.sort((a, b) => b.score - a.score || b.w - a.w || gE(db, a.name) - gE(db, b.name));
+  ac.sort((a, b) => b.score - a.score || b.w - a.w || gE(db, b.name) - gE(db, a.name));
   const n = ac.length,
     g = [];
   if (n > 0 && n < mn) g.push(ac.map((p) => p.name));
