@@ -16,11 +16,11 @@ function LandingScreen({ dispatch, tournaments }) {
       <p style={{ fontSize: 13, color: C.muted, marginBottom: 36 }}>Select a tournament type</p>
       <div
         style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+          display: "flex",
+          flexDirection: "column",
           gap: 12,
           width: "100%",
-          maxWidth: 520,
+          maxWidth: 420,
         }}
       >
         {Object.values(tournaments).map((t) => (
@@ -31,9 +31,11 @@ function LandingScreen({ dispatch, tournaments }) {
               background: C.card,
               border: `0.5px solid ${C.border}`,
               borderRadius: 16,
-              padding: "24px 20px",
+              padding: "16px 20px",
               cursor: "pointer",
-              textAlign: "center",
+              display: "flex",
+              alignItems: "center",
+              gap: 16,
               transition: "box-shadow 0.15s, transform 0.15s",
               userSelect: "none",
             }}
@@ -46,9 +48,11 @@ function LandingScreen({ dispatch, tournaments }) {
               e.currentTarget.style.transform = "none";
             }}
           >
-            <div style={{ fontSize: 36, marginBottom: 10 }}>{t.icon}</div>
-            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>{t.name}</div>
-            <div style={{ fontSize: 12, color: C.muted }}>{t.desc}</div>
+            <div style={{ fontSize: 32, flexShrink: 0 }}>{t.icon}</div>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 2 }}>{t.name}</div>
+              <div style={{ fontSize: 12, color: C.muted }}>{t.desc}</div>
+            </div>
           </div>
         ))}
         <div
@@ -56,12 +60,14 @@ function LandingScreen({ dispatch, tournaments }) {
             background: C.card,
             border: `0.5px solid ${C.border}`,
             borderRadius: 16,
-            padding: "24px 20px",
-            textAlign: "center",
+            padding: "16px 20px",
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
             opacity: 0.4,
           }}
         >
-          <div style={{ fontSize: 36, marginBottom: 10 }}>⚔️</div>
+          <div style={{ fontSize: 32, flexShrink: 0 }}>⚔️</div>
           <div style={{ fontSize: 15, fontWeight: 600 }}>Coming soon</div>
         </div>
       </div>
