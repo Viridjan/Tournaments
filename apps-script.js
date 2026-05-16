@@ -4,13 +4,13 @@
 //
 // SETUP:
 // 1. Create a new Google Sheet
-// 2. Create 4 tabs (sheets): "ELO", "Seeds", "Rules", "Tournaments"
+// 2. Create 4 tabs (sheets): "ELO", "Seeds", "Rules", "Settings"
 // 3. In the ELO tab, add headers in row 1: Name | ELO | Test
 // 4. In the Seeds tab, add headers in row 1: ID | Label | Timestamp | Data
 // 5. In the Rules tab, add headers in row 1: Tournament | Category | Rule | Description | Update
 //    Then add your rules with the tournament name matching exactly
 //    (e.g., "Drunken Draft", "Vintage Draft", "Risk Grand Prix")
-// 6. In the Tournaments tab, add headers in row 1:
+// 6. In the Settings tab, add headers in row 1:
 //    id | name | icon | desc | scoring | startScore | winPoints | drawPoints | lossPoints |
 //    cumulativeDrawPenalty | pairing | rrRounds | timerMinutes | draft | elo | eloKMax |
 //    firstPlayer | grandPrix | gpBestOfLast | gpDropWorst | prizes | timeout | timeoutTime |
@@ -243,7 +243,7 @@ var TOURNAMENT_FEATURE_KEYS = [
 ];
 
 function loadTournaments() {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Tournaments");
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Settings");
   if (!sheet) return jsonResponse({ tournaments: [] });
 
   var data = sheet.getDataRange().getValues();
@@ -282,9 +282,9 @@ function saveTournament(data) {
   var t = data.tournament;
   if (!t || !t.id) return jsonResponse({ error: "Missing tournament id" });
 
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Tournaments");
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Settings");
   if (!sheet) {
-    sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet("Tournaments");
+    sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet("Settings");
     var initHeaders = ["id", "name", "icon", "desc"].concat(TOURNAMENT_FEATURE_KEYS);
     sheet.getRange(1, 1, 1, initHeaders.length).setValues([initHeaders]);
   }
