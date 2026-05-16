@@ -23,7 +23,7 @@ function LandingScreen({ dispatch, tournaments }) {
           maxWidth: 520,
         }}
       >
-        {Object.values(tournaments || T).map((t) => (
+        {Object.values(tournaments).map((t) => (
           <div
             key={t.id}
             onClick={() => dispatch({ type: "OPEN_TOURNAMENT", id: t.id })}

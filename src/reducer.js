@@ -46,7 +46,7 @@ const init = {
     { name: "Ante", weight: 20 },
     { name: "Pain rare", weight: 20 },
   ],
-  tournaments: { ...T },
+  tournaments: {},
   featureOverrides: {},
   testMode: false,
   experimental: false,
@@ -288,9 +288,9 @@ function reducer(st, a) {
       return { ...ns, pairings: mkP(ns, st.players, st.history, ph) };
     }
     case "SET_TOURNAMENTS": {
-      const merged = { ...T };
-      a.tournaments.forEach((t) => { if (t.id) merged[t.id] = t; });
-      return { ...st, tournaments: merged };
+      const tournaments = {};
+      a.tournaments.forEach((t) => { if (t.id) tournaments[t.id] = t; });
+      return { ...st, tournaments };
     }
     case "SET_ELO_DB": {
       const db = {};
@@ -300,15 +300,7 @@ function reducer(st, a) {
       sLS(EK, db);
       return { ...st, eloDb: db };
     }
-    case "MERGE_ELO_DB": {
-      const merged = { ...st.eloDb, ...a.db };
-      const db = {};
-      Object.values(merged).forEach((e) => {
-        if (e?.name) db[e.name.toLowerCase()] = e;
-      });
-      sLS(EK, db);
-      return { ...st, eloDb: db };
-    }
+
     case "ADD_PRIZE":
       return {
         ...st,

@@ -14,105 +14,6 @@
 <script type="text/babel">
 const{useState,useReducer,useEffect,useRef,useCallback,useMemo}=React;
 
-// ═══════════════════════════════════════════════════════
-// Tournament configs — each tournament is just a settings object
-
-// Each tournament is defined by its features object.
-const T = {
-  "drunken-draft": {
-    id: "drunken-draft",
-    name: "Drunken Draft",
-    icon: "🍺",
-    desc: "Classic lifepoints elimination",
-    features: {
-      scoring: "lifepoints",
-      startScore: 4,
-      winPoints: 3,
-      drawPoints: 1,
-      lossPoints: 0,
-      cumulativeDrawPenalty: true,
-      pairing: "1v1",
-      rrRounds: 2,
-      timerMinutes: 20,
-      draft: true,
-      elo: true,
-      eloKMax: 50,
-      firstPlayer: true,
-      grandPrix: false,
-      gpBestOfLast: 3,
-      gpDropWorst: 1,
-      prizes: true,
-      timeout: true,
-      timeoutTime: "23:00",
-      spinner: false,
-      rules: true,
-      matchMin: 2,
-      matchMax: 2,
-    },
-  },
-  "vintage-draft": {
-    id: "vintage-draft",
-    name: "Vintage Draft",
-    icon: "🪷",
-    desc: "Swiss scoring, no elimination",
-    features: {
-      scoring: "swiss",
-      startScore: 0,
-      winPoints: 3,
-      drawPoints: 1,
-      lossPoints: 0,
-      cumulativeDrawPenalty: false,
-      pairing: "1v1",
-      rrRounds: 0,
-      timerMinutes: 50,
-      draft: true,
-      elo: true,
-      eloKMax: 50,
-      firstPlayer: true,
-      grandPrix: false,
-      gpBestOfLast: 3,
-      gpDropWorst: 1,
-      prizes: true,
-      timeout: true,
-      timeoutTime: "23:00",
-      spinner: false,
-      rules: true,
-      matchMin: 2,
-      matchMax: 2,
-    },
-  },
-  "risk-grand-prix": {
-    id: "risk-grand-prix",
-    name: "Risk Grand Prix",
-    icon: "🪖",
-    desc: "Multi-player points, best of 3",
-    features: {
-      scoring: "points",
-      startScore: 0,
-      winPoints: 3,
-      drawPoints: 1,
-      lossPoints: 0,
-      cumulativeDrawPenalty: false,
-      pairing: "multi",
-      rrRounds: 0,
-      timerMinutes: 120,
-      draft: false,
-      elo: true,
-      eloKMax: 50,
-      firstPlayer: false,
-      grandPrix: true,
-      gpBestOfLast: 3,
-      gpDropWorst: 1,
-      prizes: true,
-      timeout: false,
-      timeoutTime: "",
-      spinner: false,
-      rules: false,
-      matchMin: 3,
-      matchMax: 4,
-    },
-  },
-};
 
 const ED = 1000,
   EM = 50,
@@ -500,7 +401,7 @@ const init = {
     { name: "Ante", weight: 20 },
     { name: "Pain rare", weight: 20 },
   ],
-  tournaments: { ...T },
+  tournaments: {},
   featureOverrides: {},
   testMode: false,
   experimental: false,
@@ -742,9 +643,9 @@ function reducer(st, a) {
       return { ...ns, pairings: mkP(ns, st.players, st.history, ph) };
     }
     case "SET_TOURNAMENTS": {
-      const merged = { ...T };
-      a.tournaments.forEach((t) => { if (t.id) merged[t.id] = t; });
-      return { ...st, tournaments: merged };
+      const tournaments = {};
+      a.tournaments.forEach((t) => { if (t.id) tournaments[t.id] = t; });
+      return { ...st, tournaments };
     }
     case "SET_ELO_DB": {
       const db = {};
@@ -754,15 +655,7 @@ function reducer(st, a) {
       sLS(EK, db);
       return { ...st, eloDb: db };
     }
-    case "MERGE_ELO_DB": {
-      const merged = { ...st.eloDb, ...a.db };
-      const db = {};
-      Object.values(merged).forEach((e) => {
-        if (e?.name) db[e.name.toLowerCase()] = e;
-      });
-      sLS(EK, db);
-      return { ...st, eloDb: db };
-    }
+
     case "ADD_PRIZE":
       return {
         ...st,
@@ -2068,7 +1961,7 @@ function LandingScreen({ dispatch, tournaments }) {
           maxWidth: 520,
         }}
       >
-        {Object.values(tournaments || T).map((t) => (
+        {Object.values(tournaments).map((t) => (
           <div
             key={t.id}
             onClick={() => dispatch({ type: "OPEN_TOURNAMENT", id: t.id })}
