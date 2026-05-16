@@ -26,10 +26,6 @@ function StandingsTab({ state, dispatch, config }) {
     if (!al?.allocs?.[i]) return null;
     return al.allocs[i];
   };
-  const st = [{ id: "rankings", label: "Rankings" }, c.elo && { id: "elo", label: "ELO" }].filter(
-    Boolean,
-  );
-  const as = st.find((t) => t.id === state.standingsSubTab) ? state.standingsSubTab : "rankings";
   return (
     <div>
       {w && (
@@ -66,13 +62,7 @@ function StandingsTab({ state, dispatch, config }) {
           <div style={{ fontSize: 22, fontWeight: 500 }}>{ac.length || "—"}</div>
         </div>
       </div>
-      <TabBar
-        tabs={st}
-        active={as}
-        onSelect={(id) => dispatch({ type: "SET_STANDINGS_SUBTAB", tab: id })}
-      />
-      {as === "rankings" && (
-        <Card>
+      <Card>
           <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse" }}>
             <thead>
               <tr>
@@ -104,6 +94,8 @@ function StandingsTab({ state, dispatch, config }) {
               {so.map((p, i) => {
                 const ds = gs(p);
                 const pr = prizeFor(i);
+                const elo = gE(state.eloDb, p.name);
+                const eloDelta = c.elo && p.eloStart != null ? elo - p.eloStart : null;
                 return (
                   <tr key={p.name}>
                     <td
@@ -125,7 +117,12 @@ function StandingsTab({ state, dispatch, config }) {
                         fontWeight: 500,
                       }}
                     >
-                      {gE(state.eloDb, p.name)}
+                      {elo}
+                      {eloDelta != null && eloDelta !== 0 && (
+                        <span style={{ fontSize: 11, fontWeight: 500, color: eloDelta > 0 ? C.green : C.red, marginLeft: 4 }}>
+                          {eloDelta > 0 ? "+" : ""}{eloDelta}
+                        </span>
+                      )}
                     </td>
                     <td style={{ padding: "7px 8px", borderBottom: `0.5px solid ${C.bL}` }}>
                       {c.scoring === "lifepoints" ? (
@@ -188,68 +185,7 @@ function StandingsTab({ state, dispatch, config }) {
               Prize pool: €{al.totalPool.toFixed(2)} · Allocated: €{al.grandTotal.toFixed(2)}
             </div>
           )}
-        </Card>
-      )}
-      {as === "elo" && state.history.length > 0 && (
-        <Card>
-          <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                {["Player", "Before", "After", "Δ"].map((h, hi) => (
-                  <th
-                    key={hi}
-                    style={{
-                      fontWeight: 500,
-                      fontSize: 12,
-                      color: C.muted,
-                      textAlign: "left",
-                      padding: "6px 8px",
-                      borderBottom: `0.5px solid ${C.border}`,
-                    }}
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {state.players.map((p) => {
-                const b = p.eloStart || ED,
-                  a = gE(state.eloDb, p.name),
-                  d = a - b;
-                return (
-                  <tr key={p.name}>
-                    <td style={{ padding: "7px 8px", borderBottom: `0.5px solid ${C.bL}` }}>
-                      {p.name}
-                    </td>
-                    <td style={{ padding: "7px 8px", borderBottom: `0.5px solid ${C.bL}` }}>{b}</td>
-                    <td
-                      style={{
-                        padding: "7px 8px",
-                        borderBottom: `0.5px solid ${C.bL}`,
-                        fontWeight: 500,
-                      }}
-                    >
-                      {a}
-                    </td>
-                    <td style={{ padding: "7px 8px", borderBottom: `0.5px solid ${C.bL}` }}>
-                      <span
-                        style={{
-                          fontWeight: 500,
-                          color: d > 0 ? C.green : d < 0 ? C.red : C.muted,
-                        }}
-                      >
-                        {d > 0 ? "+" : ""}
-                        {d}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </Card>
-      )}
+      </Card>
     </div>
   );
 }
