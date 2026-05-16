@@ -37,6 +37,7 @@ function doGet(e) {
   if (action === "rules") return loadRules(e.parameter.tournament);
   if (action === "tournament_list") return loadTournaments();
   if (action === "debug_settings") return debugSettings();
+  if (action === "debug_elo") return debugElo();
 
   return jsonResponse({ error: "Unknown action" });
 }
@@ -363,6 +364,17 @@ function saveTournament(data) {
 }
 
 // ── Debug ──
+
+function debugElo() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("ELO");
+  if (!sheet) return jsonResponse({ error: "No sheet named ELO" });
+  var data = sheet.getDataRange().getValues();
+  return jsonResponse({
+    rowCount: data.length,
+    headers: data.length > 0 ? data[0] : [],
+    firstDataRow: data.length > 1 ? data[1] : []
+  });
+}
 
 function debugSettings() {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Settings");
