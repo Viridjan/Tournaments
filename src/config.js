@@ -105,4 +105,4 @@ const ED = 1000,
   SK = "tournament_sheets_url_v1",
   BK = "tournament_local_backup";
 const DU =
-  "https://script.google.com/macros/s/AKfycbwv1_VvRVb9UxoWRWj0-0gV3c1gXSCujqld7MG4c8MlbDsCKzobMWqTLe3xj69sIYxL-w/exec";
+  "https://script.google.com/macros/s/AKfycbyCYQpHEUfsDQvsnwPpvZ4eC02ckFnR7lGukO8EghYg4UvbyadjaQkFkfp9WWfWPrq-1g/exec";
