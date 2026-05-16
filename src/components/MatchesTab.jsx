@@ -118,6 +118,54 @@ function ML({ state }) {
         if (ev.type === "round") {
           const rd = state.history[ri++];
           if (!rd) return null;
+          const isMultiRound = rd.some((m) => m.type === "multi");
+          if (isMultiRound) {
+            return (
+              <div key={ei} style={{ marginBottom: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, padding: "0 4px" }}>
+                  <h3 style={{ fontSize: 15, fontWeight: 500 }}>{ev.label}</h3>
+                  <span style={{ fontSize: 11, color: C.faint }}>{ev.ts}</span>
+                </div>
+                {rd.map((m, mi) => (
+                  <Card key={mi} style={{ marginBottom: 8 }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: C.purple, marginBottom: 6 }}>
+                      Table {mi + 1} · {m.players.length}p
+                    </div>
+                    {m.players.map((n) => (
+                      <div
+                        key={n}
+                        style={{
+                          fontSize: 13,
+                          padding: "4px 0",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          borderBottom: `0.5px solid ${C.bL}`,
+                        }}
+                      >
+                        <span style={{ fontWeight: 500 }}>{n}</span>
+                        <span style={{ color: C.muted }}>
+                          {m.scores[n]}pt{" "}
+                          {m.eloDeltas?.[n] != null && (
+                            <span
+                              style={{
+                                color:
+                                  m.eloDeltas[n] > 0 ? C.green : m.eloDeltas[n] < 0 ? C.red : C.muted,
+                                fontWeight: 500,
+                                fontSize: 11,
+                              }}
+                            >
+                              {m.eloDeltas[n] > 0 ? "+" : ""}
+                              {m.eloDeltas[n]}
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    ))}
+                  </Card>
+                ))}
+              </div>
+            );
+          }
           return (
             <Card key={ei} style={{ marginBottom: 12 }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
@@ -138,37 +186,6 @@ function ML({ state }) {
                       {m.p1} — <Tag variant="grey">BYE</Tag>
                     </div>
                   );
-                if (m.type === "multi")
-                  return m.players.map((n) => (
-                    <div
-                      key={n}
-                      style={{
-                        fontSize: 13,
-                        padding: "4px 0",
-                        display: "flex",
-                        justifyContent: "space-between",
-                        borderBottom: `0.5px solid ${C.bL}`,
-                      }}
-                    >
-                      <span style={{ fontWeight: 500 }}>{n}</span>
-                      <span style={{ color: C.muted }}>
-                        {m.scores[n]}pt{" "}
-                        {m.eloDeltas?.[n] != null && (
-                          <span
-                            style={{
-                              color:
-                                m.eloDeltas[n] > 0 ? C.green : m.eloDeltas[n] < 0 ? C.red : C.muted,
-                              fontWeight: 500,
-                              fontSize: 11,
-                            }}
-                          >
-                            {m.eloDeltas[n] > 0 ? "+" : ""}
-                            {m.eloDeltas[n]}
-                          </span>
-                        )}
-                      </span>
-                    </div>
-                  ));
                 const w = m.result === "p1win" ? m.p1 : m.result === "p2win" ? m.p2 : null,
                   l = m.result === "p1win" ? m.p2 : m.result === "p2win" ? m.p1 : null,
                   d =

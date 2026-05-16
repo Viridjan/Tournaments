@@ -160,13 +160,32 @@ function reducer(st, a) {
           const fl = m.players.filter((n) => String(m.scores[n]).trim() !== ""),
             so = [...fl].sort(
               (a, b) => parseFloat(m.scores[b] || 0) - parseFloat(m.scores[a] || 0),
-            ),
-            top = so.length ? parseFloat(m.scores[so[0]] || 0) : 0;
-          so.forEach((n) => {
-            const p = pl.find((x) => x.name === n);
-            if (!p) return;
-            parseFloat(m.scores[n] || 0) === top ? (p.w++, (p.score += c.winPoints || 3)) : p.l++;
-          });
+            );
+          if (so.length) {
+            const ptMap = [3, 2, 1];
+            const groups = [];
+            let gi = 0;
+            while (gi < so.length) {
+              const gs = parseFloat(m.scores[so[gi]] || 0);
+              let gj = gi;
+              while (gj < so.length && parseFloat(m.scores[so[gj]] || 0) === gs) gj++;
+              groups.push({ players: so.slice(gi, gj), score: gs });
+              gi = gj;
+            }
+            const multiGroup = groups.length > 1;
+            let rank = 1;
+            groups.forEach((g, idx) => {
+              const isLast = multiGroup && idx === groups.length - 1;
+              const pts = isLast || g.score === 0 ? 0 : (ptMap[rank - 1] ?? 0);
+              g.players.forEach((n) => {
+                const p = pl.find((x) => x.name === n);
+                if (!p) return;
+                p.score += pts;
+                pts > 0 ? p.w++ : p.l++;
+              });
+              rank += g.players.length;
+            });
+          }
           if (c.elo) {
             const n = m.players.length,
               K = (c.eloKMax || 50) / n,
