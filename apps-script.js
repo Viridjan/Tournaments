@@ -296,10 +296,11 @@ function loadTournaments() {
 
   function hIdx(key) { return headers.indexOf(key.toLowerCase()); }
 
+  var idColIdx = hIdx("id") !== -1 ? hIdx("id") : 0;
+
   for (var i = 1; i < data.length; i++) {
     var row = data[i];
-    var idIdx = hIdx("id");
-    var id = idIdx !== -1 ? String(row[idIdx] || "").trim() : "";
+    var id = String(row[idColIdx] || "").trim();
     if (!id) continue;
 
     var t = {
