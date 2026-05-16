@@ -4,8 +4,9 @@
 //
 // SETUP:
 // 1. Create a new Google Sheet
-// 2. Create 4 tabs (sheets): "ELO", "Seeds", "Rules", "Settings"
-// 3. In the ELO tab, add headers in row 1: Name | ELO | Test
+// 2. Create tabs (sheets): "ELO", "Seeds", "Rules", "Settings"
+// 3. In the ELO tab, add headers in row 1: Test | ELO Magic | ELO Risk | Name
+//    (ELO column names must match the eloCol setting in each tournament's Settings row)
 // 4. In the Seeds tab, add headers in row 1: ID | Label | Timestamp | Data
 // 5. In the Rules tab, add headers in row 1: Tournament | Category | Rule | Description | Update
 //    Then add your rules with the tournament name matching exactly
@@ -30,7 +31,7 @@
 function doGet(e) {
   var action = e.parameter.action || "load";
 
-  if (action === "load") return loadElo();
+  if (action === "load") return loadElo(e.parameter.col);
   if (action === "seed_load") return loadSeed(e.parameter.id);
   if (action === "seed_list") return listSeeds();
   if (action === "rules") return loadRules(e.parameter.tournament);
@@ -57,78 +58,118 @@ function doPost(e) {
 
 // ── ELO Database ──
 
-function loadElo() {
+function loadElo(colName) {
+  var col = colName || "ELO";
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("ELO");
   if (!sheet) return jsonResponse({ entries: [] });
 
   var data = sheet.getDataRange().getValues();
-  // Deduplicate by lowercase name — last row wins
+  if (data.length < 1) return jsonResponse({ entries: [] });
+
+  var headers = data[0].map(function(h) { return String(h).trim(); });
+  var nameIdx = headers.indexOf("Name");
+  var eloIdx = headers.indexOf(col);
+  var testIdx = headers.indexOf("Test");
+
+  if (nameIdx === -1 || eloIdx === -1) return jsonResponse({ entries: [] });
+
   var seen = {};
   for (var i = 1; i < data.length; i++) {
-    var name = String(data[i][0] || "").trim();
-    if (!name) continue;
-    var key = name.toLowerCase();
+    var pName = String(data[i][nameIdx] || "").trim();
+    if (!pName) continue;
+    var key = pName.toLowerCase();
     seen[key] = {
-      name: name,
-      elo: parseInt(data[i][1]) || 1000,
-      test: data[i][2] === true || String(data[i][2]).toLowerCase() === "true"
+      name: pName,
+      elo: parseInt(data[i][eloIdx]) || 1000,
+      test: testIdx !== -1 && (data[i][testIdx] === true || String(data[i][testIdx]).toLowerCase() === "true")
     };
   }
 
   var entries = [];
-  for (var k in seen) {
-    entries.push(seen[k]);
-  }
-
+  for (var k in seen) entries.push(seen[k]);
   return jsonResponse({ entries: entries });
 }
 
 function saveElo(data) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("ELO");
+  var colName = data.col || "ELO";
+  var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = spreadsheet.getSheetByName("ELO");
   if (!sheet) {
-    sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet("ELO");
-    sheet.getRange(1, 1, 1, 3).setValues([["Name", "ELO", "Test"]]);
+    sheet = spreadsheet.insertSheet("ELO");
+    sheet.getRange(1, 1, 1, 3).setValues([["Test", colName, "Name"]]);
   }
 
   var entries = data.entries || [];
   if (!entries.length) return jsonResponse({ ok: true, count: 0 });
 
-  // First: remove all duplicate rows (keep first occurrence of each name)
-  var existing = sheet.getDataRange().getValues();
-  var seenNames = {};
-  var rowsToDelete = [];
-  for (var i = 1; i < existing.length; i++) {
-    var name = String(existing[i][0] || "").trim().toLowerCase();
-    if (!name) continue;
-    if (seenNames[name]) {
-      rowsToDelete.push(i + 1); // 1-indexed row
+  var allData = sheet.getDataRange().getValues();
+  var headers = allData[0].map(function(h) { return String(h).trim(); });
+
+  var nameIdx = headers.indexOf("Name");
+  var eloIdx = headers.indexOf(colName);
+  var testIdx = headers.indexOf("Test");
+
+  // Add Name column if sheet is empty/malformed
+  if (nameIdx === -1) {
+    sheet.getRange(1, 1).setValue("Name");
+    nameIdx = 0;
+  }
+  // Add this ELO column if missing
+  if (eloIdx === -1) {
+    var insertAt = testIdx !== -1 ? testIdx : headers.length;
+    // Shift Test column right if it exists
+    if (testIdx !== -1) {
+      sheet.insertColumnBefore(testIdx + 1);
+      sheet.getRange(1, testIdx + 1).setValue(colName);
+      eloIdx = testIdx;
+      testIdx = testIdx + 1;
     } else {
-      seenNames[name] = i + 1;
+      sheet.getRange(1, headers.length + 1).setValue(colName);
+      eloIdx = headers.length;
     }
   }
-  // Delete from bottom up to avoid index shifting
-  for (var d = rowsToDelete.length - 1; d >= 0; d--) {
-    sheet.deleteRow(rowsToDelete[d]);
+  // Add Test column if missing
+  if (testIdx === -1) {
+    allData = sheet.getDataRange().getValues();
+    headers = allData[0].map(function(h) { return String(h).trim(); });
+    testIdx = headers.length;
+    sheet.getRange(1, testIdx + 1).setValue("Test");
   }
 
-  // Re-read after cleanup
-  existing = sheet.getDataRange().getValues();
+  // Re-read after any column additions
+  allData = sheet.getDataRange().getValues();
+  headers = allData[0].map(function(h) { return String(h).trim(); });
+  nameIdx = headers.indexOf("Name");
+  eloIdx = headers.indexOf(colName);
+  testIdx = headers.indexOf("Test");
+
+  // Build name→row map
   var rowMap = {};
-  for (var i = 1; i < existing.length; i++) {
-    var name = String(existing[i][0] || "").trim().toLowerCase();
-    if (name) rowMap[name] = i + 1;
+  for (var i = 1; i < allData.length; i++) {
+    var n = String(allData[i][nameIdx] || "").trim().toLowerCase();
+    if (n) rowMap[n] = i + 1;
   }
 
-  // Update existing or append new
+  // Update or append
   for (var j = 0; j < entries.length; j++) {
     var e = entries[j];
     var key = e.name.toLowerCase();
     var testVal = e.test === true || e.test === "true";
 
     if (rowMap[key]) {
-      sheet.getRange(rowMap[key], 1, 1, 3).setValues([[e.name, e.elo, testVal]]);
+      sheet.getRange(rowMap[key], eloIdx + 1).setValue(e.elo);
+      sheet.getRange(rowMap[key], testIdx + 1).setValue(testVal);
     } else {
-      sheet.appendRow([e.name, e.elo, testVal]);
+      // New player: fill row with 1000 for all ELO columns, then set this one
+      var newRow = new Array(headers.length).fill("");
+      newRow[nameIdx] = e.name;
+      newRow[testIdx] = testVal;
+      for (var h = 0; h < headers.length; h++) {
+        if (h !== nameIdx && h !== testIdx && headers[h] !== "") newRow[h] = 1000;
+      }
+      newRow[eloIdx] = e.elo;
+      sheet.appendRow(newRow);
+      rowMap[key] = sheet.getLastRow();
     }
   }
 
@@ -238,7 +279,7 @@ function loadRules(tournament) {
 var TOURNAMENT_FEATURE_KEYS = [
   "scoring", "startScore", "winPoints", "drawPoints", "lossPoints",
   "cumulativeDrawPenalty", "pairing", "rrRounds", "timerMinutes", "draft", "elo", "eloKMax",
-  "firstPlayer", "grandPrix", "gpBestOfLast", "gpDropWorst", "prizes", "timeout",
+  "eloCol", "firstPlayer", "grandPrix", "gpBestOfLast", "gpDropWorst", "prizes", "timeout",
   "timeoutTime", "spinner", "rules", "matchMin", "matchMax"
 ];
 
@@ -249,25 +290,27 @@ function loadTournaments() {
   var data = sheet.getDataRange().getValues();
   if (data.length < 2) return jsonResponse({ tournaments: [] });
 
-  var headers = data[0].map(function(h) { return String(h).trim(); });
+  var headers = data[0].map(function(h) { return String(h).trim().toLowerCase(); });
   var tournaments = [];
+
+  function hIdx(key) { return headers.indexOf(key.toLowerCase()); }
 
   for (var i = 1; i < data.length; i++) {
     var row = data[i];
-    var idIdx = headers.indexOf("id");
+    var idIdx = hIdx("id");
     var id = idIdx !== -1 ? String(row[idIdx] || "").trim() : "";
     if (!id) continue;
 
     var t = {
       id: id,
-      name: String(row[headers.indexOf("name")] || ""),
-      icon: String(row[headers.indexOf("icon")] || ""),
-      desc: String(row[headers.indexOf("desc")] || ""),
+      name: String(row[hIdx("name")] !== undefined ? row[hIdx("name")] : ""),
+      icon: String(row[hIdx("icon")] !== undefined ? row[hIdx("icon")] : ""),
+      desc: String(row[hIdx("desc")] !== undefined ? row[hIdx("desc")] : ""),
       features: {}
     };
 
     TOURNAMENT_FEATURE_KEYS.forEach(function(key) {
-      var idx = headers.indexOf(key);
+      var idx = hIdx(key);
       if (idx === -1) return;
       t.features[key] = row[idx];
     });
