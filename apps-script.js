@@ -314,7 +314,12 @@ function loadTournaments() {
     TOURNAMENT_FEATURE_KEYS.forEach(function(key) {
       var idx = hIdx(key);
       if (idx === -1) return;
-      t.features[key] = row[idx];
+      var val = row[idx];
+      if (val instanceof Date) {
+        var hh = val.getHours(), mm = val.getMinutes();
+        val = (hh < 10 ? "0" : "") + hh + ":" + (mm < 10 ? "0" : "") + mm;
+      }
+      t.features[key] = val;
     });
 
     tournaments.push(t);
