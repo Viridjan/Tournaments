@@ -67,10 +67,10 @@ function loadElo(colName) {
   var data = sheet.getDataRange().getValues();
   if (data.length < 1) return jsonResponse({ entries: [] });
 
-  var headers = data[0].map(function(h) { return String(h).trim(); });
-  var nameIdx = headers.indexOf("Name");
-  var eloIdx = headers.indexOf(col);
-  var testIdx = headers.indexOf("Test");
+  var headers = data[0].map(function(h) { return String(h).trim().toLowerCase(); });
+  var nameIdx = headers.indexOf("name");
+  var eloIdx = headers.indexOf(col.toLowerCase());
+  var testIdx = headers.indexOf("test");
 
   if (nameIdx === -1 || eloIdx === -1) return jsonResponse({ entries: [] });
 
