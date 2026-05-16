@@ -88,34 +88,6 @@ function SheetsSync({ state, dispatch }) {
     const ok = results.every((r) => r.startsWith("✓"));
     setStatus(ok ? `✓ All tabs valid — ${results.join(" · ")}` : results.join("\n"));
   };
-  const seedTournaments = async () => {
-    if (!url) { setStatus("⚠ No URL"); return; }
-    const ts = Object.values(state.tournaments);
-    if (!ts.length) { setStatus("⚠ No tournaments"); return; }
-    setStatus("Seeding…");
-    try {
-      await Promise.all(ts.map((t) =>
-        fetch(url, {
-          method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify({ action: "tournament_save", tournament: t }),
-        })
-      ));
-      await new Promise((r) => setTimeout(r, 1500));
-      const vr = await fetch(url + "?action=tournament_list");
-      const vd = await vr.json();
-      const count = vd?.tournaments?.length || 0;
-      if (count >= ts.length) {
-        dispatch({ type: "SET_TOURNAMENTS", tournaments: vd.tournaments });
-        setStatus(`✓ Seeded & verified (${count} tournaments)`);
-      } else {
-        setStatus(`⚠ Sent ${ts.length} but Sheet has ${count} — check manually`);
-      }
-    } catch (e) {
-      setStatus("✗ " + e.message);
-    }
-  };
   const copyScript = () => {
     const s = APPS_SCRIPT;
     navigator.clipboard
@@ -154,7 +126,7 @@ function SheetsSync({ state, dispatch }) {
           ⬆ Push
         </Btn>
       </div>
-      <div style={{ display: "flex", gap: 6, marginBottom: 4 }}>
+      <div style={{ display: "flex", gap: 6 }}>
         <Btn
           onClick={validate}
           style={{ flex: 1, fontSize: 12, borderColor: C.blue, color: C.blue }}
@@ -166,14 +138,6 @@ function SheetsSync({ state, dispatch }) {
           style={{ flex: 1, fontSize: 12, borderColor: C.purple, color: C.purple }}
         >
           📋 Copy Script
-        </Btn>
-      </div>
-      <div style={{ display: "flex", gap: 6 }}>
-        <Btn
-          onClick={seedTournaments}
-          style={{ flex: 1, fontSize: 12, borderColor: C.green, color: C.green }}
-        >
-          🌱 Seed Tournaments
         </Btn>
       </div>
       <div
