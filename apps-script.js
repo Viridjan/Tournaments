@@ -36,6 +36,7 @@ function doGet(e) {
   if (action === "seed_list") return listSeeds();
   if (action === "rules") return loadRules(e.parameter.tournament);
   if (action === "tournament_list") return loadTournaments();
+  if (action === "debug_settings") return debugSettings();
 
   return jsonResponse({ error: "Unknown action" });
 }
@@ -353,6 +354,19 @@ function saveTournament(data) {
 
   sheet.appendRow(row);
   return jsonResponse({ ok: true, id: t.id });
+}
+
+// ── Debug ──
+
+function debugSettings() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Settings");
+  if (!sheet) return jsonResponse({ error: "No sheet named Settings" });
+  var data = sheet.getDataRange().getValues();
+  return jsonResponse({
+    rowCount: data.length,
+    headers: data.length > 0 ? data[0] : [],
+    firstDataRow: data.length > 1 ? data[1] : []
+  });
 }
 
 // ── Helpers ──
