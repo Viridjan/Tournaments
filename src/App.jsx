@@ -15,6 +15,19 @@ function App() {
       .then((d) => {
         if (d?.tournaments?.length) {
           dispatch({ type: "SET_TOURNAMENTS", tournaments: d.tournaments });
+          const cols = [...new Set(d.tournaments.map((t) => t.features?.eloCol).filter(Boolean))];
+          cols.forEach((col) => {
+            fetch(u + "?action=load&col=" + encodeURIComponent(col))
+              .then((r) => r.json())
+              .then((ed) => {
+                if (ed?.entries) {
+                  const db = {};
+                  ed.entries.forEach((e) => { if (e?.name) db[e.name.toLowerCase()] = { elo: parseInt(e.elo) || ED, name: e.name, test: !!e.test }; });
+                  dispatch({ type: "SET_ELO_DB", db, col });
+                }
+              })
+              .catch(() => {});
+          });
         } else if (d?.error) {
           setFetchError("Script error: " + d.error);
         } else {
