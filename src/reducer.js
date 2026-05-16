@@ -292,6 +292,14 @@ function reducer(st, a) {
       a.tournaments.forEach((t) => { if (t.id) merged[t.id] = t; });
       return { ...st, tournaments: merged };
     }
+    case "SET_ELO_DB": {
+      const db = {};
+      Object.values(a.db).forEach((e) => {
+        if (e?.name) db[e.name.toLowerCase()] = e;
+      });
+      sLS(EK, db);
+      return { ...st, eloDb: db };
+    }
     case "MERGE_ELO_DB": {
       const merged = { ...st.eloDb, ...a.db };
       const db = {};

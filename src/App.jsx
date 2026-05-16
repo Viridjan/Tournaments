@@ -21,7 +21,7 @@ function App() {
                   test: !!e.test,
                 };
             });
-            dispatch({ type: "MERGE_ELO_DB", db });
+            dispatch({ type: "SET_ELO_DB", db });
           }
         })
         .catch(() => {}),

@@ -20,7 +20,7 @@ function SheetsSync({ state, dispatch }) {
           if (e?.name)
             db[e.name.toLowerCase()] = { elo: parseInt(e.elo) || ED, name: e.name, test: !!e.test };
         });
-        dispatch({ type: "MERGE_ELO_DB", db });
+        dispatch({ type: "SET_ELO_DB", db });
         setStatus(`✓ Pulled ${Object.keys(db).length}`);
       }
     } catch (e) {
