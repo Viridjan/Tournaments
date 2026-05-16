@@ -4,37 +4,27 @@
 function App() {
   const [state, dispatch] = useReducer(reducer, init);
   const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    const url = gSU();
-    if (!url) { setLoading(false); return; }
-    Promise.all([
-      fetch(url + "?action=load")
-        .then((r) => r.json())
-        .then((d) => {
-          if (d?.entries) {
-            const db = {};
-            d.entries.forEach((e) => {
-              if (e?.name)
-                db[e.name.toLowerCase()] = {
-                  elo: parseInt(e.elo) || ED,
-                  name: e.name,
-                  test: !!e.test,
-                };
-            });
-            dispatch({ type: "SET_ELO_DB", db });
-          }
-        })
-        .catch(() => {}),
-      fetch(url + "?action=tournament_list")
-        .then((r) => r.json())
-        .then((d) => {
-          if (d?.tournaments?.length) {
-            dispatch({ type: "SET_TOURNAMENTS", tournaments: d.tournaments });
-          }
-        })
-        .catch(() => {}),
-    ]).finally(() => setLoading(false));
-  }, []);
+  const [fetchError, setFetchError] = useState(null);
+  const fetchTournaments = (url) => {
+    const u = url || gSU();
+    if (!u) { setLoading(false); return; }
+    setLoading(true);
+    setFetchError(null);
+    fetch(u + "?action=tournament_list")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.tournaments?.length) {
+          dispatch({ type: "SET_TOURNAMENTS", tournaments: d.tournaments });
+        } else if (d?.error) {
+          setFetchError("Script error: " + d.error);
+        } else {
+          setFetchError("Settings sheet is empty — add tournament rows to the sheet.");
+        }
+      })
+      .catch((err) => setFetchError("Fetch failed: " + (err?.message || "network error")))
+      .finally(() => setLoading(false));
+  };
+  useEffect(() => { fetchTournaments(); }, []);
   const restored = useRef(false);
   useEffect(() => {
     if (restored.current) return;
@@ -87,7 +77,7 @@ function App() {
         minHeight: "100vh",
       }}
     >
-      {state.screen === "landing" && <LandingScreen dispatch={dispatch} tournaments={state.tournaments} />}
+      {state.screen === "landing" && <LandingScreen dispatch={dispatch} tournaments={state.tournaments} onRetry={fetchTournaments} fetchError={fetchError} />}
       {state.screen === "tournament" && <Shell state={state} dispatch={dispatch} />}
     </div>
   );

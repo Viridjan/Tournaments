@@ -22,7 +22,7 @@ const ED = 1000,
   SK = "tournament_sheets_url_v1",
   BK = "tournament_local_backup";
 const DU =
-  "https://script.google.com/macros/s/AKfycbwm-sEMRuM6cgwp574riHtenkOyPm1Da8nWr01Itq9n0Y7MujNWum3-krUDFpusOx9nfw/exec";
+  "https://script.google.com/macros/s/AKfycbyCydE2KqkYOLhfDMmsmDHABKKtjdPlmZoZ_x2vcjG9YLHsXOcD8aE4Lw1WsKmCiKNbEQ/exec";
 
 // ═══════════════════════════════════════════════════════
 // Pure functions: ELO, pairing, scoring, prizes (no DOM, no state)
@@ -339,14 +339,19 @@ function sLS(k, v) {
   } catch {}
 }
 function gSU() {
-  return DU;
+  try {
+    return localStorage.getItem(SK) || DU;
+  } catch {
+    return DU;
+  }
 }
 function mkP(st, pl, h, ph) {
   const c = { ...st.tournaments?.[st.tournamentId]?.features, ...st.featureOverrides };
   if (!c) return [];
+  const activeElo = st.eloDb?.[c.eloCol || "ELO"] || {};
   return c.pairing === "multi"
-    ? genMulti(pl, c.matchMin, c.matchMax, st.eloDb)
-    : gen1v1(pl, h, ph, c.rrRounds, st.eloDb, c.firstPlayer);
+    ? genMulti(pl, c.matchMin, c.matchMax, activeElo)
+    : gen1v1(pl, h, ph, c.rrRounds, activeElo, c.firstPlayer);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -367,11 +372,21 @@ const init = {
   startedAt: null,
   eloDb: (() => {
     const raw = lLS(EK, {});
-    const db = {};
-    Object.values(raw).forEach((e) => {
-      if (e?.name) db[e.name.toLowerCase()] = e;
+    const vals = Object.values(raw);
+    if (vals.length > 0 && vals.some((v) => v && typeof v === "object" && "elo" in v)) {
+      const db = {};
+      vals.forEach((e) => { if (e?.name) db[e.name.toLowerCase()] = e; });
+      return { "ELO": db };
+    }
+    const result = {};
+    Object.entries(raw).forEach(([sh, entries]) => {
+      if (entries && typeof entries === "object") {
+        const db = {};
+        Object.values(entries).forEach((e) => { if (e?.name) db[e.name.toLowerCase()] = e; });
+        result[sh] = db;
+      }
     });
-    return db;
+    return result;
   })(),
   activeTab: "players",
   matchSubTab: "pairings",
@@ -458,6 +473,7 @@ function reducer(st, a) {
       const c = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
       if (!c) return st;
       const ss = c.startScore ?? 0;
+      const activeElo = st.eloDb[c.eloCol || "ELO"] || {};
       const pl = st.players.map((p) => ({
         ...p,
         score: ss,
@@ -466,7 +482,7 @@ function reducer(st, a) {
         l: 0,
         eliminated: false,
         firstCount: 0,
-        eloStart: gE(st.eloDb, p.name),
+        eloStart: gE(activeElo, p.name),
       }));
       const ph = c.rrRounds > 0 ? "roundrobin" : "swiss";
       const ns = {
@@ -502,8 +518,9 @@ function reducer(st, a) {
     case "NEXT_ROUND": {
       const c = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
       if (!c) return st;
+      const eloNs = c.eloCol || "ELO";
       let pl = st.players.map((p) => ({ ...p })),
-        db = { ...st.eloDb };
+        db = { ...(st.eloDb[eloNs] || {}) };
       const sc = c.scoring,
         rp = st.pairings.map((m) => ({ ...m }));
       rp.forEach((m) => {
@@ -623,10 +640,11 @@ function reducer(st, a) {
       if (ph === "roundrobin" && nr > c.rrRounds) ph = "swiss";
       const ac = pl.filter((p) => !p.eliminated),
         go = c.scoring === "lifepoints" && ac.length <= 1;
+      const newEloDb = { ...st.eloDb, [eloNs]: db };
       const ns = {
         ...st,
         players: pl,
-        eloDb: db,
+        eloDb: newEloDb,
         history: h,
         currentRound: nr,
         phase: ph,
@@ -636,7 +654,7 @@ function reducer(st, a) {
         ],
         activeTab: go ? "standings" : st.activeTab,
       };
-      sLS(EK, db);
+      sLS(EK, newEloDb);
       return { ...ns, pairings: go ? [] : mkP(ns, pl, h, ph) };
     }
     case "END_TOURNAMENT": {
@@ -663,12 +681,14 @@ function reducer(st, a) {
       return { ...st, tournaments };
     }
     case "SET_ELO_DB": {
+      const sheet = a.col || "ELO";
       const db = {};
       Object.values(a.db).forEach((e) => {
         if (e?.name) db[e.name.toLowerCase()] = e;
       });
-      sLS(EK, db);
-      return { ...st, eloDb: db };
+      const newEloDb = { ...st.eloDb, [sheet]: db };
+      sLS(EK, newEloDb);
+      return { ...st, eloDb: newEloDb };
     }
 
     case "ADD_PRIZE":
@@ -751,7 +771,10 @@ function reducer(st, a) {
         "Ivan",
         "Julia",
       ];
-      let db = { ...st.eloDb };
+      const testNs = (st.tournaments?.[st.tournamentId] ?
+        { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides }.eloCol
+        : null) || "ELO";
+      let db = { ...(st.eloDb[testNs] || {}) };
       const pl = [];
       for (let i = 0; i < a.count; i++) {
         const n = ns[i] || `Player ${i + 1}`;
@@ -767,7 +790,7 @@ function reducer(st, a) {
           firstCount: 0,
         });
       }
-      return { ...st, players: pl, eloDb: db };
+      return { ...st, players: pl, eloDb: { ...st.eloDb, [testNs]: db } };
     }
     case "AUTO_SELECT_WINNERS":
       return {
@@ -1484,15 +1507,15 @@ function SpinnerTab({ state, dispatch }) {
   );
 }
 
-const APPS_SCRIPT =
-  '// ══════════════════════════════════════════════════════════════\n// Tournament Manager — Google Apps Script Backend\n// ══════════════════════════════════════════════════════════════\n//\n// SETUP:\n// 1. Create a new Google Sheet\n// 2. Create 4 tabs (sheets): "ELO", "Seeds", "Rules", "Settings"\n// 3. In the ELO tab, add headers in row 1: Name | ELO | Test\n// 4. In the Seeds tab, add headers in row 1: ID | Label | Timestamp | Data\n// 5. In the Rules tab, add headers in row 1: Tournament | Category | Rule | Description | Update\n//    Then add your rules with the tournament name matching exactly\n//    (e.g., "Drunken Draft", "Vintage Draft", "Risk Grand Prix")\n// 6. In the Settings tab, add headers in row 1:\n//    id | name | icon | desc | scoring | startScore | winPoints | drawPoints | lossPoints |\n//    cumulativeDrawPenalty | pairing | rrRounds | timerMinutes | draft | elo | eloKMax |\n//    firstPlayer | grandPrix | gpBestOfLast | gpDropWorst | prizes | timeout | timeoutTime |\n//    spinner | rules | matchMin | matchMax\n//    Then add one row per tournament type.\n// 7. Go to Extensions > Apps Script\n// 8. Paste this entire script, replacing any existing code\n// 9. Click Deploy > New deployment\n// 10. Type: Web app\n// 11. Execute as: Me\n// 12. Who has access: Anyone\n// 13. Click Deploy and copy the URL\n// 14. Paste the URL into the Tournament Manager\'s Database URL field\n//\n// ══════════════════════════════════════════════════════════════\n\nfunction doGet(e) {\n  var action = e.parameter.action || "load";\n\n  if (action === "load") return loadElo();\n  if (action === "seed_load") return loadSeed(e.parameter.id);\n  if (action === "seed_list") return listSeeds();\n  if (action === "rules") return loadRules(e.parameter.tournament);\n  if (action === "tournament_list") return loadTournaments();\n\n  return jsonResponse({ error: "Unknown action" });\n}\n\nfunction doPost(e) {\n  try {\n    var data = JSON.parse(e.postData.contents);\n    var action = data.action || "save";\n\n    if (action === "save") return saveElo(data);\n    if (action === "seed_save") return saveSeed(data);\n    if (action === "seed_delete") return deleteSeed(data);\n    if (action === "tournament_save") return saveTournament(data);\n\n    return jsonResponse({ error: "Unknown action" });\n  } catch (err) {\n    return jsonResponse({ error: err.message });\n  }\n}\n\n// ── ELO Database ──\n\nfunction loadElo() {\n  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("ELO");\n  if (!sheet) return jsonResponse({ entries: [] });\n\n  var data = sheet.getDataRange().getValues();\n  // Deduplicate by lowercase name — last row wins\n  var seen = {};\n  for (var i = 1; i < data.length; i++) {\n    var name = String(data[i][0] || "").trim();\n    if (!name) continue;\n    var key = name.toLowerCase();\n    seen[key] = {\n      name: name,\n      elo: parseInt(data[i][1]) || 1000,\n      test: data[i][2] === true || String(data[i][2]).toLowerCase() === "true"\n    };\n  }\n\n  var entries = [];\n  for (var k in seen) {\n    entries.push(seen[k]);\n  }\n\n  return jsonResponse({ entries: entries });\n}\n\nfunction saveElo(data) {\n  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("ELO");\n  if (!sheet) {\n    sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet("ELO");\n    sheet.getRange(1, 1, 1, 3).setValues([["Name", "ELO", "Test"]]);\n  }\n\n  var entries = data.entries || [];\n  if (!entries.length) return jsonResponse({ ok: true, count: 0 });\n\n  // First: remove all duplicate rows (keep first occurrence of each name)\n  var existing = sheet.getDataRange().getValues();\n  var seenNames = {};\n  var rowsToDelete = [];\n  for (var i = 1; i < existing.length; i++) {\n    var name = String(existing[i][0] || "").trim().toLowerCase();\n    if (!name) continue;\n    if (seenNames[name]) {\n      rowsToDelete.push(i + 1); // 1-indexed row\n    } else {\n      seenNames[name] = i + 1;\n    }\n  }\n  // Delete from bottom up to avoid index shifting\n  for (var d = rowsToDelete.length - 1; d >= 0; d--) {\n    sheet.deleteRow(rowsToDelete[d]);\n  }\n\n  // Re-read after cleanup\n  existing = sheet.getDataRange().getValues();\n  var rowMap = {};\n  for (var i = 1; i < existing.length; i++) {\n    var name = String(existing[i][0] || "").trim().toLowerCase();\n    if (name) rowMap[name] = i + 1;\n  }\n\n  // Update existing or append new\n  for (var j = 0; j < entries.length; j++) {\n    var e = entries[j];\n    var key = e.name.toLowerCase();\n    var testVal = e.test === true || e.test === "true";\n\n    if (rowMap[key]) {\n      sheet.getRange(rowMap[key], 1, 1, 3).setValues([[e.name, e.elo, testVal]]);\n    } else {\n      sheet.appendRow([e.name, e.elo, testVal]);\n    }\n  }\n\n  return jsonResponse({ ok: true, count: entries.length });\n}\n\n// ── Seeds ──\n\nfunction saveSeed(data) {\n  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Seeds");\n  if (!sheet) {\n    sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet("Seeds");\n    sheet.getRange(1, 1, 1, 4).setValues([["ID", "Label", "Timestamp", "Data"]]);\n  }\n\n  var id = data.id || "";\n  var label = data.label || "";\n  var timestamp = new Date().toISOString();\n  var stored = data.data || JSON.stringify(data.chunks || []);\n\n  sheet.appendRow([id, label, timestamp, stored]);\n\n  return jsonResponse({ ok: true, id: id });\n}\n\nfunction loadSeed(id) {\n  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Seeds");\n  if (!sheet) return jsonResponse({ ok: false, error: "No Seeds sheet" });\n\n  id = (id || "").toUpperCase();\n  var data = sheet.getDataRange().getValues();\n\n  for (var i = data.length - 1; i >= 1; i--) {\n    if (String(data[i][0]).toUpperCase() === id) {\n      var raw = String(data[i][3]);\n      try {\n        var parsed = JSON.parse(raw);\n        if (Array.isArray(parsed)) {\n          return jsonResponse({ ok: true, chunks: parsed });\n        } else {\n          return jsonResponse({ ok: true, data: raw });\n        }\n      } catch (e) {\n        return jsonResponse({ ok: false, error: "Corrupt seed data" });\n      }\n    }\n  }\n\n  return jsonResponse({ ok: false, error: "Seed not found: " + id });\n}\n\nfunction deleteSeed(data) {\n  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Seeds");\n  if (!sheet) return jsonResponse({ ok: false, error: "No Seeds sheet" });\n\n  var id = (data.id || "").toUpperCase();\n  var rows = sheet.getDataRange().getValues();\n\n  for (var i = rows.length - 1; i >= 1; i--) {\n    if (String(rows[i][0]).toUpperCase() === id) {\n      sheet.deleteRow(i + 1);\n    }\n  }\n\n  return jsonResponse({ ok: true, id: id });\n}\n\nfunction listSeeds() {\n  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Seeds");\n  if (!sheet) return jsonResponse({ seeds: [] });\n\n  var data = sheet.getDataRange().getValues();\n  var seeds = [];\n\n  for (var i = 1; i < data.length; i++) {\n    seeds.push({\n      id: String(data[i][0]),\n      label: String(data[i][1]),\n      timestamp: String(data[i][2])\n    });\n  }\n\n  return jsonResponse({ seeds: seeds });\n}\n\n// ── Rules ──\n\nfunction loadRules(tournament) {\n  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Rules");\n  if (!sheet) return jsonResponse({ rows: [] });\n\n  tournament = (tournament || "").toLowerCase();\n  var data = sheet.getDataRange().getValues();\n  var rows = [];\n\n  for (var i = 1; i < data.length; i++) {\n    if (String(data[i][0]).toLowerCase() === tournament) {\n      rows.push(data[i].slice(1).filter(function(c) { return c !== ""; }));\n    }\n  }\n\n  return jsonResponse({ rows: rows });\n}\n\n// ── Tournaments ──\n\nvar TOURNAMENT_FEATURE_KEYS = [\n  "scoring", "startScore", "winPoints", "drawPoints", "lossPoints",\n  "cumulativeDrawPenalty", "pairing", "rrRounds", "timerMinutes", "draft", "elo", "eloKMax",\n  "firstPlayer", "grandPrix", "gpBestOfLast", "gpDropWorst", "prizes", "timeout",\n  "timeoutTime", "spinner", "rules", "matchMin", "matchMax"\n];\n\nfunction loadTournaments() {\n  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Settings");\n  if (!sheet) return jsonResponse({ tournaments: [] });\n\n  var data = sheet.getDataRange().getValues();\n  if (data.length < 2) return jsonResponse({ tournaments: [] });\n\n  var headers = data[0].map(function(h) { return String(h).trim(); });\n  var tournaments = [];\n\n  for (var i = 1; i < data.length; i++) {\n    var row = data[i];\n    var idIdx = headers.indexOf("id");\n    var id = idIdx !== -1 ? String(row[idIdx] || "").trim() : "";\n    if (!id) continue;\n\n    var t = {\n      id: id,\n      name: String(row[headers.indexOf("name")] || ""),\n      icon: String(row[headers.indexOf("icon")] || ""),\n      desc: String(row[headers.indexOf("desc")] || ""),\n      features: {}\n    };\n\n    TOURNAMENT_FEATURE_KEYS.forEach(function(key) {\n      var idx = headers.indexOf(key);\n      if (idx === -1) return;\n      t.features[key] = row[idx];\n    });\n\n    tournaments.push(t);\n  }\n\n  return jsonResponse({ tournaments: tournaments });\n}\n\nfunction saveTournament(data) {\n  var t = data.tournament;\n  if (!t || !t.id) return jsonResponse({ error: "Missing tournament id" });\n\n  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Settings");\n  if (!sheet) {\n    sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet("Settings");\n    var initHeaders = ["id", "name", "icon", "desc"].concat(TOURNAMENT_FEATURE_KEYS);\n    sheet.getRange(1, 1, 1, initHeaders.length).setValues([initHeaders]);\n  }\n\n  var existing = sheet.getDataRange().getValues();\n  var headers = existing[0].map(function(h) { return String(h).trim(); });\n\n  var row = headers.map(function(h) {\n    if (h === "id") return t.id;\n    if (h === "name") return t.name || "";\n    if (h === "icon") return t.icon || "";\n    if (h === "desc") return t.desc || "";\n    return t.features && t.features[h] !== undefined ? t.features[h] : "";\n  });\n\n  var idIdx = headers.indexOf("id");\n  for (var i = 1; i < existing.length; i++) {\n    if (String(existing[i][idIdx]).trim() === t.id) {\n      sheet.getRange(i + 1, 1, 1, row.length).setValues([row]);\n      return jsonResponse({ ok: true, id: t.id });\n    }\n  }\n\n  sheet.appendRow(row);\n  return jsonResponse({ ok: true, id: t.id });\n}\n\n// ── Helpers ──\n\nfunction jsonResponse(obj) {\n  return ContentService\n    .createTextOutput(JSON.stringify(obj))\n    .setMimeType(ContentService.MimeType.JSON);\n}\n';
+const APPS_SCRIPT = "// ══════════════════════════════════════════════════════════════\n// Tournament Manager — Google Apps Script Backend\n// ══════════════════════════════════════════════════════════════\n//\n// SETUP:\n// 1. Create a new Google Sheet\n// 2. Create tabs (sheets): \"ELO\", \"Seeds\", \"Rules\", \"Settings\"\n// 3. In the ELO tab, add headers in row 1: Test | ELO Magic | ELO Risk | Name\n//    (ELO column names must match the eloCol setting in each tournament's Settings row)\n// 4. In the Seeds tab, add headers in row 1: ID | Label | Timestamp | Data\n// 5. In the Rules tab, add headers in row 1: Tournament | Category | Rule | Description | Update\n//    Then add your rules with the tournament name matching exactly\n//    (e.g., \"Drunken Draft\", \"Vintage Draft\", \"Risk Grand Prix\")\n// 6. In the Settings tab, add headers in row 1:\n//    id | name | icon | desc | scoring | startScore | winPoints | drawPoints | lossPoints |\n//    cumulativeDrawPenalty | pairing | rrRounds | timerMinutes | draft | elo | eloKMax |\n//    firstPlayer | grandPrix | gpBestOfLast | gpDropWorst | prizes | timeout | timeoutTime |\n//    spinner | rules | matchMin | matchMax\n//    Then add one row per tournament type.\n// 7. Go to Extensions > Apps Script\n// 8. Paste this entire script, replacing any existing code\n// 9. Click Deploy > New deployment\n// 10. Type: Web app\n// 11. Execute as: Me\n// 12. Who has access: Anyone\n// 13. Click Deploy and copy the URL\n// 14. Paste the URL into the Tournament Manager's Database URL field\n//\n// ══════════════════════════════════════════════════════════════\n\nfunction doGet(e) {\n  var action = e.parameter.action || \"load\";\n\n  if (action === \"load\") return loadElo(e.parameter.col);\n  if (action === \"seed_load\") return loadSeed(e.parameter.id);\n  if (action === \"seed_list\") return listSeeds();\n  if (action === \"rules\") return loadRules(e.parameter.tournament);\n  if (action === \"tournament_list\") return loadTournaments();\n\n  return jsonResponse({ error: \"Unknown action\" });\n}\n\nfunction doPost(e) {\n  try {\n    var data = JSON.parse(e.postData.contents);\n    var action = data.action || \"save\";\n\n    if (action === \"save\") return saveElo(data);\n    if (action === \"seed_save\") return saveSeed(data);\n    if (action === \"seed_delete\") return deleteSeed(data);\n    if (action === \"tournament_save\") return saveTournament(data);\n\n    return jsonResponse({ error: \"Unknown action\" });\n  } catch (err) {\n    return jsonResponse({ error: err.message });\n  }\n}\n\n// ── ELO Database ──\n\nfunction loadElo(colName) {\n  var col = colName || \"ELO\";\n  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(\"ELO\");\n  if (!sheet) return jsonResponse({ entries: [] });\n\n  var data = sheet.getDataRange().getValues();\n  if (data.length < 1) return jsonResponse({ entries: [] });\n\n  var headers = data[0].map(function(h) { return String(h).trim(); });\n  var nameIdx = headers.indexOf(\"Name\");\n  var eloIdx = headers.indexOf(col);\n  var testIdx = headers.indexOf(\"Test\");\n\n  if (nameIdx === -1 || eloIdx === -1) return jsonResponse({ entries: [] });\n\n  var seen = {};\n  for (var i = 1; i < data.length; i++) {\n    var pName = String(data[i][nameIdx] || \"\").trim();\n    if (!pName) continue;\n    var key = pName.toLowerCase();\n    seen[key] = {\n      name: pName,\n      elo: parseInt(data[i][eloIdx]) || 1000,\n      test: testIdx !== -1 && (data[i][testIdx] === true || String(data[i][testIdx]).toLowerCase() === \"true\")\n    };\n  }\n\n  var entries = [];\n  for (var k in seen) entries.push(seen[k]);\n  return jsonResponse({ entries: entries });\n}\n\nfunction saveElo(data) {\n  var colName = data.col || \"ELO\";\n  var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();\n  var sheet = spreadsheet.getSheetByName(\"ELO\");\n  if (!sheet) {\n    sheet = spreadsheet.insertSheet(\"ELO\");\n    sheet.getRange(1, 1, 1, 3).setValues([[\"Test\", colName, \"Name\"]]);\n  }\n\n  var entries = data.entries || [];\n  if (!entries.length) return jsonResponse({ ok: true, count: 0 });\n\n  var allData = sheet.getDataRange().getValues();\n  var headers = allData[0].map(function(h) { return String(h).trim(); });\n\n  var nameIdx = headers.indexOf(\"Name\");\n  var eloIdx = headers.indexOf(colName);\n  var testIdx = headers.indexOf(\"Test\");\n\n  // Add Name column if sheet is empty/malformed\n  if (nameIdx === -1) {\n    sheet.getRange(1, 1).setValue(\"Name\");\n    nameIdx = 0;\n  }\n  // Add this ELO column if missing\n  if (eloIdx === -1) {\n    var insertAt = testIdx !== -1 ? testIdx : headers.length;\n    // Shift Test column right if it exists\n    if (testIdx !== -1) {\n      sheet.insertColumnBefore(testIdx + 1);\n      sheet.getRange(1, testIdx + 1).setValue(colName);\n      eloIdx = testIdx;\n      testIdx = testIdx + 1;\n    } else {\n      sheet.getRange(1, headers.length + 1).setValue(colName);\n      eloIdx = headers.length;\n    }\n  }\n  // Add Test column if missing\n  if (testIdx === -1) {\n    allData = sheet.getDataRange().getValues();\n    headers = allData[0].map(function(h) { return String(h).trim(); });\n    testIdx = headers.length;\n    sheet.getRange(1, testIdx + 1).setValue(\"Test\");\n  }\n\n  // Re-read after any column additions\n  allData = sheet.getDataRange().getValues();\n  headers = allData[0].map(function(h) { return String(h).trim(); });\n  nameIdx = headers.indexOf(\"Name\");\n  eloIdx = headers.indexOf(colName);\n  testIdx = headers.indexOf(\"Test\");\n\n  // Build name→row map\n  var rowMap = {};\n  for (var i = 1; i < allData.length; i++) {\n    var n = String(allData[i][nameIdx] || \"\").trim().toLowerCase();\n    if (n) rowMap[n] = i + 1;\n  }\n\n  // Update or append\n  for (var j = 0; j < entries.length; j++) {\n    var e = entries[j];\n    var key = e.name.toLowerCase();\n    var testVal = e.test === true || e.test === \"true\";\n\n    if (rowMap[key]) {\n      sheet.getRange(rowMap[key], eloIdx + 1).setValue(e.elo);\n      sheet.getRange(rowMap[key], testIdx + 1).setValue(testVal);\n    } else {\n      // New player: fill row with 1000 for all ELO columns, then set this one\n      var newRow = new Array(headers.length).fill(\"\");\n      newRow[nameIdx] = e.name;\n      newRow[testIdx] = testVal;\n      for (var h = 0; h < headers.length; h++) {\n        if (h !== nameIdx && h !== testIdx && headers[h] !== \"\") newRow[h] = 1000;\n      }\n      newRow[eloIdx] = e.elo;\n      sheet.appendRow(newRow);\n      rowMap[key] = sheet.getLastRow();\n    }\n  }\n\n  return jsonResponse({ ok: true, count: entries.length });\n}\n\n// ── Seeds ──\n\nfunction saveSeed(data) {\n  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(\"Seeds\");\n  if (!sheet) {\n    sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(\"Seeds\");\n    sheet.getRange(1, 1, 1, 4).setValues([[\"ID\", \"Label\", \"Timestamp\", \"Data\"]]);\n  }\n\n  var id = data.id || \"\";\n  var label = data.label || \"\";\n  var timestamp = new Date().toISOString();\n  var stored = data.data || JSON.stringify(data.chunks || []);\n\n  sheet.appendRow([id, label, timestamp, stored]);\n\n  return jsonResponse({ ok: true, id: id });\n}\n\nfunction loadSeed(id) {\n  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(\"Seeds\");\n  if (!sheet) return jsonResponse({ ok: false, error: \"No Seeds sheet\" });\n\n  id = (id || \"\").toUpperCase();\n  var data = sheet.getDataRange().getValues();\n\n  for (var i = data.length - 1; i >= 1; i--) {\n    if (String(data[i][0]).toUpperCase() === id) {\n      var raw = String(data[i][3]);\n      try {\n        var parsed = JSON.parse(raw);\n        if (Array.isArray(parsed)) {\n          return jsonResponse({ ok: true, chunks: parsed });\n        } else {\n          return jsonResponse({ ok: true, data: raw });\n        }\n      } catch (e) {\n        return jsonResponse({ ok: false, error: \"Corrupt seed data\" });\n      }\n    }\n  }\n\n  return jsonResponse({ ok: false, error: \"Seed not found: \" + id });\n}\n\nfunction deleteSeed(data) {\n  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(\"Seeds\");\n  if (!sheet) return jsonResponse({ ok: false, error: \"No Seeds sheet\" });\n\n  var id = (data.id || \"\").toUpperCase();\n  var rows = sheet.getDataRange().getValues();\n\n  for (var i = rows.length - 1; i >= 1; i--) {\n    if (String(rows[i][0]).toUpperCase() === id) {\n      sheet.deleteRow(i + 1);\n    }\n  }\n\n  return jsonResponse({ ok: true, id: id });\n}\n\nfunction listSeeds() {\n  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(\"Seeds\");\n  if (!sheet) return jsonResponse({ seeds: [] });\n\n  var data = sheet.getDataRange().getValues();\n  var seeds = [];\n\n  for (var i = 1; i < data.length; i++) {\n    seeds.push({\n      id: String(data[i][0]),\n      label: String(data[i][1]),\n      timestamp: String(data[i][2])\n    });\n  }\n\n  return jsonResponse({ seeds: seeds });\n}\n\n// ── Rules ──\n\nfunction loadRules(tournament) {\n  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(\"Rules\");\n  if (!sheet) return jsonResponse({ rows: [] });\n\n  tournament = (tournament || \"\").toLowerCase();\n  var data = sheet.getDataRange().getValues();\n  var rows = [];\n\n  for (var i = 1; i < data.length; i++) {\n    if (String(data[i][0]).toLowerCase() === tournament) {\n      rows.push(data[i].slice(1).filter(function(c) { return c !== \"\"; }));\n    }\n  }\n\n  return jsonResponse({ rows: rows });\n}\n\n// ── Tournaments ──\n\nvar TOURNAMENT_FEATURE_KEYS = [\n  \"scoring\", \"startScore\", \"winPoints\", \"drawPoints\", \"lossPoints\",\n  \"cumulativeDrawPenalty\", \"pairing\", \"rrRounds\", \"timerMinutes\", \"draft\", \"elo\", \"eloKMax\",\n  \"eloCol\", \"firstPlayer\", \"grandPrix\", \"gpBestOfLast\", \"gpDropWorst\", \"prizes\", \"timeout\",\n  \"timeoutTime\", \"spinner\", \"rules\", \"matchMin\", \"matchMax\"\n];\n\nfunction loadTournaments() {\n  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(\"Settings\");\n  if (!sheet) return jsonResponse({ tournaments: [] });\n\n  var data = sheet.getDataRange().getValues();\n  if (data.length < 2) return jsonResponse({ tournaments: [] });\n\n  var headers = data[0].map(function(h) { return String(h).trim(); });\n  var tournaments = [];\n\n  for (var i = 1; i < data.length; i++) {\n    var row = data[i];\n    var idIdx = headers.indexOf(\"id\");\n    var id = idIdx !== -1 ? String(row[idIdx] || \"\").trim() : \"\";\n    if (!id) continue;\n\n    var t = {\n      id: id,\n      name: String(row[headers.indexOf(\"name\")] || \"\"),\n      icon: String(row[headers.indexOf(\"icon\")] || \"\"),\n      desc: String(row[headers.indexOf(\"desc\")] || \"\"),\n      features: {}\n    };\n\n    TOURNAMENT_FEATURE_KEYS.forEach(function(key) {\n      var idx = headers.indexOf(key);\n      if (idx === -1) return;\n      t.features[key] = row[idx];\n    });\n\n    tournaments.push(t);\n  }\n\n  return jsonResponse({ tournaments: tournaments });\n}\n\nfunction saveTournament(data) {\n  var t = data.tournament;\n  if (!t || !t.id) return jsonResponse({ error: \"Missing tournament id\" });\n\n  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(\"Settings\");\n  if (!sheet) {\n    sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(\"Settings\");\n    var initHeaders = [\"id\", \"name\", \"icon\", \"desc\"].concat(TOURNAMENT_FEATURE_KEYS);\n    sheet.getRange(1, 1, 1, initHeaders.length).setValues([initHeaders]);\n  }\n\n  var existing = sheet.getDataRange().getValues();\n  var headers = existing[0].map(function(h) { return String(h).trim(); });\n\n  var row = headers.map(function(h) {\n    if (h === \"id\") return t.id;\n    if (h === \"name\") return t.name || \"\";\n    if (h === \"icon\") return t.icon || \"\";\n    if (h === \"desc\") return t.desc || \"\";\n    return t.features && t.features[h] !== undefined ? t.features[h] : \"\";\n  });\n\n  var idIdx = headers.indexOf(\"id\");\n  for (var i = 1; i < existing.length; i++) {\n    if (String(existing[i][idIdx]).trim() === t.id) {\n      sheet.getRange(i + 1, 1, 1, row.length).setValues([row]);\n      return jsonResponse({ ok: true, id: t.id });\n    }\n  }\n\n  sheet.appendRow(row);\n  return jsonResponse({ ok: true, id: t.id });\n}\n\n// ── Helpers ──\n\nfunction jsonResponse(obj) {\n  return ContentService\n    .createTextOutput(JSON.stringify(obj))\n    .setMimeType(ContentService.MimeType.JSON);\n}\n";
 
 // Google Sheets integration — Database card in Advanced tab
 // Sheets sync — pull/push ELO, validate, copy script
 // Pull: fetches ELO entries (preserves test flag)
-function SheetsSync({ state, dispatch }) {
+function SheetsSync({ state, dispatch, config }) {
   const [status, setStatus] = useState("");
   const url = state.sheetsUrl;
+  const col = config?.features?.eloCol || "ELO";
   const pull = async () => {
     if (!url) {
       setStatus("⚠ No URL");
@@ -1500,7 +1523,7 @@ function SheetsSync({ state, dispatch }) {
     }
     setStatus("Pulling…");
     try {
-      const r = await fetch(url + "?action=load");
+      const r = await fetch(url + "?action=load&col=" + encodeURIComponent(col));
       if (!r.ok) throw new Error("HTTP " + r.status);
       const d = await r.json();
       if (d?.entries) {
@@ -1509,8 +1532,8 @@ function SheetsSync({ state, dispatch }) {
           if (e?.name)
             db[e.name.toLowerCase()] = { elo: parseInt(e.elo) || ED, name: e.name, test: !!e.test };
         });
-        dispatch({ type: "SET_ELO_DB", db });
-        setStatus(`✓ Pulled ${Object.keys(db).length}`);
+        dispatch({ type: "SET_ELO_DB", db, col });
+        setStatus(`✓ Pulled ${Object.keys(db).length} (${col})`);
       }
     } catch (e) {
       setStatus("✗ " + e.message);
@@ -1523,24 +1546,24 @@ function SheetsSync({ state, dispatch }) {
     }
     setStatus("Pushing…");
     try {
-      const ent = Object.values(state.eloDb)
+      const ent = Object.values(state.eloDb?.[col] || {})
         .filter((v) => v?.name)
         .map((v) => ({ name: v.name, elo: v.elo, test: !!v.test }));
       await fetch(url, {
         method: "POST",
         mode: "no-cors",
         headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({ action: "save", test: false, entries: ent }),
+        body: JSON.stringify({ action: "save", col, test: false, entries: ent }),
       });
       setStatus(`Verifying…`);
       await new Promise((r) => setTimeout(r, 1500));
-      const vr = await fetch(url + "?action=load");
+      const vr = await fetch(url + "?action=load&col=" + encodeURIComponent(col));
       const vd = await vr.json();
       const remote = vd?.entries?.length || 0;
       if (remote >= ent.length) {
-        setStatus(`✓ Pushed & verified (${remote} entries)`);
+        setStatus(`✓ Pushed & verified (${remote} entries, ${col})`);
       } else {
-        setStatus(`⚠ Pushed ${ent.length} but Sheet has ${remote} — check manually`);
+        setStatus(`⚠ Pushed ${ent.length} but ${col} has ${remote} — check manually`);
       }
     } catch (e) {
       setStatus("✗ " + e.message);
@@ -1554,9 +1577,9 @@ function SheetsSync({ state, dispatch }) {
     setStatus("Validating…");
     const results = [];
     try {
-      const r = await fetch(url + "?action=load");
+      const r = await fetch(url + "?action=load&col=" + encodeURIComponent(col));
       const d = await r.json();
-      results.push(d?.entries ? "✓ ELO" : "✗ ELO — missing or wrong format");
+      results.push(d?.entries ? `✓ ELO (${col})` : `✗ ELO (${col}) — missing or wrong format`);
     } catch {
       results.push("✗ ELO — unreachable");
     }
@@ -1954,7 +1977,9 @@ function RulesTab({ state }) {
 // Tournament type picker — 3 cards + 'coming soon' placeholder
 // Landing screen — tournament type picker
 // Clicking a card dispatches OPEN_TOURNAMENT
-function LandingScreen({ dispatch, tournaments }) {
+function LandingScreen({ dispatch, tournaments, onRetry, fetchError }) {
+  const [customUrl, setCustomUrl] = React.useState("");
+  const empty = Object.keys(tournaments).length === 0;
   return (
     <div
       style={{
@@ -1967,6 +1992,28 @@ function LandingScreen({ dispatch, tournaments }) {
     >
       <h1 style={{ fontSize: 22, fontWeight: 600, marginBottom: 6 }}>Tournament Manager</h1>
       <p style={{ fontSize: 13, color: C.muted, marginBottom: 36 }}>Select a tournament type</p>
+      {empty && (
+        <div style={{ width: "100%", maxWidth: 420, marginBottom: 24 }}>
+          <div style={{ background: "#fff3cd", border: "0.5px solid #ffc107", borderRadius: 10, padding: "12px 16px", fontSize: 13, color: "#856404", marginBottom: 12 }}>
+            {fetchError || "No tournaments loaded. Check your Apps Script deployment is authorized and the Settings sheet is populated."}
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              type="text"
+              value={customUrl}
+              onChange={(e) => setCustomUrl(e.target.value.trim())}
+              placeholder="Override Apps Script URL…"
+              style={{ ...S.input, flex: 1, fontSize: 12, padding: "6px 10px" }}
+            />
+            <Btn
+              onClick={() => { if (customUrl) { dispatch({ type: "SET_SHEETS_URL", url: customUrl }); onRetry(customUrl); } else onRetry(); }}
+              style={{ fontSize: 12, whiteSpace: "nowrap" }}
+            >
+              ↺ Retry
+            </Btn>
+          </div>
+        </div>
+      )}
       <div
         style={{
           display: "flex",
@@ -2748,8 +2795,9 @@ function StandingsTab({ state, dispatch, config }) {
     ac = state.players.filter((p) => !p.eliminated),
     gp = c.grandPrix,
     gs = (p) => (gp ? gpScore(p.name, state.history, c.gpBestOfLast, c.gpDropWorst) : p.score);
+  const activeElo = state.eloDb?.[c.eloCol || "ELO"] || {};
   const so = [...state.players].sort(
-      (a, b) => gs(b) - gs(a) || b.w - a.w || gE(state.eloDb, a.name) - gE(state.eloDb, b.name),
+      (a, b) => gs(b) - gs(a) || b.w - a.w || gE(activeElo, a.name) - gE(activeElo, b.name),
     ),
     w = ac.length === 1 ? ac[0] : null;
   const al = c.prizes
@@ -2836,7 +2884,7 @@ function StandingsTab({ state, dispatch, config }) {
               {so.map((p, i) => {
                 const ds = gs(p);
                 const pr = prizeFor(i);
-                const elo = gE(state.eloDb, p.name);
+                const elo = gE(activeElo, p.name);
                 const eloDelta = c.elo && p.eloStart != null ? elo - p.eloStart : null;
                 return (
                   <tr key={p.name}>
@@ -3569,8 +3617,34 @@ function AdvancedTab({ state, dispatch, config }) {
           </div>
           <BoolF label="ELO tracking" k="elo" />
           <NumF label="ELO K-max" k="eloKMax" desc="max delta per match" />
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "5px 0",
+              borderBottom: `0.5px solid ${C.bL}`,
+            }}
+          >
+            <span style={{ flex: 1, fontSize: 13 }}>
+              ELO column
+              <span style={{ fontSize: 10, color: C.faint, marginLeft: 4 }}>sheet column name</span>
+            </span>
+            <input
+              type="text"
+              value={f.eloCol ?? ""}
+              placeholder="ELO"
+              onChange={(e) => sf("eloCol", e.target.value)}
+              style={{ ...S.input, width: 90, fontSize: 12, padding: "4px 6px" }}
+            />
+            {state.featureOverrides.eloCol !== undefined && (
+              <span style={{ fontSize: 10, borderRadius: 4, padding: "1px 5px", background: "#f3e8ff", color: C.purple, fontWeight: 500 }}>
+                mod
+              </span>
+            )}
+          </div>
           <div style={{ marginTop: 16 }}>
-            <SheetsSync state={state} dispatch={dispatch} />
+            <SheetsSync state={state} dispatch={dispatch} config={config} />
           </div>
         </Card>
       </div>
@@ -4315,37 +4389,27 @@ function Shell({ state, dispatch }) {
 function App() {
   const [state, dispatch] = useReducer(reducer, init);
   const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    const url = gSU();
-    if (!url) { setLoading(false); return; }
-    Promise.all([
-      fetch(url + "?action=load")
-        .then((r) => r.json())
-        .then((d) => {
-          if (d?.entries) {
-            const db = {};
-            d.entries.forEach((e) => {
-              if (e?.name)
-                db[e.name.toLowerCase()] = {
-                  elo: parseInt(e.elo) || ED,
-                  name: e.name,
-                  test: !!e.test,
-                };
-            });
-            dispatch({ type: "SET_ELO_DB", db });
-          }
-        })
-        .catch(() => {}),
-      fetch(url + "?action=tournament_list")
-        .then((r) => r.json())
-        .then((d) => {
-          if (d?.tournaments?.length) {
-            dispatch({ type: "SET_TOURNAMENTS", tournaments: d.tournaments });
-          }
-        })
-        .catch(() => {}),
-    ]).finally(() => setLoading(false));
-  }, []);
+  const [fetchError, setFetchError] = useState(null);
+  const fetchTournaments = (url) => {
+    const u = url || gSU();
+    if (!u) { setLoading(false); return; }
+    setLoading(true);
+    setFetchError(null);
+    fetch(u + "?action=tournament_list")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.tournaments?.length) {
+          dispatch({ type: "SET_TOURNAMENTS", tournaments: d.tournaments });
+        } else if (d?.error) {
+          setFetchError("Script error: " + d.error);
+        } else {
+          setFetchError("Settings sheet is empty — add tournament rows to the sheet.");
+        }
+      })
+      .catch((err) => setFetchError("Fetch failed: " + (err?.message || "network error")))
+      .finally(() => setLoading(false));
+  };
+  useEffect(() => { fetchTournaments(); }, []);
   const restored = useRef(false);
   useEffect(() => {
     if (restored.current) return;
@@ -4398,7 +4462,7 @@ function App() {
         minHeight: "100vh",
       }}
     >
-      {state.screen === "landing" && <LandingScreen dispatch={dispatch} tournaments={state.tournaments} />}
+      {state.screen === "landing" && <LandingScreen dispatch={dispatch} tournaments={state.tournaments} onRetry={fetchTournaments} fetchError={fetchError} />}
       {state.screen === "tournament" && <Shell state={state} dispatch={dispatch} />}
     </div>
   );

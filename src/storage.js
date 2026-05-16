@@ -27,12 +27,17 @@ function sLS(k, v) {
   } catch {}
 }
 function gSU() {
-  return DU;
+  try {
+    return localStorage.getItem(SK) || DU;
+  } catch {
+    return DU;
+  }
 }
 function mkP(st, pl, h, ph) {
   const c = { ...st.tournaments?.[st.tournamentId]?.features, ...st.featureOverrides };
   if (!c) return [];
+  const activeElo = st.eloDb?.[c.eloCol || "ELO"] || {};
   return c.pairing === "multi"
-    ? genMulti(pl, c.matchMin, c.matchMax, st.eloDb)
-    : gen1v1(pl, h, ph, c.rrRounds, st.eloDb, c.firstPlayer);
+    ? genMulti(pl, c.matchMin, c.matchMax, activeElo)
+    : gen1v1(pl, h, ph, c.rrRounds, activeElo, c.firstPlayer);
 }

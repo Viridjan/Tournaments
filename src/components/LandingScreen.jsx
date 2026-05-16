@@ -1,7 +1,9 @@
 // Tournament type picker — 3 cards + 'coming soon' placeholder
 // Landing screen — tournament type picker
 // Clicking a card dispatches OPEN_TOURNAMENT
-function LandingScreen({ dispatch, tournaments }) {
+function LandingScreen({ dispatch, tournaments, onRetry, fetchError }) {
+  const [customUrl, setCustomUrl] = React.useState("");
+  const empty = Object.keys(tournaments).length === 0;
   return (
     <div
       style={{
@@ -14,6 +16,28 @@ function LandingScreen({ dispatch, tournaments }) {
     >
       <h1 style={{ fontSize: 22, fontWeight: 600, marginBottom: 6 }}>Tournament Manager</h1>
       <p style={{ fontSize: 13, color: C.muted, marginBottom: 36 }}>Select a tournament type</p>
+      {empty && (
+        <div style={{ width: "100%", maxWidth: 420, marginBottom: 24 }}>
+          <div style={{ background: "#fff3cd", border: "0.5px solid #ffc107", borderRadius: 10, padding: "12px 16px", fontSize: 13, color: "#856404", marginBottom: 12 }}>
+            {fetchError || "No tournaments loaded. Check your Apps Script deployment is authorized and the Settings sheet is populated."}
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              type="text"
+              value={customUrl}
+              onChange={(e) => setCustomUrl(e.target.value.trim())}
+              placeholder="Override Apps Script URL…"
+              style={{ ...S.input, flex: 1, fontSize: 12, padding: "6px 10px" }}
+            />
+            <Btn
+              onClick={() => { if (customUrl) { dispatch({ type: "SET_SHEETS_URL", url: customUrl }); onRetry(customUrl); } else onRetry(); }}
+              style={{ fontSize: 12, whiteSpace: "nowrap" }}
+            >
+              ↺ Retry
+            </Btn>
+          </div>
+        </div>
+      )}
       <div
         style={{
           display: "flex",
