@@ -7,7 +7,7 @@ function SeedsManager({ state, dispatch }) {
     [seeds, setSeeds] = useState([]);
   const url = state.sheetsUrl;
   const buildSnap = () => {
-    const t = T[state.tournamentId];
+    const t = state.tournaments?.[state.tournamentId];
     return {
       v: 3,
       tournamentMode: state.tournamentId,
@@ -49,7 +49,7 @@ function SeedsManager({ state, dispatch }) {
     const id = mkId();
     const snap = buildSnap();
     const data = JSON.stringify(snap);
-    const t = T[state.tournamentId];
+    const t = state.tournaments?.[state.tournamentId];
     const label = `${t?.icon || ""} ${t?.name || ""} · ${state.players.length}p · R${state.currentRound}`;
     setStatus("Saving…");
     try {

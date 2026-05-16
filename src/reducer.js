@@ -46,6 +46,7 @@ const init = {
     { name: "Ante", weight: 20 },
     { name: "Pain rare", weight: 20 },
   ],
+  tournaments: { ...T },
   featureOverrides: {},
   testMode: false,
   experimental: false,
@@ -103,7 +104,7 @@ function reducer(st, a) {
       };
     }
     case "START_TOURNAMENT": {
-      const c = { ...T[st.tournamentId]?.features, ...st.featureOverrides };
+      const c = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
       if (!c) return st;
       const ss = c.startScore ?? 0;
       const pl = st.players.map((p) => ({
@@ -148,7 +149,7 @@ function reducer(st, a) {
         ),
       };
     case "NEXT_ROUND": {
-      const c = { ...T[st.tournamentId]?.features, ...st.featureOverrides };
+      const c = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
       if (!c) return st;
       let pl = st.players.map((p) => ({ ...p })),
         db = { ...st.eloDb };
@@ -280,11 +281,16 @@ function reducer(st, a) {
       };
     }
     case "NEW_GP_SESSION": {
-      const c = { ...T[st.tournamentId]?.features, ...st.featureOverrides };
+      const c = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
       if (!c) return st;
       const ph = c.rrRounds > 0 ? "roundrobin" : "swiss";
       const ns = { ...st, currentRound: 1, phase: ph, pairings: [] };
       return { ...ns, pairings: mkP(ns, st.players, st.history, ph) };
+    }
+    case "SET_TOURNAMENTS": {
+      const merged = { ...T };
+      a.tournaments.forEach((t) => { if (t.id) merged[t.id] = t; });
+      return { ...st, tournaments: merged };
     }
     case "MERGE_ELO_DB": {
       const merged = { ...st.eloDb, ...a.db };
@@ -434,14 +440,14 @@ function reducer(st, a) {
       };
     case "TOGGLE_FEATURE": {
       const ov = { ...st.featureOverrides };
-      const base = T[st.tournamentId]?.features || {};
+      const base = st.tournaments[st.tournamentId]?.features || {};
       if (ov[a.key] !== undefined) delete ov[a.key];
       else ov[a.key] = !base[a.key];
       return { ...st, featureOverrides: ov };
     }
     case "SET_FEATURE": {
       const ov = { ...st.featureOverrides };
-      const base = T[st.tournamentId]?.features || {};
+      const base = st.tournaments[st.tournamentId]?.features || {};
       if (a.value === base[a.key]) delete ov[a.key];
       else ov[a.key] = a.value;
       return { ...st, featureOverrides: ov };

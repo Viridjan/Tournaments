@@ -4,7 +4,7 @@
 function RulesTab({ state }) {
   const [rows, setRows] = useState(null),
     [status, setStatus] = useState("");
-  const tn = T[state.tournamentId]?.name || "";
+  const tn = state.tournaments?.[state.tournamentId]?.name || "";
   const load = async (f) => {
     const ck = "rules_" + tn;
     if (!f)

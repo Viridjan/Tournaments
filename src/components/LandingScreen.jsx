@@ -1,7 +1,7 @@
 // Tournament type picker — 3 cards + 'coming soon' placeholder
 // Landing screen — tournament type picker
 // Clicking a card dispatches OPEN_TOURNAMENT
-function LandingScreen({ dispatch }) {
+function LandingScreen({ dispatch, tournaments }) {
   return (
     <div
       style={{
@@ -23,7 +23,7 @@ function LandingScreen({ dispatch }) {
           maxWidth: 520,
         }}
       >
-        {Object.values(T).map((t) => (
+        {Object.values(tournaments || T).map((t) => (
           <div
             key={t.id}
             onClick={() => dispatch({ type: "OPEN_TOURNAMENT", id: t.id })}

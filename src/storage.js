@@ -34,7 +34,7 @@ function gSU() {
   }
 }
 function mkP(st, pl, h, ph) {
-  const c = { ...T[st.tournamentId]?.features, ...st.featureOverrides };
+  const c = { ...st.tournaments?.[st.tournamentId]?.features, ...st.featureOverrides };
   if (!c) return [];
   return c.pairing === "multi"
     ? genMulti(pl, c.matchMin, c.matchMax, st.eloDb)

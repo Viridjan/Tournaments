@@ -2,7 +2,7 @@
 // Shell — layout, tabs, banners, timeout, auto-push, backup
 //   - Tab bar (conditional tabs gated by test/experimental/advanced checkboxes)
 function Shell({ state, dispatch }) {
-  const rawConfig = T[state.tournamentId];
+  const rawConfig = state.tournaments?.[state.tournamentId];
   if (!rawConfig) return null;
   const config = { ...rawConfig, features: { ...rawConfig.features, ...state.featureOverrides } };
   const c = config.features,

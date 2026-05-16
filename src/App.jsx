@@ -23,6 +23,14 @@ function App() {
         }
       })
       .catch(() => {});
+    fetch(url + "?action=tournament_list")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.tournaments?.length) {
+          dispatch({ type: "SET_TOURNAMENTS", tournaments: d.tournaments });
+        }
+      })
+      .catch(() => {});
   }, []);
   const restored = useRef(false);
   useEffect(() => {
@@ -57,7 +65,7 @@ function App() {
         minHeight: "100vh",
       }}
     >
-      {state.screen === "landing" && <LandingScreen dispatch={dispatch} />}
+      {state.screen === "landing" && <LandingScreen dispatch={dispatch} tournaments={state.tournaments} />}
       {state.screen === "tournament" && <Shell state={state} dispatch={dispatch} />}
     </div>
   );

@@ -4,20 +4,26 @@
 //
 // SETUP:
 // 1. Create a new Google Sheet
-// 2. Create 3 tabs (sheets): "ELO", "Seeds", "Rules"
+// 2. Create 4 tabs (sheets): "ELO", "Seeds", "Rules", "Tournaments"
 // 3. In the ELO tab, add headers in row 1: Name | ELO | Test
 // 4. In the Seeds tab, add headers in row 1: ID | Label | Timestamp | Data
 // 5. In the Rules tab, add headers in row 1: Tournament | Category | Rule | Description | Update
 //    Then add your rules with the tournament name matching exactly
 //    (e.g., "Drunken Draft", "Vintage Draft", "Risk Grand Prix")
-// 6. Go to Extensions > Apps Script
-// 7. Paste this entire script, replacing any existing code
-// 8. Click Deploy > New deployment
-// 9. Type: Web app
-// 10. Execute as: Me
-// 11. Who has access: Anyone
-// 12. Click Deploy and copy the URL
-// 13. Paste the URL into the Tournament Manager's Database URL field
+// 6. In the Tournaments tab, add headers in row 1:
+//    id | name | icon | desc | scoring | startScore | winPoints | drawPoints | lossPoints |
+//    cumulativeDrawPenalty | pairing | rrRounds | timerMinutes | draft | elo | eloKMax |
+//    firstPlayer | grandPrix | gpBestOfLast | gpDropWorst | prizes | timeout | timeoutTime |
+//    spinner | rules | matchMin | matchMax
+//    Then add one row per tournament type.
+// 7. Go to Extensions > Apps Script
+// 8. Paste this entire script, replacing any existing code
+// 9. Click Deploy > New deployment
+// 10. Type: Web app
+// 11. Execute as: Me
+// 12. Who has access: Anyone
+// 13. Click Deploy and copy the URL
+// 14. Paste the URL into the Tournament Manager's Database URL field
 //
 // ══════════════════════════════════════════════════════════════
 
@@ -28,6 +34,7 @@ function doGet(e) {
   if (action === "seed_load") return loadSeed(e.parameter.id);
   if (action === "seed_list") return listSeeds();
   if (action === "rules") return loadRules(e.parameter.tournament);
+  if (action === "tournament_list") return loadTournaments();
 
   return jsonResponse({ error: "Unknown action" });
 }
@@ -40,6 +47,7 @@ function doPost(e) {
     if (action === "save") return saveElo(data);
     if (action === "seed_save") return saveSeed(data);
     if (action === "seed_delete") return deleteSeed(data);
+    if (action === "tournament_save") return saveTournament(data);
 
     return jsonResponse({ error: "Unknown action" });
   } catch (err) {
@@ -223,6 +231,85 @@ function loadRules(tournament) {
   }
 
   return jsonResponse({ rows: rows });
+}
+
+// ── Tournaments ──
+
+var TOURNAMENT_FEATURE_KEYS = [
+  "scoring", "startScore", "winPoints", "drawPoints", "lossPoints",
+  "cumulativeDrawPenalty", "pairing", "rrRounds", "timerMinutes", "draft", "elo", "eloKMax",
+  "firstPlayer", "grandPrix", "gpBestOfLast", "gpDropWorst", "prizes", "timeout",
+  "timeoutTime", "spinner", "rules", "matchMin", "matchMax"
+];
+
+function loadTournaments() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Tournaments");
+  if (!sheet) return jsonResponse({ tournaments: [] });
+
+  var data = sheet.getDataRange().getValues();
+  if (data.length < 2) return jsonResponse({ tournaments: [] });
+
+  var headers = data[0].map(function(h) { return String(h).trim(); });
+  var tournaments = [];
+
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    var idIdx = headers.indexOf("id");
+    var id = idIdx !== -1 ? String(row[idIdx] || "").trim() : "";
+    if (!id) continue;
+
+    var t = {
+      id: id,
+      name: String(row[headers.indexOf("name")] || ""),
+      icon: String(row[headers.indexOf("icon")] || ""),
+      desc: String(row[headers.indexOf("desc")] || ""),
+      features: {}
+    };
+
+    TOURNAMENT_FEATURE_KEYS.forEach(function(key) {
+      var idx = headers.indexOf(key);
+      if (idx === -1) return;
+      t.features[key] = row[idx];
+    });
+
+    tournaments.push(t);
+  }
+
+  return jsonResponse({ tournaments: tournaments });
+}
+
+function saveTournament(data) {
+  var t = data.tournament;
+  if (!t || !t.id) return jsonResponse({ error: "Missing tournament id" });
+
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Tournaments");
+  if (!sheet) {
+    sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet("Tournaments");
+    var initHeaders = ["id", "name", "icon", "desc"].concat(TOURNAMENT_FEATURE_KEYS);
+    sheet.getRange(1, 1, 1, initHeaders.length).setValues([initHeaders]);
+  }
+
+  var existing = sheet.getDataRange().getValues();
+  var headers = existing[0].map(function(h) { return String(h).trim(); });
+
+  var row = headers.map(function(h) {
+    if (h === "id") return t.id;
+    if (h === "name") return t.name || "";
+    if (h === "icon") return t.icon || "";
+    if (h === "desc") return t.desc || "";
+    return t.features && t.features[h] !== undefined ? t.features[h] : "";
+  });
+
+  var idIdx = headers.indexOf("id");
+  for (var i = 1; i < existing.length; i++) {
+    if (String(existing[i][idIdx]).trim() === t.id) {
+      sheet.getRange(i + 1, 1, 1, row.length).setValues([row]);
+      return jsonResponse({ ok: true, id: t.id });
+    }
+  }
+
+  sheet.appendRow(row);
+  return jsonResponse({ ok: true, id: t.id });
 }
 
 // ── Helpers ──
