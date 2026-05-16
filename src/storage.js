@@ -27,11 +27,7 @@ function sLS(k, v) {
   } catch {}
 }
 function gSU() {
-  try {
-    return localStorage.getItem(SK) || DU;
-  } catch {
-    return DU;
-  }
+  return DU;
 }
 function mkP(st, pl, h, ph) {
   const c = { ...st.tournaments?.[st.tournamentId]?.features, ...st.featureOverrides };
