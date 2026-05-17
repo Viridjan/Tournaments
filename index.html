@@ -42,139 +42,122 @@ function eCalc(a, b, s, kMax, scale) {
     d = Math.round(Math.max(-k, Math.min(k, r)));
   return { dA: d, dB: -d };
 }
-function findMatch(names, prev, allow) {
+function findGroups(names, prev, groupSize, allow) {
   const n = names.length;
   if (!n) return [];
-  if (n % 2) return null;
-  const u = new Array(n).fill(false),
-    p = [];
+  if (n % groupSize !== 0) return null;
+  const used = new Array(n).fill(false), groups = [];
   function bt() {
-    let i = u.indexOf(false);
+    const i = used.indexOf(false);
     if (i === -1) return true;
-    u[i] = true;
-    for (let j = i + 1; j < n; j++) {
-      if (u[j]) continue;
-      if (!allow && (prev[names[i]] || new Set()).has(names[j])) continue;
-      u[j] = true;
-      p.push([i, j]);
-      if (bt()) return true;
-      p.pop();
-      u[j] = false;
+    used[i] = true;
+    function pick(group, start) {
+      if (group.length === groupSize) {
+        groups.push([...group]);
+        if (bt()) return true;
+        groups.pop();
+        return false;
+      }
+      for (let j = start; j < n; j++) {
+        if (used[j]) continue;
+        if (!allow && group.some(gi => (prev[names[gi]] || new Set()).has(names[j]))) continue;
+        used[j] = true; group.push(j);
+        if (pick(group, j + 1)) return true;
+        group.pop(); used[j] = false;
+      }
+      return false;
     }
-    u[i] = false;
-    return false;
+    if (!pick([i], i + 1)) { used[i] = false; return false; }
+    return true;
   }
-  return bt() ? p : null;
+  return bt() ? groups : null;
 }
 function getPrev(h, a) {
-  const s = new Set(a.map((p) => p.name)),
-    m = {};
-  h.forEach((r) =>
-    r.forEach((x) => {
-      if (x.p2 === "BYE" || x.type === "multi") return;
-      if (!s.has(x.p1) || !s.has(x.p2)) return;
-      (m[x.p1] = m[x.p1] || new Set()).add(x.p2);
-      (m[x.p2] = m[x.p2] || new Set()).add(x.p1);
-    }),
-  );
+  const s = new Set(a.map(p => p.name)), m = {};
+  h.forEach(r => r.forEach(x => {
+    if (x.isBye) return;
+    const inv = x.players.filter(n => s.has(n));
+    inv.forEach((n1, i) => inv.forEach((n2, j) => {
+      if (i !== j) (m[n1] = m[n1] || new Set()).add(n2);
+    }));
+  }));
   return m;
 }
 function getByes(h, a) {
   const c = {};
-  a.forEach((p) => (c[p.name] = 0));
-  h.forEach((r) =>
-    r.forEach((m) => {
-      if (m.p2 === "BYE" && c[m.p1] !== undefined) c[m.p1]++;
-    }),
-  );
+  a.forEach(p => (c[p.name] = 0));
+  h.forEach(r => r.forEach(m => {
+    if (m.isBye && c[m.players[0]] !== undefined) c[m.players[0]]++;
+  }));
   return c;
 }
-function gen1v1(pl, h, ph, rr, db, fp) {
-  const ac = pl.filter((p) => !p.eliminated),
-    pr = getPrev(h, ac),
-    bc = getByes(h, ac);
+function genPairings(pl, h, ph, c, db) {
+  const groupSize = Math.max(2, Number(c.matchMax) || 2);
+  const mn = Math.max(2, Number(c.matchMin) || groupSize);
+  const ac = pl.filter(p => !p.eliminated);
   const so = [...ac].sort((a, b) =>
     ph === "roundrobin"
       ? gE(db, b.name) - gE(db, a.name)
-      : b.w / (b.w + b.d + b.l || 1) - a.w / (a.w + a.d + a.l || 1) || b.score - a.score,
+      : b.w / (b.w + b.d + b.l || 1) - a.w / (a.w + a.d + a.l || 1) || b.score - a.score
   );
-  let bn = null,
-    tp = so;
-  if (so.length % 2 === 1) {
-    const mb = Math.min(...Object.values(bc));
-    for (let i = so.length - 1; i >= 0; i--)
-      if (bc[so[i].name] <= mb) {
-        bn = so[i].name;
-        break;
-      }
-    if (!bn) bn = so[so.length - 1].name;
-    tp = so.filter((p) => p.name !== bn);
-  }
+  const pr = getPrev(h, ac);
   const pa = [];
-  if (bn) pa.push({ p1: bn, p2: "BYE", result: "bye", rematch: false });
-  const ns = tp.map((p) => p.name);
-  let m = findMatch(ns, pr, false);
-  if (!m) m = findMatch(ns, pr, true);
-  if (m)
-    for (const [i, j] of m)
-      pa.push({ p1: ns[i], p2: ns[j], result: null, rematch: (pr[ns[i]] || new Set()).has(ns[j]) });
-  if (fp) {
-    const cm = {};
-    pl.forEach((p) => (cm[p.name] = p.firstCount || 0));
-    pa.forEach((mm) => {
-      if (mm.p2 === "BYE") return;
-      const c1 = cm[mm.p1] || 0,
-        c2 = cm[mm.p2] || 0;
-      if (c1 > c2 || (c1 === c2 && Math.random() < 0.5)) [mm.p1, mm.p2] = [mm.p2, mm.p1];
-      cm[mm.p1] = (cm[mm.p1] || 0) + 1;
-    });
+  let tp = so;
+
+  if (groupSize <= 2 && so.length % 2 === 1) {
+    const bc = getByes(h, ac);
+    const mb = Math.min(...Object.values(bc));
+    let byeName = null;
+    for (let i = so.length - 1; i >= 0; i--)
+      if (bc[so[i].name] <= mb) { byeName = so[i].name; break; }
+    if (!byeName) byeName = so[so.length - 1].name;
+    tp = so.filter(p => p.name !== byeName);
+    pa.push({ players: [byeName], scores: {}, result: "done", isBye: true, rematch: false, eloDeltas: {}, noElo: false });
   }
-  return pa;
-}
-function genMulti(pl, mn, mx, db) {
-  const ac = pl.filter((p) => !p.eliminated);
-  ac.sort((a, b) => b.score - a.score || b.w - a.w || gE(db, b.name) - gE(db, a.name));
-  const n = ac.length,
-    g = [];
-  if (n > 0 && n < mn) g.push(ac.map((p) => p.name));
-  else {
+
+  const ns = tp.map(p => p.name);
+  const mkMatch = playerNames => {
+    const hasRematch = playerNames.some((p1, i) =>
+      playerNames.some((p2, j) => j > i && (pr[p1] || new Set()).has(p2))
+    );
+    return { players: playerNames, scores: Object.fromEntries(playerNames.map(n => [n, ""])), result: null, isBye: false, rematch: hasRematch, eloDeltas: {}, noElo: false };
+  };
+
+  let groups = findGroups(ns, pr, groupSize, false);
+  if (!groups) groups = findGroups(ns, pr, groupSize, true);
+
+  if (groups) {
+    for (const group of groups) pa.push(mkMatch(group.map(i => ns[i])));
+  } else if (ns.length > 0) {
+    // Fallback: sequential split respecting matchMin/matchMax range
     let i = 0;
-    while (i < n) {
-      const r = n - i;
-      if (r <= mx) {
-        if (r >= mn) g.push(ac.slice(i).map((p) => p.name));
-        else if (g.length > 0) ac.slice(i).forEach((p) => g[g.length - 1].push(p.name));
-        else g.push(ac.slice(i).map((p) => p.name));
-        break;
+    while (i < ns.length) {
+      const r = ns.length - i;
+      let grp;
+      if (r <= groupSize) {
+        if (pa.length > 0 && r < mn) { ns.slice(i).forEach(n => pa[pa.length - 1].players.push(n)); break; }
+        grp = ns.slice(i);
+      } else {
+        grp = ns.slice(i, i + groupSize);
       }
-      g.push(ac.slice(i, i + mx).map((p) => p.name));
-      i += mx;
+      pa.push(mkMatch(grp));
+      i += grp.length;
     }
   }
-  return g.map((p) => ({
-    type: "multi",
-    players: p,
-    scores: Object.fromEntries(p.map((x) => [x, ""])),
-    result: null,
-  }));
-}
-function gpScore(name, h, bestOf, drop) {
-  bestOf = bestOf || 3;
-  drop = drop || 1;
-  const s = [];
-  h.forEach((r) =>
-    r.forEach((m) => {
-      if (m.type !== "multi" || !m.players.includes(name)) return;
-      const v = parseFloat(m.scores?.[name]);
-      if (!isNaN(v)) s.push(v);
-    }),
-  );
-  if (!s.length) return 0;
-  const l = s.slice(-bestOf);
-  if (l.length <= drop) return l.reduce((a, v) => a + v, 0);
-  const sorted = [...l].sort((a, b) => a - b);
-  for (let i = 0; i < drop; i++) sorted.shift();
-  return sorted.reduce((a, v) => a + v, 0);
+
+  if (c.firstPlayer && groupSize === 2) {
+    const cm = {};
+    pl.forEach(p => (cm[p.name] = p.firstCount || 0));
+    pa.forEach(mm => {
+      if (mm.isBye || mm.players.length !== 2) return;
+      const [a, b] = mm.players;
+      if ((cm[a] || 0) > (cm[b] || 0) || ((cm[a] || 0) === (cm[b] || 0) && Math.random() < 0.5))
+        [mm.players[0], mm.players[1]] = [b, a];
+      cm[mm.players[0]] = (cm[mm.players[0]] || 0) + 1;
+    });
+  }
+
+  return pa;
 }
 function rkLbl(i) {
   if (i === 0) return "Winner";
@@ -349,10 +332,7 @@ function mkP(st, pl, h, ph) {
   const c = { ...st.tournaments?.[st.tournamentId]?.features, ...st.featureOverrides };
   if (!c) return [];
   const activeElo = st.eloDb?.[c.eloDB || "ELO"] || {};
-  const useMulti = c.pairing === "multi" || Number(c.matchMax) > 2;
-  return useMulti
-    ? genMulti(pl, c.matchMin, c.matchMax, activeElo)
-    : gen1v1(pl, h, ph, c.rrRounds, activeElo, c.firstPlayer);
+  return genPairings(pl, h, ph, c, activeElo);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -458,10 +438,11 @@ function reducer(st, a) {
         i === a.index ? { ...p, eliminated: true, score: 0 } : p,
       );
       const pa = st.pairings.map((m) => {
-        if (m.result || m.p2 === "BYE" || m.type === "multi") return m;
-        if (m.p1 === ab.name) return { ...m, result: "p2win", noElo: true, forfeit: true };
-        if (m.p2 === ab.name) return { ...m, result: "p1win", noElo: true, forfeit: true };
-        return m;
+        if (m.result || m.isBye || m.players.length !== 2) return m;
+        if (!m.players.includes(ab.name)) return m;
+        const winner = m.players.find(n => n !== ab.name);
+        const scores = Object.fromEntries(m.players.map(n => [n, n === winner ? 1 : 0]));
+        return { ...m, scores, result: "done", noElo: true, forfeit: true };
       });
       return {
         ...st,
@@ -502,19 +483,24 @@ function reducer(st, a) {
       };
       return { ...ns, pairings: mkP(ns, pl, [], ph) };
     }
-    case "SET_RESULT":
+    case "SET_MATCH_RESULT":
       return {
         ...st,
-        pairings: st.pairings.map((m, i) => (i === a.index ? { ...m, result: a.result } : m)),
+        pairings: st.pairings.map((m, i) => {
+          if (i !== a.index) return m;
+          if (a.reset) return { ...m, scores: Object.fromEntries(m.players.map(n => [n, ""])), result: null };
+          return { ...m, scores: a.scores, result: "done" };
+        }),
       };
-    case "SET_MULTI_SCORE":
+    case "SET_MATCH_SCORE":
       return {
         ...st,
-        pairings: st.pairings.map((m, i) =>
-          i !== a.matchIndex
-            ? m
-            : { ...m, scores: { ...m.scores, [a.playerName]: a.value.replace(/[^0-9\-]/g, "") } },
-        ),
+        pairings: st.pairings.map((m, i) => {
+          if (i !== a.index) return m;
+          const scores = { ...m.scores, [a.player]: a.value.replace(/[^0-9.\-]/g, "") };
+          const done = m.players.every(n => String(scores[n]).trim() !== "");
+          return { ...m, scores, result: done ? "done" : null };
+        }),
       };
     case "NEXT_ROUND": {
       const c = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
@@ -525,131 +511,93 @@ function reducer(st, a) {
       const sc = c.scoring,
         rp = st.pairings.map((m) => ({ ...m }));
       rp.forEach((m) => {
-        if (m.type === "multi") {
-          const fl = m.players.filter((n) => String(m.scores[n]).trim() !== ""),
-            so = [...fl].sort(
-              (a, b) => parseFloat(m.scores[b] || 0) - parseFloat(m.scores[a] || 0),
-            );
-          if (so.length && c.scoring === "points") {
-            const ptMap = [
-              c.pts1 !== "" && c.pts1 !== undefined ? Number(c.pts1) : 3,
-              c.pts2 !== "" && c.pts2 !== undefined ? Number(c.pts2) : 2,
-              c.pts3 !== "" && c.pts3 !== undefined ? Number(c.pts3) : 1,
-            ];
-            const ptsLast = c.ptsLast !== "" && c.ptsLast !== undefined ? Number(c.ptsLast) : 0;
-            const groups = [];
-            let gi = 0;
-            while (gi < so.length) {
-              const gs = parseFloat(m.scores[so[gi]] || 0);
-              let gj = gi;
-              while (gj < so.length && parseFloat(m.scores[so[gj]] || 0) === gs) gj++;
-              groups.push({ players: so.slice(gi, gj), score: gs });
-              gi = gj;
-            }
-            const multiGroup = groups.length > 1;
-            let rank = 1;
-            groups.forEach((g, idx) => {
-              const isLast = multiGroup && idx === groups.length - 1;
-              const pts = isLast || g.score === 0 ? ptsLast : (ptMap[rank - 1] ?? ptsLast);
-              g.players.forEach((n) => {
-                const p = pl.find((x) => x.name === n);
-                if (!p) return;
-                p.score += pts;
-                pts > 0 ? p.w++ : p.l++;
-              });
-              rank += g.players.length;
-            });
-          } else if (so.length && c.scoring === "swiss") {
-            const topScore = parseFloat(m.scores[so[0]] || 0);
-            const tied = so.filter(n => parseFloat(m.scores[n] || 0) === topScore);
-            const isMultiWinner = tied.length > 1;
-            so.forEach(n => {
-              const p = pl.find(x => x.name === n);
+        if (m.isBye || m.result !== "done") return;
+        const fl = m.players.filter((n) => String(m.scores[n]).trim() !== "");
+        if (!fl.length) return;
+        const so = [...fl].sort((a, b) => parseFloat(m.scores[b] || 0) - parseFloat(m.scores[a] || 0));
+        const topScore = parseFloat(m.scores[so[0]] || 0);
+
+        if (sc === "points") {
+          const ptMap = [
+            c.pts1 !== "" && c.pts1 !== undefined ? Number(c.pts1) : 3,
+            c.pts2 !== "" && c.pts2 !== undefined ? Number(c.pts2) : 2,
+            c.pts3 !== "" && c.pts3 !== undefined ? Number(c.pts3) : 1,
+          ];
+          const ptsLast = c.ptsLast !== "" && c.ptsLast !== undefined ? Number(c.ptsLast) : 0;
+          const groups = [];
+          let gi = 0;
+          while (gi < so.length) {
+            const gs = parseFloat(m.scores[so[gi]] || 0);
+            let gj = gi;
+            while (gj < so.length && parseFloat(m.scores[so[gj]] || 0) === gs) gj++;
+            groups.push({ players: so.slice(gi, gj), score: gs });
+            gi = gj;
+          }
+          const multiGroup = groups.length > 1;
+          let rank = 1;
+          groups.forEach((g, idx) => {
+            const isLast = multiGroup && idx === groups.length - 1;
+            const pts = isLast || g.score === 0 ? ptsLast : (ptMap[rank - 1] ?? ptsLast);
+            g.players.forEach((n) => {
+              const p = pl.find((x) => x.name === n);
               if (!p) return;
-              const isTop = parseFloat(m.scores[n] || 0) === topScore;
-              if (isTop && isMultiWinner) { p.d++; p.score += c.drawPoints ?? 1; }
-              else if (isTop)             { p.w++; p.score += c.winPoints ?? 3; }
-              else                        { p.l++; p.score += c.lossPoints ?? 0; }
+              p.score += pts;
+              pts > 0 ? p.w++ : p.l++;
             });
-          }
-          if (c.elo) {
-            const n = m.players.length,
-              K = (c.eloKMax || 50) / n,
-              dl = Object.fromEntries(m.players.map((p) => [p, 0]));
-            for (let i = 0; i < n; i++)
-              for (let j = i + 1; j < n; j++) {
-                const pA = m.players[i],
-                  pB = m.players[j],
-                  sA = parseFloat(m.scores[pA] || 0),
-                  sB = parseFloat(m.scores[pB] || 0),
-                  rA = gE(db, pA),
-                  rB = gE(db, pB),
-                  eA = eExp(rA, rB, c.eloScale),
-                  scA = sA > sB ? 1 : sA < sB ? 0 : 0.5;
-                dl[pA] += K * (scA - eA);
-                dl[pB] += K * (1 - scA - (1 - eA));
-              }
-            m.eloDeltas = {};
-            m.players.forEach((p) => {
-              const d = Math.round(dl[p]);
-              m.eloDeltas[p] = d;
-              db = sE(db, p, gE(db, p) + d, db[p.toLowerCase()]?.test);
-            });
-          }
-          return;
+            rank += g.players.length;
+          });
+        } else if (sc === "swiss") {
+          const tied = so.filter(n => parseFloat(m.scores[n] || 0) === topScore);
+          const multi = tied.length > 1;
+          so.forEach(n => {
+            const p = pl.find(x => x.name === n);
+            if (!p) return;
+            const isTop = parseFloat(m.scores[n] || 0) === topScore;
+            if (isTop && multi) { p.d++; p.score += c.drawPoints ?? 1; }
+            else if (isTop)     { p.w++; p.score += c.winPoints ?? 3; }
+            else                { p.l++; p.score += c.lossPoints ?? 0; }
+          });
+        } else if (sc === "lifepoints") {
+          const draw = so.every(n => parseFloat(m.scores[n] || 0) === topScore);
+          so.forEach(n => {
+            const p = pl.find(x => x.name === n);
+            if (!p) return;
+            const isTop = parseFloat(m.scores[n] || 0) === topScore;
+            if (draw) {
+              p.d++;
+              const dp = c.cumulativeDrawPenalty ? 0.5 * p.d : 0.5;
+              p.score = Math.max(0, p.score - dp);
+              if (p.score <= 0) p.eliminated = true;
+            } else if (isTop) {
+              p.w++;
+            } else {
+              p.l++;
+              p.score = Math.max(0, p.score - 1);
+              if (p.score <= 0) p.eliminated = true;
+            }
+          });
         }
-        if (m.p2 === "BYE" || !m.result) return;
-        const p1 = pl.find((x) => x.name === m.p1),
-          p2 = pl.find((x) => x.name === m.p2);
-        if (!p1 || !p2) return;
-        if (sc === "lifepoints") {
-          if (m.result === "p1win") {
-            p1.w++;
-            p2.l++;
-            p2.score = Math.max(0, p2.score - 1);
-            if (p2.score <= 0) p2.eliminated = true;
-          } else if (m.result === "p2win") {
-            p2.w++;
-            p1.l++;
-            p1.score = Math.max(0, p1.score - 1);
-            if (p1.score <= 0) p1.eliminated = true;
-          } else {
-            p1.d++;
-            p2.d++;
-            const dp = c.cumulativeDrawPenalty ? 0.5 * p1.d : 0.5;
-            const dp2 = c.cumulativeDrawPenalty ? 0.5 * p2.d : 0.5;
-            p1.score = Math.max(0, p1.score - dp);
-            p2.score = Math.max(0, p2.score - dp2);
-            if (p1.score <= 0) p1.eliminated = true;
-            if (p2.score <= 0) p2.eliminated = true;
-          }
-        } else {
-          if (m.result === "p1win") {
-            p1.w++;
-            p1.score += c.winPoints || 3;
-            p2.l++;
-            p2.score += c.lossPoints || 0;
-          } else if (m.result === "p2win") {
-            p2.w++;
-            p2.score += c.winPoints || 3;
-            p1.l++;
-            p1.score += c.lossPoints || 0;
-          } else {
-            p1.d++;
-            p2.d++;
-            p1.score += c.drawPoints || 1;
-            p2.score += c.drawPoints || 1;
-          }
-        }
+
         if (c.elo && !m.noElo) {
-          const rA = gE(db, m.p1),
-            rB = gE(db, m.p2),
-            scA = m.result === "p1win" ? 1 : m.result === "p2win" ? 0 : 0.5,
-            { dA, dB } = eCalc(rA, rB, scA, c.eloKMax, c.eloScale);
-          m.eloDelta1 = dA;
-          m.eloDelta2 = dB;
-          db = sE(db, m.p1, rA + dA, db[m.p1.toLowerCase()]?.test);
-          db = sE(db, m.p2, rB + dB, db[m.p2.toLowerCase()]?.test);
+          const n = m.players.length,
+            K = (c.eloKMax || 50) / n,
+            dl = Object.fromEntries(m.players.map((p) => [p, 0]));
+          for (let i = 0; i < n; i++)
+            for (let j = i + 1; j < n; j++) {
+              const pA = m.players[i], pB = m.players[j],
+                sA = parseFloat(m.scores[pA] || 0), sB = parseFloat(m.scores[pB] || 0),
+                rA = gE(db, pA), rB = gE(db, pB),
+                eA = eExp(rA, rB, c.eloScale),
+                scA = sA > sB ? 1 : sA < sB ? 0 : 0.5;
+              dl[pA] += K * (scA - eA);
+              dl[pB] += K * ((1 - scA) - (1 - eA));
+            }
+          m.eloDeltas = {};
+          m.players.forEach((p) => {
+            const d = Math.round(dl[p]);
+            m.eloDeltas[p] = d;
+            db = sE(db, p, gE(db, p) + d, db[p.toLowerCase()]?.test);
+          });
         }
       });
       const h = [...st.history, rp],
@@ -810,22 +758,23 @@ function reducer(st, a) {
       }
       return { ...st, players: pl, eloDb: { ...st.eloDb, [testNs]: db } };
     }
-    case "AUTO_SELECT_WINNERS":
+    case "AUTO_SELECT_WINNERS": {
+      const autoC = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
       return {
         ...st,
         pairings: st.pairings.map((m) => {
-          if (m.result) return m;
-          if (m.type === "multi") {
+          if (m.result || m.isBye) return m;
+          if (autoC?.scoring === "points") {
             const sc = { ...m.scores };
-            m.players.forEach((n) => {
-              sc[n] = String(Math.floor(Math.random() * 21));
-            });
-            return { ...m, scores: sc };
+            m.players.forEach((n) => { sc[n] = String(Math.floor(Math.random() * 21)); });
+            return { ...m, scores: sc, result: "done" };
           }
-          if (m.p2 === "BYE") return m;
-          return { ...m, result: Math.random() < 0.5 ? "p1win" : "p2win" };
+          const wi = Math.floor(Math.random() * m.players.length);
+          const scores = Object.fromEntries(m.players.map((n, i) => [n, i === wi ? 1 : 0]));
+          return { ...m, scores, result: "done" };
         }),
       };
+    }
     case "FULL_RESET":
       try {
         localStorage.removeItem(BK);
@@ -2432,111 +2381,121 @@ function PlayersTab({ state, dispatch, config, eloLoadedCols }) {
 
 // Sub-tabs: Draft (groups) | Pairings (cards) | Log (history)
 // Matches tab — pairing cards, match log, timer, draft sub-tabs
-// PC: 1v1 pairing card — 3-button layout (p1win / draw / p2win)
-function PC({ match, index, dispatch }) {
-  if (match.p2 === "BYE")
+function MatchCard({ match, index, dispatch, scoring, eloDb }) {
+  if (match.isBye)
     return (
       <Card style={{ background: C.bg, borderStyle: "dashed", padding: "10px 14px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ fontSize: 13, fontWeight: 500 }}>{match.p1}</div>
+          <div style={{ fontSize: 13, fontWeight: 500 }}>{match.players[0]}</div>
           <Tag variant="grey">BYE</Tag>
         </div>
       </Card>
     );
-  const r = match.result,
-    bs = (sel, t) => ({
-      flex: 1,
-      display: "flex",
-      flexDirection: "column",
-      padding: "6px 8px",
-      borderRadius: 5,
-      cursor: "pointer",
-      fontFamily: "inherit",
-      fontSize: 12,
-      fontWeight: 500,
-      lineHeight: 1.3,
-      border: `0.5px solid ${sel ? (t === "d" ? C.aBd : C.gBd) : "#ddd"}`,
-      background: sel ? (t === "d" ? C.aBg : C.gBg) : "transparent",
-      color: sel ? (t === "d" ? C.amber : C.green) : C.muted,
+
+  if (scoring === "points") {
+    return (
+      <Card style={{ padding: "10px 14px" }}>
+        <div style={{ fontSize: 11, fontWeight: 500, color: C.purple, marginBottom: 8 }}>
+          Match {index + 1} · {match.players.length}p
+          {match.rematch && <> <Tag variant="amber">re</Tag></>}
+        </div>
+        {match.players.map((n) => (
+          <div
+            key={n}
+            style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: `0.5px solid ${C.bL}` }}
+          >
+            <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{n}</span>
+            <span style={{ fontSize: 11, color: C.faint }}>{gE(eloDb, n)}</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              placeholder="—"
+              value={match.scores[n] ?? ""}
+              onChange={(e) => dispatch({ type: "SET_MATCH_SCORE", index, player: n, value: e.target.value })}
+              style={{ ...S.input, width: 56, textAlign: "center", fontSize: 13, padding: "4px 6px" }}
+            />
+          </div>
+        ))}
+      </Card>
+    );
+  }
+
+  // swiss / lifepoints: winner-selection UI
+  const [p1, p2] = match.players;
+  const sc = match.scores;
+  const isDone = match.result === "done";
+  const p1Score = sc[p1], p2Score = sc[p2];
+  const sel = !isDone ? null : p1Score > p2Score ? "p1" : p2Score > p1Score ? "p2" : "draw";
+
+  if (match.players.length === 2) {
+    const bs = (active, t) => ({
+      flex: 1, display: "flex", flexDirection: "column", padding: "6px 8px", borderRadius: 5,
+      cursor: "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: 500, lineHeight: 1.3,
+      border: `0.5px solid ${active ? (t === "d" ? C.aBd : C.gBd) : "#ddd"}`,
+      background: active ? (t === "d" ? C.aBg : C.gBg) : "transparent",
+      color: active ? (t === "d" ? C.amber : C.green) : C.muted,
       textAlign: t === "r" ? "right" : t === "d" ? "center" : "left",
       alignItems: t === "r" ? "flex-end" : t === "d" ? "center" : "flex-start",
     });
-  return (
-    <Card style={{ padding: "10px 14px" }}>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "2fr 1fr 2fr",
-          gap: 4,
-          alignItems: "stretch",
-        }}
-      >
-        <button
-          style={bs(r === "p1win", "l")}
-          onClick={() => dispatch({ type: "SET_RESULT", index, result: "p1win" })}
-        >
-          <span>
-            {match.p1}
-            {match.rematch && (
-              <>
-                {" "}
-                <Tag variant="amber">re</Tag>
-              </>
-            )}
-          </span>
-        </button>
-        <button
-          style={bs(r === "draw", "d")}
-          onClick={() => dispatch({ type: "SET_RESULT", index, result: "draw" })}
-        >
-          draw
-        </button>
-        <button
-          style={bs(r === "p2win", "r")}
-          onClick={() => dispatch({ type: "SET_RESULT", index, result: "p2win" })}
-        >
-          <span>{match.p2}</span>
-        </button>
-      </div>
-    </Card>
-  );
-}
-function MC({ match, index, dispatch, eloDb }) {
+    const pick = (result) => {
+      if (isDone && sel === result) {
+        dispatch({ type: "SET_MATCH_RESULT", index, reset: true });
+        return;
+      }
+      const scores = result === "p1" ? { [p1]: 1, [p2]: 0 } : result === "p2" ? { [p1]: 0, [p2]: 1 } : { [p1]: 0.5, [p2]: 0.5 };
+      dispatch({ type: "SET_MATCH_RESULT", index, scores });
+    };
+    return (
+      <Card style={{ padding: "10px 14px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 2fr", gap: 4, alignItems: "stretch" }}>
+          <button style={bs(sel === "p1", "l")} onClick={() => pick("p1")}>
+            <span>{p1}{match.rematch && <> <Tag variant="amber">re</Tag></>}</span>
+          </button>
+          <button style={bs(sel === "draw", "d")} onClick={() => pick("draw")}>draw</button>
+          <button style={bs(sel === "p2", "r")} onClick={() => pick("p2")}>
+            <span>{p2}</span>
+          </button>
+        </div>
+      </Card>
+    );
+  }
+
+  // N-player swiss/lifepoints: tap to select winner(s), tap again to deselect
+  const winners = match.players.filter(n => sc[n] === 1);
+  const toggle = (name) => {
+    const newWinners = winners.includes(name) ? winners.filter(x => x !== name) : [...winners, name];
+    if (!newWinners.length) { dispatch({ type: "SET_MATCH_RESULT", index, reset: true }); return; }
+    const scores = Object.fromEntries(match.players.map(n => [n, newWinners.includes(n) ? (newWinners.length > 1 ? 0.5 : 1) : 0]));
+    dispatch({ type: "SET_MATCH_RESULT", index, scores });
+  };
   return (
     <Card style={{ padding: "10px 14px" }}>
       <div style={{ fontSize: 11, fontWeight: 500, color: C.purple, marginBottom: 8 }}>
         Match {index + 1} · {match.players.length}p
+        {match.rematch && <> <Tag variant="amber">re</Tag></>}
       </div>
-      {match.players.map((n) => (
-        <div
-          key={n}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "5px 0",
-            borderBottom: `0.5px solid ${C.bL}`,
-          }}
-        >
-          <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{n}</span>
-          <span style={{ fontSize: 11, color: C.faint }}>{gE(eloDb, n)}</span>
-          <input
-            type="text"
-            inputMode="numeric"
-            placeholder="—"
-            value={match.scores[n] ?? ""}
-            onChange={(e) =>
-              dispatch({
-                type: "SET_MULTI_SCORE",
-                matchIndex: index,
-                playerName: n,
-                value: e.target.value,
-              })
-            }
-            style={{ ...S.input, width: 56, textAlign: "center", fontSize: 13, padding: "4px 6px" }}
-          />
-        </div>
-      ))}
+      {match.players.map((n) => {
+        const isWinner = sc[n] === 1, isDraw = sc[n] === 0.5;
+        return (
+          <button
+            key={n}
+            onClick={() => toggle(n)}
+            style={{
+              display: "flex", alignItems: "center", width: "100%", gap: 8, padding: "7px 8px",
+              borderRadius: 5, cursor: "pointer", fontFamily: "inherit", textAlign: "left",
+              border: `0.5px solid ${isWinner ? C.gBd : isDraw ? C.aBd : "#ddd"}`,
+              background: isWinner ? C.gBg : isDraw ? C.aBg : "transparent",
+              color: isWinner ? C.green : isDraw ? C.amber : C.text,
+              fontWeight: isWinner || isDraw ? 600 : 400, fontSize: 13, marginBottom: 4,
+            }}
+          >
+            <span style={{ flex: 1 }}>{n}</span>
+            <span style={{ fontSize: 11, color: C.faint }}>{gE(eloDb, n)}</span>
+            {isWinner && <span style={{ fontSize: 11 }}>Win</span>}
+            {isDraw && <span style={{ fontSize: 11 }}>Draw</span>}
+          </button>
+        );
+      })}
     </Card>
   );
 }
@@ -2550,8 +2509,8 @@ function ML({ state }) {
         if (ev.type === "round") {
           const rd = state.history[ri++];
           if (!rd) return null;
-          const isMultiRound = rd.some((m) => m.type === "multi");
-          if (isMultiRound) {
+          const isMulti = rd.some((m) => !m.isBye && m.players.length > 2);
+          if (isMulti) {
             return (
               <div key={ei} style={{ marginBottom: 12 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, padding: "0 4px" }}>
@@ -2564,30 +2523,13 @@ function ML({ state }) {
                       Table {mi + 1} · {m.players.length}p
                     </div>
                     {m.players.map((n) => (
-                      <div
-                        key={n}
-                        style={{
-                          fontSize: 13,
-                          padding: "4px 0",
-                          display: "flex",
-                          justifyContent: "space-between",
-                          borderBottom: `0.5px solid ${C.bL}`,
-                        }}
-                      >
+                      <div key={n} style={{ fontSize: 13, padding: "4px 0", display: "flex", justifyContent: "space-between", borderBottom: `0.5px solid ${C.bL}` }}>
                         <span style={{ fontWeight: 500 }}>{n}</span>
                         <span style={{ color: C.muted }}>
-                          {m.scores[n]}pt{" "}
+                          {m.scores[n] != null && m.scores[n] !== "" ? `${m.scores[n]}pt` : "—"}
                           {m.eloDeltas?.[n] != null && (
-                            <span
-                              style={{
-                                color:
-                                  m.eloDeltas[n] > 0 ? C.green : m.eloDeltas[n] < 0 ? C.red : C.muted,
-                                fontWeight: 500,
-                                fontSize: 11,
-                              }}
-                            >
-                              {m.eloDeltas[n] > 0 ? "+" : ""}
-                              {m.eloDeltas[n]}
+                            <span style={{ color: m.eloDeltas[n] > 0 ? C.green : m.eloDeltas[n] < 0 ? C.red : C.muted, fontWeight: 500, fontSize: 11, marginLeft: 4 }}>
+                              {m.eloDeltas[n] > 0 ? "+" : ""}{m.eloDeltas[n]}
                             </span>
                           )}
                         </span>
@@ -2605,56 +2547,28 @@ function ML({ state }) {
                 <span style={{ fontSize: 11, color: C.faint }}>{ev.ts}</span>
               </div>
               {rd.map((m, mi) => {
-                if (m.p2 === "BYE")
+                if (m.isBye)
                   return (
-                    <div
-                      key={mi}
-                      style={{
-                        fontSize: 13,
-                        padding: "4px 0",
-                        borderBottom: `0.5px solid ${C.bL}`,
-                      }}
-                    >
-                      {m.p1} — <Tag variant="grey">BYE</Tag>
+                    <div key={mi} style={{ fontSize: 13, padding: "4px 0", borderBottom: `0.5px solid ${C.bL}` }}>
+                      {m.players[0]} — <Tag variant="grey">BYE</Tag>
                     </div>
                   );
-                const w = m.result === "p1win" ? m.p1 : m.result === "p2win" ? m.p2 : null,
-                  l = m.result === "p1win" ? m.p2 : m.result === "p2win" ? m.p1 : null,
-                  d =
-                    m.result === "p1win" ? m.eloDelta1 : m.result === "p2win" ? m.eloDelta2 : null;
+                const [p1, p2] = m.players;
+                const s1 = parseFloat(m.scores[p1] || 0), s2 = parseFloat(m.scores[p2] || 0);
+                const isDraw = s1 === s2 && m.result === "done";
+                const w = !isDraw ? (s1 > s2 ? p1 : p2) : null;
+                const l = !isDraw ? (s1 > s2 ? p2 : p1) : null;
+                const wd = w && m.eloDeltas?.[w];
                 return (
-                  <div
-                    key={mi}
-                    style={{
-                      fontSize: 13,
-                      padding: "4px 0",
-                      display: "flex",
-                      gap: 12,
-                      borderBottom: `0.5px solid ${C.bL}`,
-                      alignItems: "center",
-                    }}
-                  >
-                    <span
-                      style={{ fontWeight: 500, color: m.result === "draw" ? C.text : C.green }}
-                    >
-                      {w || m.p1}
-                    </span>
-                    <span style={{ color: "#555" }}>{l || m.p2}</span>
-                    {d != null && (
-                      <span
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 500,
-                          color: d > 0 ? C.green : d < 0 ? C.red : C.muted,
-                        }}
-                      >
-                        {d > 0 ? "+" : ""}
-                        {d}
+                  <div key={mi} style={{ fontSize: 13, padding: "4px 0", display: "flex", gap: 12, borderBottom: `0.5px solid ${C.bL}`, alignItems: "center" }}>
+                    <span style={{ fontWeight: 500, color: isDraw ? C.text : C.green }}>{w || p1}</span>
+                    <span style={{ color: "#555" }}>{l || p2}</span>
+                    {wd != null && (
+                      <span style={{ fontSize: 11, fontWeight: 500, color: wd > 0 ? C.green : wd < 0 ? C.red : C.muted }}>
+                        {wd > 0 ? "+" : ""}{wd}
                       </span>
                     )}
-                    {m.result === "draw" && (
-                      <span style={{ color: C.amber, fontWeight: 500, fontSize: 11 }}>Draw</span>
-                    )}
+                    {isDraw && <span style={{ color: C.amber, fontWeight: 500, fontSize: 11 }}>Draw</span>}
                     {m.rematch && <Tag variant="amber">re</Tag>}
                     {m.forfeit && <Tag variant="amber">forfeit</Tag>}
                   </div>
@@ -2665,24 +2579,9 @@ function ML({ state }) {
         }
         const ic = { start: "🏁", abandon: "⚑", "draft-end": "📋", "tournament-timeout": "⏰" },
           bg = { start: C.gBg, abandon: C.aBg, "draft-end": C.bBg, "tournament-timeout": C.rBg },
-          co = {
-            start: C.green,
-            abandon: C.amber,
-            "draft-end": C.blue,
-            "tournament-timeout": C.red,
-          };
+          co = { start: C.green, abandon: C.amber, "draft-end": C.blue, "tournament-timeout": C.red };
         return (
-          <div
-            key={ei}
-            style={{
-              background: bg[ev.type] || C.subtle,
-              borderRadius: 8,
-              padding: "8px 12px",
-              marginBottom: 12,
-              display: "flex",
-              justifyContent: "space-between",
-            }}
-          >
+          <div key={ei} style={{ background: bg[ev.type] || C.subtle, borderRadius: 8, padding: "8px 12px", marginBottom: 12, display: "flex", justifyContent: "space-between" }}>
             <span style={{ fontSize: 13, fontWeight: 500, color: co[ev.type] || C.text }}>
               {ic[ev.type] || "•"} {ev.label}
             </span>
@@ -2736,19 +2635,8 @@ function MatchesTab({ state, dispatch, config }) {
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               <Btn
                 onClick={() => {
-                  const u = state.pairings.filter(
-                    (m) => m.type !== "multi" && m.p2 !== "BYE" && !m.result,
-                  );
-                  const uMulti = state.pairings.filter(
-                    (m) =>
-                      m.type === "multi" &&
-                      m.players.every((n) => !String(m.scores[n]).trim()),
-                  );
-                  if (
-                    (u.length || uMulti.length) &&
-                    !confirm(`${u.length + uMulti.length} unresolved.`)
-                  )
-                    return;
+                  const u = state.pairings.filter((m) => !m.isBye && m.result !== "done");
+                  if (u.length && !confirm(`${u.length} unresolved.`)) return;
                   dispatch({ type: "NEXT_ROUND" });
                 }}
               >
@@ -2777,7 +2665,7 @@ function MatchesTab({ state, dispatch, config }) {
             </div>
           </div>
           {c.timerMinutes > 0 && <Timer minutes={c.timerMinutes} key={state.currentRound} />}
-          {c.firstPlayer && state.pairings.some((m) => m.p2 !== "BYE" && m.type !== "multi") && (
+          {c.firstPlayer && state.pairings.some((m) => !m.isBye && m.players.length === 2) && (
             <div
               style={{
                 display: "grid",
@@ -2797,13 +2685,9 @@ function MatchesTab({ state, dispatch, config }) {
           {!state.pairings.length && (
             <div style={{ textAlign: "center", padding: 32, color: C.faint }}>No pairings.</div>
           )}
-          {state.pairings.map((m, i) =>
-            m.type === "multi" ? (
-              <MC key={i} match={m} index={i} dispatch={dispatch} eloDb={state.eloDb} />
-            ) : (
-              <PC key={i} match={m} index={i} dispatch={dispatch} />
-            ),
-          )}
+          {state.pairings.map((m, i) => (
+            <MatchCard key={i} match={m} index={i} dispatch={dispatch} scoring={c.scoring} eloDb={state.eloDb[c.eloDB || "ELO"] || {}} />
+          ))}
         </div>
       )}
       {state.matchSubTab === "log" && <ML state={state} />}

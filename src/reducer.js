@@ -101,10 +101,11 @@ function reducer(st, a) {
         i === a.index ? { ...p, eliminated: true, score: 0 } : p,
       );
       const pa = st.pairings.map((m) => {
-        if (m.result || m.p2 === "BYE" || m.type === "multi") return m;
-        if (m.p1 === ab.name) return { ...m, result: "p2win", noElo: true, forfeit: true };
-        if (m.p2 === ab.name) return { ...m, result: "p1win", noElo: true, forfeit: true };
-        return m;
+        if (m.result || m.isBye || m.players.length !== 2) return m;
+        if (!m.players.includes(ab.name)) return m;
+        const winner = m.players.find(n => n !== ab.name);
+        const scores = Object.fromEntries(m.players.map(n => [n, n === winner ? 1 : 0]));
+        return { ...m, scores, result: "done", noElo: true, forfeit: true };
       });
       return {
         ...st,
@@ -145,19 +146,24 @@ function reducer(st, a) {
       };
       return { ...ns, pairings: mkP(ns, pl, [], ph) };
     }
-    case "SET_RESULT":
+    case "SET_MATCH_RESULT":
       return {
         ...st,
-        pairings: st.pairings.map((m, i) => (i === a.index ? { ...m, result: a.result } : m)),
+        pairings: st.pairings.map((m, i) => {
+          if (i !== a.index) return m;
+          if (a.reset) return { ...m, scores: Object.fromEntries(m.players.map(n => [n, ""])), result: null };
+          return { ...m, scores: a.scores, result: "done" };
+        }),
       };
-    case "SET_MULTI_SCORE":
+    case "SET_MATCH_SCORE":
       return {
         ...st,
-        pairings: st.pairings.map((m, i) =>
-          i !== a.matchIndex
-            ? m
-            : { ...m, scores: { ...m.scores, [a.playerName]: a.value.replace(/[^0-9\-]/g, "") } },
-        ),
+        pairings: st.pairings.map((m, i) => {
+          if (i !== a.index) return m;
+          const scores = { ...m.scores, [a.player]: a.value.replace(/[^0-9.\-]/g, "") };
+          const done = m.players.every(n => String(scores[n]).trim() !== "");
+          return { ...m, scores, result: done ? "done" : null };
+        }),
       };
     case "NEXT_ROUND": {
       const c = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
@@ -168,131 +174,93 @@ function reducer(st, a) {
       const sc = c.scoring,
         rp = st.pairings.map((m) => ({ ...m }));
       rp.forEach((m) => {
-        if (m.type === "multi") {
-          const fl = m.players.filter((n) => String(m.scores[n]).trim() !== ""),
-            so = [...fl].sort(
-              (a, b) => parseFloat(m.scores[b] || 0) - parseFloat(m.scores[a] || 0),
-            );
-          if (so.length && c.scoring === "points") {
-            const ptMap = [
-              c.pts1 !== "" && c.pts1 !== undefined ? Number(c.pts1) : 3,
-              c.pts2 !== "" && c.pts2 !== undefined ? Number(c.pts2) : 2,
-              c.pts3 !== "" && c.pts3 !== undefined ? Number(c.pts3) : 1,
-            ];
-            const ptsLast = c.ptsLast !== "" && c.ptsLast !== undefined ? Number(c.ptsLast) : 0;
-            const groups = [];
-            let gi = 0;
-            while (gi < so.length) {
-              const gs = parseFloat(m.scores[so[gi]] || 0);
-              let gj = gi;
-              while (gj < so.length && parseFloat(m.scores[so[gj]] || 0) === gs) gj++;
-              groups.push({ players: so.slice(gi, gj), score: gs });
-              gi = gj;
-            }
-            const multiGroup = groups.length > 1;
-            let rank = 1;
-            groups.forEach((g, idx) => {
-              const isLast = multiGroup && idx === groups.length - 1;
-              const pts = isLast || g.score === 0 ? ptsLast : (ptMap[rank - 1] ?? ptsLast);
-              g.players.forEach((n) => {
-                const p = pl.find((x) => x.name === n);
-                if (!p) return;
-                p.score += pts;
-                pts > 0 ? p.w++ : p.l++;
-              });
-              rank += g.players.length;
-            });
-          } else if (so.length && c.scoring === "swiss") {
-            const topScore = parseFloat(m.scores[so[0]] || 0);
-            const tied = so.filter(n => parseFloat(m.scores[n] || 0) === topScore);
-            const isMultiWinner = tied.length > 1;
-            so.forEach(n => {
-              const p = pl.find(x => x.name === n);
+        if (m.isBye || m.result !== "done") return;
+        const fl = m.players.filter((n) => String(m.scores[n]).trim() !== "");
+        if (!fl.length) return;
+        const so = [...fl].sort((a, b) => parseFloat(m.scores[b] || 0) - parseFloat(m.scores[a] || 0));
+        const topScore = parseFloat(m.scores[so[0]] || 0);
+
+        if (sc === "points") {
+          const ptMap = [
+            c.pts1 !== "" && c.pts1 !== undefined ? Number(c.pts1) : 3,
+            c.pts2 !== "" && c.pts2 !== undefined ? Number(c.pts2) : 2,
+            c.pts3 !== "" && c.pts3 !== undefined ? Number(c.pts3) : 1,
+          ];
+          const ptsLast = c.ptsLast !== "" && c.ptsLast !== undefined ? Number(c.ptsLast) : 0;
+          const groups = [];
+          let gi = 0;
+          while (gi < so.length) {
+            const gs = parseFloat(m.scores[so[gi]] || 0);
+            let gj = gi;
+            while (gj < so.length && parseFloat(m.scores[so[gj]] || 0) === gs) gj++;
+            groups.push({ players: so.slice(gi, gj), score: gs });
+            gi = gj;
+          }
+          const multiGroup = groups.length > 1;
+          let rank = 1;
+          groups.forEach((g, idx) => {
+            const isLast = multiGroup && idx === groups.length - 1;
+            const pts = isLast || g.score === 0 ? ptsLast : (ptMap[rank - 1] ?? ptsLast);
+            g.players.forEach((n) => {
+              const p = pl.find((x) => x.name === n);
               if (!p) return;
-              const isTop = parseFloat(m.scores[n] || 0) === topScore;
-              if (isTop && isMultiWinner) { p.d++; p.score += c.drawPoints ?? 1; }
-              else if (isTop)             { p.w++; p.score += c.winPoints ?? 3; }
-              else                        { p.l++; p.score += c.lossPoints ?? 0; }
+              p.score += pts;
+              pts > 0 ? p.w++ : p.l++;
             });
-          }
-          if (c.elo) {
-            const n = m.players.length,
-              K = (c.eloKMax || 50) / n,
-              dl = Object.fromEntries(m.players.map((p) => [p, 0]));
-            for (let i = 0; i < n; i++)
-              for (let j = i + 1; j < n; j++) {
-                const pA = m.players[i],
-                  pB = m.players[j],
-                  sA = parseFloat(m.scores[pA] || 0),
-                  sB = parseFloat(m.scores[pB] || 0),
-                  rA = gE(db, pA),
-                  rB = gE(db, pB),
-                  eA = eExp(rA, rB, c.eloScale),
-                  scA = sA > sB ? 1 : sA < sB ? 0 : 0.5;
-                dl[pA] += K * (scA - eA);
-                dl[pB] += K * (1 - scA - (1 - eA));
-              }
-            m.eloDeltas = {};
-            m.players.forEach((p) => {
-              const d = Math.round(dl[p]);
-              m.eloDeltas[p] = d;
-              db = sE(db, p, gE(db, p) + d, db[p.toLowerCase()]?.test);
-            });
-          }
-          return;
+            rank += g.players.length;
+          });
+        } else if (sc === "swiss") {
+          const tied = so.filter(n => parseFloat(m.scores[n] || 0) === topScore);
+          const multi = tied.length > 1;
+          so.forEach(n => {
+            const p = pl.find(x => x.name === n);
+            if (!p) return;
+            const isTop = parseFloat(m.scores[n] || 0) === topScore;
+            if (isTop && multi) { p.d++; p.score += c.drawPoints ?? 1; }
+            else if (isTop)     { p.w++; p.score += c.winPoints ?? 3; }
+            else                { p.l++; p.score += c.lossPoints ?? 0; }
+          });
+        } else if (sc === "lifepoints") {
+          const draw = so.every(n => parseFloat(m.scores[n] || 0) === topScore);
+          so.forEach(n => {
+            const p = pl.find(x => x.name === n);
+            if (!p) return;
+            const isTop = parseFloat(m.scores[n] || 0) === topScore;
+            if (draw) {
+              p.d++;
+              const dp = c.cumulativeDrawPenalty ? 0.5 * p.d : 0.5;
+              p.score = Math.max(0, p.score - dp);
+              if (p.score <= 0) p.eliminated = true;
+            } else if (isTop) {
+              p.w++;
+            } else {
+              p.l++;
+              p.score = Math.max(0, p.score - 1);
+              if (p.score <= 0) p.eliminated = true;
+            }
+          });
         }
-        if (m.p2 === "BYE" || !m.result) return;
-        const p1 = pl.find((x) => x.name === m.p1),
-          p2 = pl.find((x) => x.name === m.p2);
-        if (!p1 || !p2) return;
-        if (sc === "lifepoints") {
-          if (m.result === "p1win") {
-            p1.w++;
-            p2.l++;
-            p2.score = Math.max(0, p2.score - 1);
-            if (p2.score <= 0) p2.eliminated = true;
-          } else if (m.result === "p2win") {
-            p2.w++;
-            p1.l++;
-            p1.score = Math.max(0, p1.score - 1);
-            if (p1.score <= 0) p1.eliminated = true;
-          } else {
-            p1.d++;
-            p2.d++;
-            const dp = c.cumulativeDrawPenalty ? 0.5 * p1.d : 0.5;
-            const dp2 = c.cumulativeDrawPenalty ? 0.5 * p2.d : 0.5;
-            p1.score = Math.max(0, p1.score - dp);
-            p2.score = Math.max(0, p2.score - dp2);
-            if (p1.score <= 0) p1.eliminated = true;
-            if (p2.score <= 0) p2.eliminated = true;
-          }
-        } else {
-          if (m.result === "p1win") {
-            p1.w++;
-            p1.score += c.winPoints || 3;
-            p2.l++;
-            p2.score += c.lossPoints || 0;
-          } else if (m.result === "p2win") {
-            p2.w++;
-            p2.score += c.winPoints || 3;
-            p1.l++;
-            p1.score += c.lossPoints || 0;
-          } else {
-            p1.d++;
-            p2.d++;
-            p1.score += c.drawPoints || 1;
-            p2.score += c.drawPoints || 1;
-          }
-        }
+
         if (c.elo && !m.noElo) {
-          const rA = gE(db, m.p1),
-            rB = gE(db, m.p2),
-            scA = m.result === "p1win" ? 1 : m.result === "p2win" ? 0 : 0.5,
-            { dA, dB } = eCalc(rA, rB, scA, c.eloKMax, c.eloScale);
-          m.eloDelta1 = dA;
-          m.eloDelta2 = dB;
-          db = sE(db, m.p1, rA + dA, db[m.p1.toLowerCase()]?.test);
-          db = sE(db, m.p2, rB + dB, db[m.p2.toLowerCase()]?.test);
+          const n = m.players.length,
+            K = (c.eloKMax || 50) / n,
+            dl = Object.fromEntries(m.players.map((p) => [p, 0]));
+          for (let i = 0; i < n; i++)
+            for (let j = i + 1; j < n; j++) {
+              const pA = m.players[i], pB = m.players[j],
+                sA = parseFloat(m.scores[pA] || 0), sB = parseFloat(m.scores[pB] || 0),
+                rA = gE(db, pA), rB = gE(db, pB),
+                eA = eExp(rA, rB, c.eloScale),
+                scA = sA > sB ? 1 : sA < sB ? 0 : 0.5;
+              dl[pA] += K * (scA - eA);
+              dl[pB] += K * ((1 - scA) - (1 - eA));
+            }
+          m.eloDeltas = {};
+          m.players.forEach((p) => {
+            const d = Math.round(dl[p]);
+            m.eloDeltas[p] = d;
+            db = sE(db, p, gE(db, p) + d, db[p.toLowerCase()]?.test);
+          });
         }
       });
       const h = [...st.history, rp],
@@ -453,22 +421,23 @@ function reducer(st, a) {
       }
       return { ...st, players: pl, eloDb: { ...st.eloDb, [testNs]: db } };
     }
-    case "AUTO_SELECT_WINNERS":
+    case "AUTO_SELECT_WINNERS": {
+      const autoC = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
       return {
         ...st,
         pairings: st.pairings.map((m) => {
-          if (m.result) return m;
-          if (m.type === "multi") {
+          if (m.result || m.isBye) return m;
+          if (autoC?.scoring === "points") {
             const sc = { ...m.scores };
-            m.players.forEach((n) => {
-              sc[n] = String(Math.floor(Math.random() * 21));
-            });
-            return { ...m, scores: sc };
+            m.players.forEach((n) => { sc[n] = String(Math.floor(Math.random() * 21)); });
+            return { ...m, scores: sc, result: "done" };
           }
-          if (m.p2 === "BYE") return m;
-          return { ...m, result: Math.random() < 0.5 ? "p1win" : "p2win" };
+          const wi = Math.floor(Math.random() * m.players.length);
+          const scores = Object.fromEntries(m.players.map((n, i) => [n, i === wi ? 1 : 0]));
+          return { ...m, scores, result: "done" };
         }),
       };
+    }
     case "FULL_RESET":
       try {
         localStorage.removeItem(BK);

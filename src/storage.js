@@ -37,8 +37,5 @@ function mkP(st, pl, h, ph) {
   const c = { ...st.tournaments?.[st.tournamentId]?.features, ...st.featureOverrides };
   if (!c) return [];
   const activeElo = st.eloDb?.[c.eloDB || "ELO"] || {};
-  const useMulti = c.pairing === "multi" || Number(c.matchMax) > 2;
-  return useMulti
-    ? genMulti(pl, c.matchMin, c.matchMax, activeElo)
-    : gen1v1(pl, h, ph, c.rrRounds, activeElo, c.firstPlayer);
+  return genPairings(pl, h, ph, c, activeElo);
 }

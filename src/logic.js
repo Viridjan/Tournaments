@@ -16,139 +16,122 @@ function eCalc(a, b, s, kMax, scale) {
     d = Math.round(Math.max(-k, Math.min(k, r)));
   return { dA: d, dB: -d };
 }
-function findMatch(names, prev, allow) {
+function findGroups(names, prev, groupSize, allow) {
   const n = names.length;
   if (!n) return [];
-  if (n % 2) return null;
-  const u = new Array(n).fill(false),
-    p = [];
+  if (n % groupSize !== 0) return null;
+  const used = new Array(n).fill(false), groups = [];
   function bt() {
-    let i = u.indexOf(false);
+    const i = used.indexOf(false);
     if (i === -1) return true;
-    u[i] = true;
-    for (let j = i + 1; j < n; j++) {
-      if (u[j]) continue;
-      if (!allow && (prev[names[i]] || new Set()).has(names[j])) continue;
-      u[j] = true;
-      p.push([i, j]);
-      if (bt()) return true;
-      p.pop();
-      u[j] = false;
+    used[i] = true;
+    function pick(group, start) {
+      if (group.length === groupSize) {
+        groups.push([...group]);
+        if (bt()) return true;
+        groups.pop();
+        return false;
+      }
+      for (let j = start; j < n; j++) {
+        if (used[j]) continue;
+        if (!allow && group.some(gi => (prev[names[gi]] || new Set()).has(names[j]))) continue;
+        used[j] = true; group.push(j);
+        if (pick(group, j + 1)) return true;
+        group.pop(); used[j] = false;
+      }
+      return false;
     }
-    u[i] = false;
-    return false;
+    if (!pick([i], i + 1)) { used[i] = false; return false; }
+    return true;
   }
-  return bt() ? p : null;
+  return bt() ? groups : null;
 }
 function getPrev(h, a) {
-  const s = new Set(a.map((p) => p.name)),
-    m = {};
-  h.forEach((r) =>
-    r.forEach((x) => {
-      if (x.p2 === "BYE" || x.type === "multi") return;
-      if (!s.has(x.p1) || !s.has(x.p2)) return;
-      (m[x.p1] = m[x.p1] || new Set()).add(x.p2);
-      (m[x.p2] = m[x.p2] || new Set()).add(x.p1);
-    }),
-  );
+  const s = new Set(a.map(p => p.name)), m = {};
+  h.forEach(r => r.forEach(x => {
+    if (x.isBye) return;
+    const inv = x.players.filter(n => s.has(n));
+    inv.forEach((n1, i) => inv.forEach((n2, j) => {
+      if (i !== j) (m[n1] = m[n1] || new Set()).add(n2);
+    }));
+  }));
   return m;
 }
 function getByes(h, a) {
   const c = {};
-  a.forEach((p) => (c[p.name] = 0));
-  h.forEach((r) =>
-    r.forEach((m) => {
-      if (m.p2 === "BYE" && c[m.p1] !== undefined) c[m.p1]++;
-    }),
-  );
+  a.forEach(p => (c[p.name] = 0));
+  h.forEach(r => r.forEach(m => {
+    if (m.isBye && c[m.players[0]] !== undefined) c[m.players[0]]++;
+  }));
   return c;
 }
-function gen1v1(pl, h, ph, rr, db, fp) {
-  const ac = pl.filter((p) => !p.eliminated),
-    pr = getPrev(h, ac),
-    bc = getByes(h, ac);
+function genPairings(pl, h, ph, c, db) {
+  const groupSize = Math.max(2, Number(c.matchMax) || 2);
+  const mn = Math.max(2, Number(c.matchMin) || groupSize);
+  const ac = pl.filter(p => !p.eliminated);
   const so = [...ac].sort((a, b) =>
     ph === "roundrobin"
       ? gE(db, b.name) - gE(db, a.name)
-      : b.w / (b.w + b.d + b.l || 1) - a.w / (a.w + a.d + a.l || 1) || b.score - a.score,
+      : b.w / (b.w + b.d + b.l || 1) - a.w / (a.w + a.d + a.l || 1) || b.score - a.score
   );
-  let bn = null,
-    tp = so;
-  if (so.length % 2 === 1) {
-    const mb = Math.min(...Object.values(bc));
-    for (let i = so.length - 1; i >= 0; i--)
-      if (bc[so[i].name] <= mb) {
-        bn = so[i].name;
-        break;
-      }
-    if (!bn) bn = so[so.length - 1].name;
-    tp = so.filter((p) => p.name !== bn);
-  }
+  const pr = getPrev(h, ac);
   const pa = [];
-  if (bn) pa.push({ p1: bn, p2: "BYE", result: "bye", rematch: false });
-  const ns = tp.map((p) => p.name);
-  let m = findMatch(ns, pr, false);
-  if (!m) m = findMatch(ns, pr, true);
-  if (m)
-    for (const [i, j] of m)
-      pa.push({ p1: ns[i], p2: ns[j], result: null, rematch: (pr[ns[i]] || new Set()).has(ns[j]) });
-  if (fp) {
-    const cm = {};
-    pl.forEach((p) => (cm[p.name] = p.firstCount || 0));
-    pa.forEach((mm) => {
-      if (mm.p2 === "BYE") return;
-      const c1 = cm[mm.p1] || 0,
-        c2 = cm[mm.p2] || 0;
-      if (c1 > c2 || (c1 === c2 && Math.random() < 0.5)) [mm.p1, mm.p2] = [mm.p2, mm.p1];
-      cm[mm.p1] = (cm[mm.p1] || 0) + 1;
-    });
+  let tp = so;
+
+  if (groupSize <= 2 && so.length % 2 === 1) {
+    const bc = getByes(h, ac);
+    const mb = Math.min(...Object.values(bc));
+    let byeName = null;
+    for (let i = so.length - 1; i >= 0; i--)
+      if (bc[so[i].name] <= mb) { byeName = so[i].name; break; }
+    if (!byeName) byeName = so[so.length - 1].name;
+    tp = so.filter(p => p.name !== byeName);
+    pa.push({ players: [byeName], scores: {}, result: "done", isBye: true, rematch: false, eloDeltas: {}, noElo: false });
   }
-  return pa;
-}
-function genMulti(pl, mn, mx, db) {
-  const ac = pl.filter((p) => !p.eliminated);
-  ac.sort((a, b) => b.score - a.score || b.w - a.w || gE(db, b.name) - gE(db, a.name));
-  const n = ac.length,
-    g = [];
-  if (n > 0 && n < mn) g.push(ac.map((p) => p.name));
-  else {
+
+  const ns = tp.map(p => p.name);
+  const mkMatch = playerNames => {
+    const hasRematch = playerNames.some((p1, i) =>
+      playerNames.some((p2, j) => j > i && (pr[p1] || new Set()).has(p2))
+    );
+    return { players: playerNames, scores: Object.fromEntries(playerNames.map(n => [n, ""])), result: null, isBye: false, rematch: hasRematch, eloDeltas: {}, noElo: false };
+  };
+
+  let groups = findGroups(ns, pr, groupSize, false);
+  if (!groups) groups = findGroups(ns, pr, groupSize, true);
+
+  if (groups) {
+    for (const group of groups) pa.push(mkMatch(group.map(i => ns[i])));
+  } else if (ns.length > 0) {
+    // Fallback: sequential split respecting matchMin/matchMax range
     let i = 0;
-    while (i < n) {
-      const r = n - i;
-      if (r <= mx) {
-        if (r >= mn) g.push(ac.slice(i).map((p) => p.name));
-        else if (g.length > 0) ac.slice(i).forEach((p) => g[g.length - 1].push(p.name));
-        else g.push(ac.slice(i).map((p) => p.name));
-        break;
+    while (i < ns.length) {
+      const r = ns.length - i;
+      let grp;
+      if (r <= groupSize) {
+        if (pa.length > 0 && r < mn) { ns.slice(i).forEach(n => pa[pa.length - 1].players.push(n)); break; }
+        grp = ns.slice(i);
+      } else {
+        grp = ns.slice(i, i + groupSize);
       }
-      g.push(ac.slice(i, i + mx).map((p) => p.name));
-      i += mx;
+      pa.push(mkMatch(grp));
+      i += grp.length;
     }
   }
-  return g.map((p) => ({
-    type: "multi",
-    players: p,
-    scores: Object.fromEntries(p.map((x) => [x, ""])),
-    result: null,
-  }));
-}
-function gpScore(name, h, bestOf, drop) {
-  bestOf = bestOf || 3;
-  drop = drop || 1;
-  const s = [];
-  h.forEach((r) =>
-    r.forEach((m) => {
-      if (m.type !== "multi" || !m.players.includes(name)) return;
-      const v = parseFloat(m.scores?.[name]);
-      if (!isNaN(v)) s.push(v);
-    }),
-  );
-  if (!s.length) return 0;
-  const l = s.slice(-bestOf);
-  if (l.length <= drop) return l.reduce((a, v) => a + v, 0);
-  const sorted = [...l].sort((a, b) => a - b);
-  for (let i = 0; i < drop; i++) sorted.shift();
-  return sorted.reduce((a, v) => a + v, 0);
+
+  if (c.firstPlayer && groupSize === 2) {
+    const cm = {};
+    pl.forEach(p => (cm[p.name] = p.firstCount || 0));
+    pa.forEach(mm => {
+      if (mm.isBye || mm.players.length !== 2) return;
+      const [a, b] = mm.players;
+      if ((cm[a] || 0) > (cm[b] || 0) || ((cm[a] || 0) === (cm[b] || 0) && Math.random() < 0.5))
+        [mm.players[0], mm.players[1]] = [b, a];
+      cm[mm.players[0]] = (cm[mm.players[0]] || 0) + 1;
+    });
+  }
+
+  return pa;
 }
 function rkLbl(i) {
   if (i === 0) return "Winner";
