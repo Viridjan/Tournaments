@@ -6,8 +6,11 @@ function StandingsTab({ state, dispatch, config }) {
     ac = state.players.filter((p) => !p.eliminated),
     gp = c.grandPrix,
     gs = (p) => (gp ? gpScore(p.name, state.history, c.gpBestOfLast, c.gpDropWorst) : p.score);
+  const activeElo = c.eloCol
+    ? (state.eloDb?.[c.eloCol] || {})
+    : (Object.values(state.eloDb || {}).find((v) => Object.keys(v).length > 0) || {});
   const so = [...state.players].sort(
-      (a, b) => gs(b) - gs(a) || b.w - a.w || gE(state.eloDb, a.name) - gE(state.eloDb, b.name),
+      (a, b) => gs(b) - gs(a) || b.w - a.w || gE(activeElo, a.name) - gE(activeElo, b.name),
     ),
     w = ac.length === 1 ? ac[0] : null;
   const al = c.prizes
@@ -94,7 +97,7 @@ function StandingsTab({ state, dispatch, config }) {
               {so.map((p, i) => {
                 const ds = gs(p);
                 const pr = prizeFor(i);
-                const elo = gE(state.eloDb, p.name);
+                const elo = gE(activeElo, p.name);
                 const eloDelta = c.elo && p.eloStart != null ? elo - p.eloStart : null;
                 return (
                   <tr key={p.name}>
