@@ -15,8 +15,8 @@ function App() {
       .then((d) => {
         if (d?.tournaments?.length) {
           dispatch({ type: "SET_TOURNAMENTS", tournaments: d.tournaments });
-          const cols = [...new Set(d.tournaments.map((t) => t.features?.eloCol).filter(Boolean))];
-          cols.forEach((col) => {
+          const configuredCols = [...new Set(d.tournaments.map((t) => t.features?.eloCol).filter(Boolean))];
+          const loadEloCols = (cols) => cols.forEach((col) => {
             fetch(u + "?action=load&col=" + encodeURIComponent(col))
               .then((r) => r.json())
               .then((ed) => {
@@ -28,6 +28,14 @@ function App() {
               })
               .catch(() => {});
           });
+          if (configuredCols.length > 0) {
+            loadEloCols(configuredCols);
+          } else {
+            fetch(u + "?action=elo_cols")
+              .then((r) => r.json())
+              .then((cd) => { if (cd?.cols?.length) loadEloCols(cd.cols); })
+              .catch(() => {});
+          }
         } else if (d?.error) {
           setFetchError("Script error: " + d.error);
         } else {
