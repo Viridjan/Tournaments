@@ -8,12 +8,8 @@ function PlayersTab({ state, dispatch, config, eloLoadedCols }) {
     [filter, setFilter] = useState(""),
     [acFocused, setAcFocused] = useState(false);
   const eloCol = config?.features?.eloCol;
-  const activeElo = eloCol
-    ? (state.eloDb?.[eloCol] || {})
-    : (Object.values(state.eloDb || {}).find((v) => Object.keys(v).length > 0) || {});
-  const eloReady = eloCol
-    ? !!eloLoadedCols?.[eloCol]
-    : Object.values(eloLoadedCols || {}).some(Boolean);
+  const activeElo = state.eloDb?.[eloCol] || {};
+  const eloReady = !eloCol || !!eloLoadedCols?.[eloCol];
   const addS = useMemo(
     () => new Set(state.players.map((p) => p.name.toLowerCase())),
     [state.players],

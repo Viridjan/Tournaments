@@ -2085,12 +2085,8 @@ function PlayersTab({ state, dispatch, config, eloLoadedCols }) {
     [filter, setFilter] = useState(""),
     [acFocused, setAcFocused] = useState(false);
   const eloCol = config?.features?.eloCol;
-  const activeElo = eloCol
-    ? (state.eloDb?.[eloCol] || {})
-    : (Object.values(state.eloDb || {}).find((v) => Object.keys(v).length > 0) || {});
-  const eloReady = eloCol
-    ? !!eloLoadedCols?.[eloCol]
-    : Object.values(eloLoadedCols || {}).some(Boolean);
+  const activeElo = state.eloDb?.[eloCol] || {};
+  const eloReady = !eloCol || !!eloLoadedCols?.[eloCol];
   const addS = useMemo(
     () => new Set(state.players.map((p) => p.name.toLowerCase())),
     [state.players],
@@ -2806,9 +2802,7 @@ function StandingsTab({ state, dispatch, config }) {
     ac = state.players.filter((p) => !p.eliminated),
     gp = c.grandPrix,
     gs = (p) => (gp ? gpScore(p.name, state.history, c.gpBestOfLast, c.gpDropWorst) : p.score);
-  const activeElo = c.eloCol
-    ? (state.eloDb?.[c.eloCol] || {})
-    : (Object.values(state.eloDb || {}).find((v) => Object.keys(v).length > 0) || {});
+  const activeElo = state.eloDb?.[c.eloCol || "ELO"] || {};
   const so = [...state.players].sort(
       (a, b) => gs(b) - gs(a) || b.w - a.w || gE(activeElo, a.name) - gE(activeElo, b.name),
     ),
