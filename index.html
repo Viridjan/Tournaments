@@ -3191,6 +3191,7 @@ function TestTab({ state, dispatch }) {
 // Advanced tab — full config editor, prizes, payouts, sheets sync
 // Left: Identity (id/name/icon) + Rounds & Matches (min/max, timer, RR)
 function AdvancedTab({ state, dispatch, config, eloColOptions }) {
+  const [dbOpen, setDbOpen] = React.useState(false);
   const f = config.features;
   const sf = (k, v) => dispatch({ type: "SET_FEATURE", key: k, value: v });
   const NumF = ({ label, k, desc }) => (
@@ -3651,7 +3652,14 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
             )}
           </div>
           <div style={{ marginTop: 16 }}>
-            <SheetsSync state={state} dispatch={dispatch} config={config} />
+            <div
+              onClick={() => setDbOpen((o) => !o)}
+              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", padding: "6px 0", borderTop: `0.5px solid ${C.bL}` }}
+            >
+              <span style={{ fontSize: 12, fontWeight: 600, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5 }}>Database</span>
+              <span style={{ fontSize: 12, color: C.muted }}>{dbOpen ? "▲" : "▼"}</span>
+            </div>
+            {dbOpen && <SheetsSync state={state} dispatch={dispatch} config={config} />}
           </div>
         </Card>
       </div>
