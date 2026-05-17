@@ -4431,6 +4431,24 @@ function App() {
       .finally(() => setLoading(false));
   };
   useEffect(() => { fetchTournaments(); }, []);
+  const prevEloCol = useRef(null);
+  useEffect(() => {
+    const col = state.featureOverrides?.eloCol;
+    if (!col || col === prevEloCol.current || state.eloDb?.[col]) return;
+    prevEloCol.current = col;
+    const u = gSU();
+    if (!u) return;
+    fetch(u + "?action=load&col=" + encodeURIComponent(col))
+      .then((r) => r.json())
+      .then((ed) => {
+        if (ed?.entries) {
+          const db = {};
+          ed.entries.forEach((e) => { if (e?.name) db[e.name.toLowerCase()] = { elo: parseInt(e.elo) || ED, name: e.name, test: !!e.test }; });
+          dispatch({ type: "SET_ELO_DB", db, col });
+        }
+      })
+      .catch(() => {});
+  }, [state.featureOverrides?.eloCol]);
   const restored = useRef(false);
   useEffect(() => {
     if (restored.current) return;
