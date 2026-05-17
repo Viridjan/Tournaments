@@ -48,21 +48,22 @@ function StandingsTab({ state, dispatch, config }) {
         style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 16 }}
       >
         <div style={S.metric}>
-          <div style={{ fontSize: 12, color: C.muted }}>Round</div>
+          <div style={S.metricLabel}>Round</div>
           <div style={{ fontSize: 22, fontWeight: 500 }}>
             {state.currentRound > 0 ? state.currentRound - 1 : "—"}
           </div>
         </div>
         <div style={S.metric}>
-          <div style={{ fontSize: 12, color: C.muted }}>Players</div>
+          <div style={S.metricLabel}>Players</div>
           <div style={{ fontSize: 22, fontWeight: 500 }}>{state.players.length || "—"}</div>
         </div>
         <div style={S.metric}>
-          <div style={{ fontSize: 12, color: C.muted }}>Active</div>
+          <div style={S.metricLabel}>Active</div>
           <div style={{ fontSize: 22, fontWeight: 500 }}>{ac.length || "—"}</div>
         </div>
       </div>
       <Card>
+          <h3 style={S.cardTitle}>Standings</h3>
           <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse" }}>
             <thead>
               <tr>
@@ -77,10 +78,7 @@ function StandingsTab({ state, dispatch, config }) {
                   <th
                     key={hi}
                     style={{
-                      fontWeight: 500,
-                      fontSize: 12,
-                      color: C.muted,
-                      textAlign: "left",
+                      ...S.tableHeader,
                       padding: "6px 8px",
                       borderBottom: `0.5px solid ${C.border}`,
                     }}

@@ -3,7 +3,7 @@
 function MatchCard({ match, index, dispatch, scoring, eloDb }) {
   if (match.isBye)
     return (
-      <Card style={{ background: C.bg, borderStyle: "dashed", padding: "10px 14px" }}>
+      <Card variant="bye">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ fontSize: 13, fontWeight: 500 }}>{match.players[0]}</div>
           <Tag variant="grey">BYE</Tag>
@@ -13,7 +13,7 @@ function MatchCard({ match, index, dispatch, scoring, eloDb }) {
 
   if (scoring === "points") {
     return (
-      <Card style={{ padding: "10px 14px" }}>
+      <Card variant="compact">
         <div style={{ fontSize: 11, fontWeight: 500, color: C.purple, marginBottom: 8 }}>
           Match {index + 1} · {match.players.length}p
           {match.rematch && <> <Tag variant="amber">re</Tag></>}
@@ -65,7 +65,7 @@ function MatchCard({ match, index, dispatch, scoring, eloDb }) {
       dispatch({ type: "SET_MATCH_RESULT", index, scores });
     };
     return (
-      <Card style={{ padding: "10px 14px" }}>
+      <Card variant="compact">
         <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 2fr", gap: 4, alignItems: "stretch" }}>
           <button style={bs(sel === "p1", "l")} onClick={() => pick("p1")}>
             <span>{p1}{match.rematch && <> <Tag variant="amber">re</Tag></>}</span>
@@ -133,7 +133,7 @@ function ML({ state }) {
             return (
               <div key={ei} style={{ marginBottom: 12 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, padding: "0 4px" }}>
-                  <h3 style={{ fontSize: 15, fontWeight: 500 }}>{ev.label}</h3>
+                  <h3 style={{ ...S.cardTitle, marginBottom: 0 }}>{ev.label}</h3>
                   <span style={{ fontSize: 11, color: C.faint }}>{ev.ts}</span>
                 </div>
                 {rd.map((m, mi) => (
@@ -220,9 +220,10 @@ function MatchesTab({ state, dispatch, config }) {
       { id: "log", label: "Log" },
     ].filter(Boolean);
   const isRR = state.phase === "roundrobin" && c.rrRounds > 0,
+    scoringLabel = { points: "Points", lifepoints: "Lifepoints", swiss: "Swiss" }[c.scoring] || "Swiss",
     rl = isRR
       ? `Round Robin — R${state.currentRound}/${c.rrRounds}`
-      : `Swiss — R${state.currentRound - (isRR ? 0 : c.rrRounds)}`;
+      : `${scoringLabel} — R${state.currentRound - (isRR ? 0 : c.rrRounds)}`;
   return (
     <div>
       <TabBar
@@ -248,7 +249,7 @@ function MatchesTab({ state, dispatch, config }) {
             <div>
               <div style={{ fontSize: 16, fontWeight: 500 }}>{rl}</div>
               <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
-                {isRR ? "By ELO" : "By win rate"}
+                {isRR ? "By ELO" : c.scoring === "points" ? "By points" : "By win rate"}
               </div>
             </div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>

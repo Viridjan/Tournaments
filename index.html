@@ -909,9 +909,34 @@ const S = {
     boxSizing: "border-box",
   },
   metric: { background: C.subtle, borderRadius: 8, padding: "12px 16px" },
+  cardTitle: { fontSize: 15, fontWeight: 600, margin: "0 0 12px" },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: 600,
+    color: C.muted,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    padding: "8px 0 4px",
+    marginTop: 4,
+  },
+  metricLabel: { fontSize: 11, color: C.muted },
+  tableHeader: { fontSize: 11, fontWeight: 500, color: C.muted, textAlign: "left" },
+  modTag: {
+    fontSize: 10,
+    borderRadius: 4,
+    padding: "1px 5px",
+    background: "#f3e8ff",
+    color: C.purple,
+    fontWeight: 500,
+  },
 };
-function Card({ children, style }) {
-  return <div style={{ ...S.card, ...style }}>{children}</div>;
+const cardVariants = {
+  default: S.card,
+  compact: { ...S.card, padding: "10px 14px" },
+  bye: { ...S.card, padding: "10px 14px", background: C.bg, borderStyle: "dashed" },
+};
+function Card({ children, style, variant = "default" }) {
+  return <div style={{ ...cardVariants[variant], ...style }}>{children}</div>;
 }
 function Btn({ children, onClick, style, title, disabled }) {
   return (
@@ -2119,7 +2144,7 @@ function PlayersTab({ state, dispatch, config, eloLoadedCols }) {
       </div>
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
         <Card style={{ flex: 1, minWidth: 260 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 500, marginBottom: 12 }}>Add players</h3>
+          <h3 style={S.cardTitle}>Add players</h3>
           <div style={{ position: "relative" }}>
             <input
               type="text"
@@ -2293,7 +2318,7 @@ function PlayersTab({ state, dispatch, config, eloLoadedCols }) {
           <div
             style={{ display: "flex", justifyContent: "space-between", marginBottom: 12, gap: 6 }}
           >
-            <h3 style={{ fontSize: 15, fontWeight: 500, margin: 0 }}>Registered</h3>
+            <h3 style={{ ...S.cardTitle, marginBottom: 0 }}>Registered</h3>
             <input
               type="text"
               value={filter}
@@ -2394,7 +2419,7 @@ function PlayersTab({ state, dispatch, config, eloLoadedCols }) {
 function MatchCard({ match, index, dispatch, scoring, eloDb }) {
   if (match.isBye)
     return (
-      <Card style={{ background: C.bg, borderStyle: "dashed", padding: "10px 14px" }}>
+      <Card variant="bye">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ fontSize: 13, fontWeight: 500 }}>{match.players[0]}</div>
           <Tag variant="grey">BYE</Tag>
@@ -2404,7 +2429,7 @@ function MatchCard({ match, index, dispatch, scoring, eloDb }) {
 
   if (scoring === "points") {
     return (
-      <Card style={{ padding: "10px 14px" }}>
+      <Card variant="compact">
         <div style={{ fontSize: 11, fontWeight: 500, color: C.purple, marginBottom: 8 }}>
           Match {index + 1} · {match.players.length}p
           {match.rematch && <> <Tag variant="amber">re</Tag></>}
@@ -2456,7 +2481,7 @@ function MatchCard({ match, index, dispatch, scoring, eloDb }) {
       dispatch({ type: "SET_MATCH_RESULT", index, scores });
     };
     return (
-      <Card style={{ padding: "10px 14px" }}>
+      <Card variant="compact">
         <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 2fr", gap: 4, alignItems: "stretch" }}>
           <button style={bs(sel === "p1", "l")} onClick={() => pick("p1")}>
             <span>{p1}{match.rematch && <> <Tag variant="amber">re</Tag></>}</span>
@@ -2524,7 +2549,7 @@ function ML({ state }) {
             return (
               <div key={ei} style={{ marginBottom: 12 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, padding: "0 4px" }}>
-                  <h3 style={{ fontSize: 15, fontWeight: 500 }}>{ev.label}</h3>
+                  <h3 style={{ ...S.cardTitle, marginBottom: 0 }}>{ev.label}</h3>
                   <span style={{ fontSize: 11, color: C.faint }}>{ev.ts}</span>
                 </div>
                 {rd.map((m, mi) => (
@@ -2611,9 +2636,10 @@ function MatchesTab({ state, dispatch, config }) {
       { id: "log", label: "Log" },
     ].filter(Boolean);
   const isRR = state.phase === "roundrobin" && c.rrRounds > 0,
+    scoringLabel = { points: "Points", lifepoints: "Lifepoints", swiss: "Swiss" }[c.scoring] || "Swiss",
     rl = isRR
       ? `Round Robin — R${state.currentRound}/${c.rrRounds}`
-      : `Swiss — R${state.currentRound - (isRR ? 0 : c.rrRounds)}`;
+      : `${scoringLabel} — R${state.currentRound - (isRR ? 0 : c.rrRounds)}`;
   return (
     <div>
       <TabBar
@@ -2639,7 +2665,7 @@ function MatchesTab({ state, dispatch, config }) {
             <div>
               <div style={{ fontSize: 16, fontWeight: 500 }}>{rl}</div>
               <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
-                {isRR ? "By ELO" : "By win rate"}
+                {isRR ? "By ELO" : c.scoring === "points" ? "By points" : "By win rate"}
               </div>
             </div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -2755,21 +2781,22 @@ function StandingsTab({ state, dispatch, config }) {
         style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 16 }}
       >
         <div style={S.metric}>
-          <div style={{ fontSize: 12, color: C.muted }}>Round</div>
+          <div style={S.metricLabel}>Round</div>
           <div style={{ fontSize: 22, fontWeight: 500 }}>
             {state.currentRound > 0 ? state.currentRound - 1 : "—"}
           </div>
         </div>
         <div style={S.metric}>
-          <div style={{ fontSize: 12, color: C.muted }}>Players</div>
+          <div style={S.metricLabel}>Players</div>
           <div style={{ fontSize: 22, fontWeight: 500 }}>{state.players.length || "—"}</div>
         </div>
         <div style={S.metric}>
-          <div style={{ fontSize: 12, color: C.muted }}>Active</div>
+          <div style={S.metricLabel}>Active</div>
           <div style={{ fontSize: 22, fontWeight: 500 }}>{ac.length || "—"}</div>
         </div>
       </div>
       <Card>
+          <h3 style={S.cardTitle}>Standings</h3>
           <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse" }}>
             <thead>
               <tr>
@@ -2784,10 +2811,7 @@ function StandingsTab({ state, dispatch, config }) {
                   <th
                     key={hi}
                     style={{
-                      fontWeight: 500,
-                      fontSize: 12,
-                      color: C.muted,
-                      textAlign: "left",
+                      ...S.tableHeader,
                       padding: "6px 8px",
                       borderBottom: `0.5px solid ${C.border}`,
                     }}
@@ -2955,7 +2979,7 @@ function SettingsTab({ state, dispatch, config }) {
     <div>
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
         <Card style={{ flex: 1, minWidth: 260 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 500, marginBottom: 12 }}>Tournament info</h3>
+          <h3 style={S.cardTitle}>Tournament info</h3>
           <div
             style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}
           >
@@ -2986,7 +3010,7 @@ function SettingsTab({ state, dispatch, config }) {
               </>
             )}
           </div>
-          <h3 style={{ fontSize: 14, fontWeight: 500, marginBottom: 8 }}>Feature flags</h3>
+          <div style={{ ...S.sectionLabel, marginTop: 8, marginBottom: 4 }}>Feature flags</div>
           <Ft label="Draft" on={f.draft} />
           <Ft label="ELO" on={f.elo} />
           <Ft label="First player" on={f.firstPlayer} />
@@ -2995,7 +3019,7 @@ function SettingsTab({ state, dispatch, config }) {
           <Ft label="Timeout" on={f.timeout} />
         </Card>
         <Card style={{ flex: 1, minWidth: 260 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 500, marginBottom: 8 }}>Options</h3>
+          <h3 style={S.cardTitle}>Options</h3>
           <Chk
             label="Test mode"
             checked={state.testMode}
@@ -3131,14 +3155,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
       />
       {state.featureOverrides[k] !== undefined && (
         <span
-          style={{
-            fontSize: 10,
-            borderRadius: 4,
-            padding: "1px 5px",
-            background: "#f3e8ff",
-            color: C.purple,
-            fontWeight: 500,
-          }}
+          style={S.modTag}
         >
           mod
         </span>
@@ -3167,14 +3184,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
       <span style={{ flex: 1, fontSize: 13 }}>{label}</span>
       {state.featureOverrides[k] !== undefined && (
         <span
-          style={{
-            fontSize: 10,
-            borderRadius: 4,
-            padding: "1px 5px",
-            background: "#f3e8ff",
-            color: C.purple,
-            fontWeight: 500,
-          }}
+          style={S.modTag}
         >
           mod
         </span>
@@ -3205,14 +3215,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
       </select>
       {state.featureOverrides[k] !== undefined && (
         <span
-          style={{
-            fontSize: 10,
-            borderRadius: 4,
-            padding: "1px 5px",
-            background: "#f3e8ff",
-            color: C.purple,
-            fontWeight: 500,
-          }}
+          style={S.modTag}
         >
           mod
         </span>
@@ -3225,7 +3228,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
     <div>
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
         <Card style={{ flex: 1, minWidth: 260 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 500, marginBottom: 4 }}>Tournament config</h3>
+          <h3 style={S.cardTitle}>Tournament config</h3>
           <div style={{ fontSize: 11, color: C.muted, marginBottom: 12 }}>
             Override settings for this session. Changes marked with{" "}
             <span
@@ -3278,19 +3281,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
             <span style={{ flex: 1, fontSize: 13 }}>Icon</span>
             <span style={{ fontSize: 18 }}>{config.icon}</span>
           </div>
-          <div
-            style={{
-              fontSize: 12,
-              fontWeight: 600,
-              color: C.muted,
-              textTransform: "uppercase",
-              letterSpacing: 0.5,
-              padding: "8px 0 4px",
-              marginTop: 4,
-            }}
-          >
-            Rounds & Matches
-          </div>
+          <div style={S.sectionLabel}>Rounds & Matches</div>
           <div
             style={{
               display: "flex",
@@ -3332,19 +3323,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
           <NumF label="Timer (minutes)" k="timerMinutes" />
           <NumF label="Round-robin rounds" k="rrRounds" />
           <SelF label="Pairing mode" k="pairing" options={["1v1", "multi"]} />
-          <div
-            style={{
-              fontSize: 12,
-              fontWeight: 600,
-              color: C.muted,
-              textTransform: "uppercase",
-              letterSpacing: 0.5,
-              padding: "8px 0 4px",
-              marginTop: 4,
-            }}
-          >
-            Scoring
-          </div>
+          <div style={S.sectionLabel}>Scoring</div>
           <SelF label="Scoring mode" k="scoring" options={["lifepoints", "swiss", "points"]} />
           <div
             style={{
@@ -3423,7 +3402,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
           >
             <span style={{ fontSize: 13, color: C.muted }}>Cumulative draw penalty</span>
             {state.featureOverrides.cumulativeDrawPenalty !== undefined && (
-              <span style={{ fontSize: 10, borderRadius: 4, padding: "1px 5px", background: "#f3e8ff", color: C.purple, fontWeight: 500 }}>mod</span>
+              <span style={S.modTag}>mod</span>
             )}
             <input
               type="checkbox"
@@ -3501,23 +3480,12 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
               </div>
             ))}
             {["pts1","pts2","pts3","ptsLast"].some(k => state.featureOverrides[k] !== undefined) && (
-              <span style={{ fontSize: 10, borderRadius: 4, padding: "1px 5px", background: "#f3e8ff", color: C.purple, fontWeight: 500 }}>mod</span>
+              <span style={S.modTag}>mod</span>
             )}
           </div>
         </Card>
         <Card style={{ flex: 1, minWidth: 260 }}>
-          <div
-            style={{
-              fontSize: 12,
-              fontWeight: 600,
-              color: C.muted,
-              textTransform: "uppercase",
-              letterSpacing: 0.5,
-              padding: "0 0 4px",
-            }}
-          >
-            Features
-          </div>
+          <h3 style={S.cardTitle}>Features</h3>
           <BoolF label="Draft phase" k="draft" />
           <div
             style={{
@@ -3557,35 +3525,11 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
           <BoolF label="Prizes" k="prizes" />
           <BoolF label="Rules tab" k="rules" />
           <BoolF label="Spinner" k="spinner" />
-          <div
-            style={{
-              fontSize: 12,
-              fontWeight: 600,
-              color: C.muted,
-              textTransform: "uppercase",
-              letterSpacing: 0.5,
-              padding: "8px 0 4px",
-              marginTop: 4,
-            }}
-          >
-            Grand Prix
-          </div>
+          <div style={S.sectionLabel}>Grand Prix</div>
           <BoolF label="GP enabled" k="grandPrix" />
           <NumF label="GP best of last N" k="gpBestOfLast" />
           <NumF label="GP drop worst N" k="gpDropWorst" />
-          <div
-            style={{
-              fontSize: 12,
-              fontWeight: 600,
-              color: C.muted,
-              textTransform: "uppercase",
-              letterSpacing: 0.5,
-              padding: "8px 0 4px",
-              marginTop: 4,
-            }}
-          >
-            ELO
-          </div>
+          <div style={S.sectionLabel}>ELO</div>
           <BoolF label="ELO tracking" k="elo" />
           <NumF label="ELO K-max" k="eloKMax" desc="max delta per match" />
           <NumF label="ELO scale" k="eloScale" desc={`sensitivity (default ${ES})`} />
@@ -3610,9 +3554,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
               ))}
             </select>
             {state.featureOverrides.eloDB !== undefined && (
-              <span style={{ fontSize: 10, borderRadius: 4, padding: "1px 5px", background: "#f3e8ff", color: C.purple, fontWeight: 500 }}>
-                mod
-              </span>
+              <span style={S.modTag}>mod</span>
             )}
           </div>
           <div style={{ marginTop: 16 }}>
@@ -3620,7 +3562,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
               onClick={() => setDbOpen((o) => !o)}
               style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", padding: "6px 0", borderTop: `0.5px solid ${C.bL}` }}
             >
-              <span style={{ fontSize: 12, fontWeight: 600, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5 }}>Database</span>
+              <span style={S.sectionLabel}>Database</span>
               <span style={{ fontSize: 12, color: C.muted }}>{dbOpen ? "▲" : "▼"}</span>
             </div>
             {dbOpen && <SheetsSync state={state} dispatch={dispatch} config={config} />}
@@ -3632,7 +3574,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
             <Card style={{ flex: 1, minWidth: 260 }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
-                <h3 style={{ margin: 0 }}>Ranking payouts</h3>
+                <h3 style={S.cardTitle}>Ranking payouts</h3>
               </div>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
@@ -3818,7 +3760,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
             </Card>
             <Card style={{ flex: 1, minWidth: 260 }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                <h3 style={{ margin: 0 }}>Prize pool</h3>
+                <h3 style={S.cardTitle}>Prize pool</h3>
                 <Btn
                   onClick={() => dispatch({ type: "ADD_PRIZE" })}
                   style={{ fontSize: 12, padding: "4px 10px" }}

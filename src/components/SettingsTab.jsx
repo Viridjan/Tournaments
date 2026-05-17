@@ -56,7 +56,7 @@ function SettingsTab({ state, dispatch, config }) {
     <div>
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
         <Card style={{ flex: 1, minWidth: 260 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 500, marginBottom: 12 }}>Tournament info</h3>
+          <h3 style={S.cardTitle}>Tournament info</h3>
           <div
             style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}
           >
@@ -87,7 +87,7 @@ function SettingsTab({ state, dispatch, config }) {
               </>
             )}
           </div>
-          <h3 style={{ fontSize: 14, fontWeight: 500, marginBottom: 8 }}>Feature flags</h3>
+          <div style={{ ...S.sectionLabel, marginTop: 8, marginBottom: 4 }}>Feature flags</div>
           <Ft label="Draft" on={f.draft} />
           <Ft label="ELO" on={f.elo} />
           <Ft label="First player" on={f.firstPlayer} />
@@ -96,7 +96,7 @@ function SettingsTab({ state, dispatch, config }) {
           <Ft label="Timeout" on={f.timeout} />
         </Card>
         <Card style={{ flex: 1, minWidth: 260 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 500, marginBottom: 8 }}>Options</h3>
+          <h3 style={S.cardTitle}>Options</h3>
           <Chk
             label="Test mode"
             checked={state.testMode}

@@ -66,7 +66,7 @@ function PlayersTab({ state, dispatch, config, eloLoadedCols }) {
       </div>
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
         <Card style={{ flex: 1, minWidth: 260 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 500, marginBottom: 12 }}>Add players</h3>
+          <h3 style={S.cardTitle}>Add players</h3>
           <div style={{ position: "relative" }}>
             <input
               type="text"
@@ -240,7 +240,7 @@ function PlayersTab({ state, dispatch, config, eloLoadedCols }) {
           <div
             style={{ display: "flex", justifyContent: "space-between", marginBottom: 12, gap: 6 }}
           >
-            <h3 style={{ fontSize: 15, fontWeight: 500, margin: 0 }}>Registered</h3>
+            <h3 style={{ ...S.cardTitle, marginBottom: 0 }}>Registered</h3>
             <input
               type="text"
               value={filter}

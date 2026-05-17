@@ -53,9 +53,34 @@ const S = {
     boxSizing: "border-box",
   },
   metric: { background: C.subtle, borderRadius: 8, padding: "12px 16px" },
+  cardTitle: { fontSize: 15, fontWeight: 600, margin: "0 0 12px" },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: 600,
+    color: C.muted,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    padding: "8px 0 4px",
+    marginTop: 4,
+  },
+  metricLabel: { fontSize: 11, color: C.muted },
+  tableHeader: { fontSize: 11, fontWeight: 500, color: C.muted, textAlign: "left" },
+  modTag: {
+    fontSize: 10,
+    borderRadius: 4,
+    padding: "1px 5px",
+    background: "#f3e8ff",
+    color: C.purple,
+    fontWeight: 500,
+  },
 };
-function Card({ children, style }) {
-  return <div style={{ ...S.card, ...style }}>{children}</div>;
+const cardVariants = {
+  default: S.card,
+  compact: { ...S.card, padding: "10px 14px" },
+  bye: { ...S.card, padding: "10px 14px", background: C.bg, borderStyle: "dashed" },
+};
+function Card({ children, style, variant = "default" }) {
+  return <div style={{ ...cardVariants[variant], ...style }}>{children}</div>;
 }
 function Btn({ children, onClick, style, title, disabled }) {
   return (

@@ -31,14 +31,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
       />
       {state.featureOverrides[k] !== undefined && (
         <span
-          style={{
-            fontSize: 10,
-            borderRadius: 4,
-            padding: "1px 5px",
-            background: "#f3e8ff",
-            color: C.purple,
-            fontWeight: 500,
-          }}
+          style={S.modTag}
         >
           mod
         </span>
@@ -67,14 +60,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
       <span style={{ flex: 1, fontSize: 13 }}>{label}</span>
       {state.featureOverrides[k] !== undefined && (
         <span
-          style={{
-            fontSize: 10,
-            borderRadius: 4,
-            padding: "1px 5px",
-            background: "#f3e8ff",
-            color: C.purple,
-            fontWeight: 500,
-          }}
+          style={S.modTag}
         >
           mod
         </span>
@@ -105,14 +91,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
       </select>
       {state.featureOverrides[k] !== undefined && (
         <span
-          style={{
-            fontSize: 10,
-            borderRadius: 4,
-            padding: "1px 5px",
-            background: "#f3e8ff",
-            color: C.purple,
-            fontWeight: 500,
-          }}
+          style={S.modTag}
         >
           mod
         </span>
@@ -125,7 +104,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
     <div>
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
         <Card style={{ flex: 1, minWidth: 260 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 500, marginBottom: 4 }}>Tournament config</h3>
+          <h3 style={S.cardTitle}>Tournament config</h3>
           <div style={{ fontSize: 11, color: C.muted, marginBottom: 12 }}>
             Override settings for this session. Changes marked with{" "}
             <span
@@ -178,19 +157,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
             <span style={{ flex: 1, fontSize: 13 }}>Icon</span>
             <span style={{ fontSize: 18 }}>{config.icon}</span>
           </div>
-          <div
-            style={{
-              fontSize: 12,
-              fontWeight: 600,
-              color: C.muted,
-              textTransform: "uppercase",
-              letterSpacing: 0.5,
-              padding: "8px 0 4px",
-              marginTop: 4,
-            }}
-          >
-            Rounds & Matches
-          </div>
+          <div style={S.sectionLabel}>Rounds & Matches</div>
           <div
             style={{
               display: "flex",
@@ -232,19 +199,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
           <NumF label="Timer (minutes)" k="timerMinutes" />
           <NumF label="Round-robin rounds" k="rrRounds" />
           <SelF label="Pairing mode" k="pairing" options={["1v1", "multi"]} />
-          <div
-            style={{
-              fontSize: 12,
-              fontWeight: 600,
-              color: C.muted,
-              textTransform: "uppercase",
-              letterSpacing: 0.5,
-              padding: "8px 0 4px",
-              marginTop: 4,
-            }}
-          >
-            Scoring
-          </div>
+          <div style={S.sectionLabel}>Scoring</div>
           <SelF label="Scoring mode" k="scoring" options={["lifepoints", "swiss", "points"]} />
           <div
             style={{
@@ -323,7 +278,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
           >
             <span style={{ fontSize: 13, color: C.muted }}>Cumulative draw penalty</span>
             {state.featureOverrides.cumulativeDrawPenalty !== undefined && (
-              <span style={{ fontSize: 10, borderRadius: 4, padding: "1px 5px", background: "#f3e8ff", color: C.purple, fontWeight: 500 }}>mod</span>
+              <span style={S.modTag}>mod</span>
             )}
             <input
               type="checkbox"
@@ -401,23 +356,12 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
               </div>
             ))}
             {["pts1","pts2","pts3","ptsLast"].some(k => state.featureOverrides[k] !== undefined) && (
-              <span style={{ fontSize: 10, borderRadius: 4, padding: "1px 5px", background: "#f3e8ff", color: C.purple, fontWeight: 500 }}>mod</span>
+              <span style={S.modTag}>mod</span>
             )}
           </div>
         </Card>
         <Card style={{ flex: 1, minWidth: 260 }}>
-          <div
-            style={{
-              fontSize: 12,
-              fontWeight: 600,
-              color: C.muted,
-              textTransform: "uppercase",
-              letterSpacing: 0.5,
-              padding: "0 0 4px",
-            }}
-          >
-            Features
-          </div>
+          <h3 style={S.cardTitle}>Features</h3>
           <BoolF label="Draft phase" k="draft" />
           <div
             style={{
@@ -457,35 +401,11 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
           <BoolF label="Prizes" k="prizes" />
           <BoolF label="Rules tab" k="rules" />
           <BoolF label="Spinner" k="spinner" />
-          <div
-            style={{
-              fontSize: 12,
-              fontWeight: 600,
-              color: C.muted,
-              textTransform: "uppercase",
-              letterSpacing: 0.5,
-              padding: "8px 0 4px",
-              marginTop: 4,
-            }}
-          >
-            Grand Prix
-          </div>
+          <div style={S.sectionLabel}>Grand Prix</div>
           <BoolF label="GP enabled" k="grandPrix" />
           <NumF label="GP best of last N" k="gpBestOfLast" />
           <NumF label="GP drop worst N" k="gpDropWorst" />
-          <div
-            style={{
-              fontSize: 12,
-              fontWeight: 600,
-              color: C.muted,
-              textTransform: "uppercase",
-              letterSpacing: 0.5,
-              padding: "8px 0 4px",
-              marginTop: 4,
-            }}
-          >
-            ELO
-          </div>
+          <div style={S.sectionLabel}>ELO</div>
           <BoolF label="ELO tracking" k="elo" />
           <NumF label="ELO K-max" k="eloKMax" desc="max delta per match" />
           <NumF label="ELO scale" k="eloScale" desc={`sensitivity (default ${ES})`} />
@@ -510,9 +430,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
               ))}
             </select>
             {state.featureOverrides.eloDB !== undefined && (
-              <span style={{ fontSize: 10, borderRadius: 4, padding: "1px 5px", background: "#f3e8ff", color: C.purple, fontWeight: 500 }}>
-                mod
-              </span>
+              <span style={S.modTag}>mod</span>
             )}
           </div>
           <div style={{ marginTop: 16 }}>
@@ -520,7 +438,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
               onClick={() => setDbOpen((o) => !o)}
               style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", padding: "6px 0", borderTop: `0.5px solid ${C.bL}` }}
             >
-              <span style={{ fontSize: 12, fontWeight: 600, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5 }}>Database</span>
+              <span style={S.sectionLabel}>Database</span>
               <span style={{ fontSize: 12, color: C.muted }}>{dbOpen ? "▲" : "▼"}</span>
             </div>
             {dbOpen && <SheetsSync state={state} dispatch={dispatch} config={config} />}
@@ -532,7 +450,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
             <Card style={{ flex: 1, minWidth: 260 }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
-                <h3 style={{ margin: 0 }}>Ranking payouts</h3>
+                <h3 style={S.cardTitle}>Ranking payouts</h3>
               </div>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
@@ -718,7 +636,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
             </Card>
             <Card style={{ flex: 1, minWidth: 260 }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                <h3 style={{ margin: 0 }}>Prize pool</h3>
+                <h3 style={S.cardTitle}>Prize pool</h3>
                 <Btn
                   onClick={() => dispatch({ type: "ADD_PRIZE" })}
                   style={{ fontSize: 12, padding: "4px 10px" }}
