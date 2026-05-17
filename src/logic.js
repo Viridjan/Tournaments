@@ -65,9 +65,21 @@ function getByes(h, a) {
   }));
   return c;
 }
+function splitGroups(n, max, round) {
+  if (n <= 0) return [];
+  let g;
+  if (round === "up") {
+    g = Math.max(1, Math.floor(n / max));
+    while (g * (max + 1) < n) g++;
+  } else {
+    g = Math.max(1, Math.ceil(n / max));
+  }
+  const base = Math.floor(n / g), extra = n % g;
+  return Array.from({ length: g }, (_, i) => (i < extra ? base + 1 : base));
+}
 function genPairings(pl, h, ph, c, db) {
   const groupSize = Math.max(2, Number(c.matchMax) || 2);
-  const mn = Math.max(2, Number(c.matchMin) || groupSize);
+  const matchRound = c.matchRound || "none";
   const ac = pl.filter(p => !p.eliminated);
   const so = [...ac].sort((a, b) =>
     ph === "roundrobin"
@@ -97,25 +109,22 @@ function genPairings(pl, h, ph, c, db) {
     return { players: playerNames, scores: Object.fromEntries(playerNames.map(n => [n, ""])), result: null, isBye: false, rematch: hasRematch, eloDeltas: {}, noElo: false };
   };
 
-  let groups = findGroups(ns, pr, groupSize, false);
-  if (!groups) groups = findGroups(ns, pr, groupSize, true);
+  let grouped = false;
+  if (ns.length > 0 && ns.length % groupSize === 0) {
+    let groups = findGroups(ns, pr, groupSize, false);
+    if (!groups) groups = findGroups(ns, pr, groupSize, true);
+    if (groups) {
+      for (const group of groups) pa.push(mkMatch(group.map(i => ns[i])));
+      grouped = true;
+    }
+  }
 
-  if (groups) {
-    for (const group of groups) pa.push(mkMatch(group.map(i => ns[i])));
-  } else if (ns.length > 0) {
-    // Fallback: sequential split respecting matchMin/matchMax range
-    let i = 0;
-    while (i < ns.length) {
-      const r = ns.length - i;
-      let grp;
-      if (r <= groupSize) {
-        if (pa.length > 0 && r < mn) { ns.slice(i).forEach(n => pa[pa.length - 1].players.push(n)); break; }
-        grp = ns.slice(i);
-      } else {
-        grp = ns.slice(i, i + groupSize);
-      }
-      pa.push(mkMatch(grp));
-      i += grp.length;
+  if (!grouped && ns.length > 0) {
+    const sizes = splitGroups(ns.length, groupSize, matchRound);
+    let offset = 0;
+    for (const size of sizes) {
+      if (size > 0) pa.push(mkMatch(ns.slice(offset, offset + size)));
+      offset += size;
     }
   }
 

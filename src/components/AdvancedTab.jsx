@@ -200,25 +200,8 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
               borderBottom: `0.5px solid ${C.bL}`,
             }}
           >
-            <span style={{ flex: 1, fontSize: 13 }}>Min / Max players</span>
+            <span style={{ flex: 1, fontSize: 13 }}>Max players / Rounding</span>
             <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={f.matchMin ?? ""}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  sf("matchMin", v === "" ? "" : isNaN(Number(v)) ? v : Number(v));
-                }}
-                style={{
-                  ...S.input,
-                  width: 40,
-                  textAlign: "center",
-                  fontSize: 13,
-                  padding: "4px 6px",
-                }}
-              />
-              <span style={{ fontSize: 11, color: C.faint }}>/</span>
               <input
                 type="text"
                 inputMode="numeric"
@@ -235,6 +218,15 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
                   padding: "4px 6px",
                 }}
               />
+              <select
+                value={f.matchRound || "none"}
+                onChange={(e) => sf("matchRound", e.target.value)}
+                style={{ ...S.input, width: "auto", fontSize: 12, padding: "4px 6px", cursor: "pointer" }}
+              >
+                <option value="none">BYE</option>
+                <option value="up">round up</option>
+                <option value="down">round down</option>
+              </select>
             </div>
           </div>
           <NumF label="Timer (minutes)" k="timerMinutes" />

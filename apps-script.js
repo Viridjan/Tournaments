@@ -16,7 +16,7 @@
 //    winPoints | drawPoints | lossPoints | cumulativeDrawPenalty | pairing | rrRounds |
 //    timerMinutes | draft | elo | eloKMax | eloScale | eloDB | firstPlayer | grandPrix |
 //    gpBestOfLast | gpDropWorst | prizes | timeout | timeoutTime | spinner | rules |
-//    matchMin | matchMax
+//    matchRound | matchMax
 //    Then add one row per tournament type.
 // 7. Go to Extensions > Apps Script
 // 8. Paste this entire script, replacing any existing code
@@ -284,7 +284,7 @@ var TOURNAMENT_FEATURE_KEYS = [
   "scoring", "startScore", "pts1", "pts2", "pts3", "ptsLast", "winPoints", "drawPoints", "lossPoints",
   "cumulativeDrawPenalty", "pairing", "rrRounds", "timerMinutes", "draft", "elo", "eloKMax",
   "eloScale", "eloDB", "firstPlayer", "grandPrix", "gpBestOfLast", "gpDropWorst", "prizes",
-  "timeout", "timeoutTime", "spinner", "rules", "matchMin", "matchMax"
+  "timeout", "timeoutTime", "spinner", "rules", "matchRound", "matchMax"
 ];
 
 function loadTournaments() {
