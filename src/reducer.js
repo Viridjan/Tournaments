@@ -173,7 +173,7 @@ function reducer(st, a) {
             so = [...fl].sort(
               (a, b) => parseFloat(m.scores[b] || 0) - parseFloat(m.scores[a] || 0),
             );
-          if (so.length) {
+          if (so.length && c.scoring === "points") {
             const ptMap = [
               c.pts1 !== "" && c.pts1 !== undefined ? Number(c.pts1) : 3,
               c.pts2 !== "" && c.pts2 !== undefined ? Number(c.pts2) : 2,
