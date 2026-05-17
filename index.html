@@ -2052,7 +2052,7 @@ function PlayersTab({ state, dispatch, config, eloLoadedCols }) {
     [acFocused, setAcFocused] = useState(false);
   const eloCol = config?.features?.eloDB;
   const activeElo = state.eloDb?.[eloCol] || {};
-  const eloReady = !eloCol || !!eloLoadedCols?.[eloCol];
+  const eloReady = !eloCol || !!eloLoadedCols?.[eloCol] || Object.keys(activeElo).length > 0;
   const addS = useMemo(
     () => new Set(state.players.map((p) => p.name.toLowerCase())),
     [state.players],
@@ -4414,6 +4414,7 @@ function App() {
           const db = {};
           ed.entries.forEach((e) => { if (e?.name) db[e.name.toLowerCase()] = { elo: parseInt(e.elo) || ED, name: e.name, test: !!e.test }; });
           dispatch({ type: "SET_ELO_DB", db, col });
+          setEloLoadedCols((prev) => ({ ...prev, [col]: true }));
         }
       })
       .catch(() => {});
