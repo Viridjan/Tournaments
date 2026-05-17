@@ -117,7 +117,7 @@ function reducer(st, a) {
       const c = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
       if (!c) return st;
       const ss = c.startScore ?? 0;
-      const activeElo = st.eloDb[c.eloCol || "ELO"] || {};
+      const activeElo = st.eloDb[c.eloDB || "ELO"] || {};
       const pl = st.players.map((p) => ({
         ...p,
         score: ss,
@@ -162,7 +162,7 @@ function reducer(st, a) {
     case "NEXT_ROUND": {
       const c = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
       if (!c) return st;
-      const eloNs = c.eloCol || "ELO";
+      const eloNs = c.eloDB || "ELO";
       let pl = st.players.map((p) => ({ ...p })),
         db = { ...(st.eloDb[eloNs] || {}) };
       const sc = c.scoring,
@@ -416,7 +416,7 @@ function reducer(st, a) {
         "Julia",
       ];
       const testNs = (st.tournaments?.[st.tournamentId] ?
-        { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides }.eloCol
+        { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides }.eloDB
         : null) || "ELO";
       let db = { ...(st.eloDb[testNs] || {}) };
       const pl = [];

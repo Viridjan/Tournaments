@@ -17,7 +17,7 @@ function App() {
       .then((d) => {
         if (d?.tournaments?.length) {
           dispatch({ type: "SET_TOURNAMENTS", tournaments: d.tournaments });
-          const configuredCols = [...new Set(d.tournaments.map((t) => t.features?.eloCol).filter(Boolean))];
+          const configuredCols = [...new Set(d.tournaments.map((t) => t.features?.eloDB).filter(Boolean))];
           const loadEloCols = (cols) => cols.forEach((col) => {
             fetch(u + "?action=load&col=" + encodeURIComponent(col))
               .then((r) => r.json())
@@ -55,7 +55,7 @@ function App() {
   useEffect(() => { fetchTournaments(); }, []);
   const prevEloCol = useRef(null);
   useEffect(() => {
-    const col = state.featureOverrides?.eloCol;
+    const col = state.featureOverrides?.eloDB;
     if (!col || col === prevEloCol.current || state.eloDb?.[col]) return;
     prevEloCol.current = col;
     const u = gSU();
@@ -70,7 +70,7 @@ function App() {
         }
       })
       .catch(() => {});
-  }, [state.featureOverrides?.eloCol]);
+  }, [state.featureOverrides?.eloDB]);
   const restored = useRef(false);
   useEffect(() => {
     if (restored.current) return;

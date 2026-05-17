@@ -1,9 +1,10 @@
 // Google Sheets integration — Database card in Advanced tab
 // Sheets sync — pull/push ELO, validate, copy script
 // Pull: fetches ELO entries (preserves test flag)
-function SheetsSync({ state, dispatch }) {
+function SheetsSync({ state, dispatch, config }) {
   const [status, setStatus] = useState("");
   const url = state.sheetsUrl;
+  const col = config?.features?.eloDB || "ELO";
   const pull = async () => {
     if (!url) {
       setStatus("⚠ No URL");
@@ -11,7 +12,7 @@ function SheetsSync({ state, dispatch }) {
     }
     setStatus("Pulling…");
     try {
-      const r = await fetch(url + "?action=load");
+      const r = await fetch(url + "?action=load&col=" + encodeURIComponent(col));
       if (!r.ok) throw new Error("HTTP " + r.status);
       const d = await r.json();
       if (d?.entries) {
@@ -20,8 +21,8 @@ function SheetsSync({ state, dispatch }) {
           if (e?.name)
             db[e.name.toLowerCase()] = { elo: parseInt(e.elo) || ED, name: e.name, test: !!e.test };
         });
-        dispatch({ type: "SET_ELO_DB", db });
-        setStatus(`✓ Pulled ${Object.keys(db).length}`);
+        dispatch({ type: "SET_ELO_DB", db, col });
+        setStatus(`✓ Pulled ${Object.keys(db).length} (${col})`);
       }
     } catch (e) {
       setStatus("✗ " + e.message);
@@ -34,24 +35,24 @@ function SheetsSync({ state, dispatch }) {
     }
     setStatus("Pushing…");
     try {
-      const ent = Object.values(state.eloDb)
+      const ent = Object.values(state.eloDb?.[col] || {})
         .filter((v) => v?.name)
         .map((v) => ({ name: v.name, elo: v.elo, test: !!v.test }));
       await fetch(url, {
         method: "POST",
         mode: "no-cors",
         headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({ action: "save", test: false, entries: ent }),
+        body: JSON.stringify({ action: "save", col, test: false, entries: ent }),
       });
       setStatus(`Verifying…`);
       await new Promise((r) => setTimeout(r, 1500));
-      const vr = await fetch(url + "?action=load");
+      const vr = await fetch(url + "?action=load&col=" + encodeURIComponent(col));
       const vd = await vr.json();
       const remote = vd?.entries?.length || 0;
       if (remote >= ent.length) {
-        setStatus(`✓ Pushed & verified (${remote} entries)`);
+        setStatus(`✓ Pushed & verified (${remote} entries, ${col})`);
       } else {
-        setStatus(`⚠ Pushed ${ent.length} but Sheet has ${remote} — check manually`);
+        setStatus(`⚠ Pushed ${ent.length} but ${col} has ${remote} — check manually`);
       }
     } catch (e) {
       setStatus("✗ " + e.message);
@@ -65,9 +66,9 @@ function SheetsSync({ state, dispatch }) {
     setStatus("Validating…");
     const results = [];
     try {
-      const r = await fetch(url + "?action=load");
+      const r = await fetch(url + "?action=load&col=" + encodeURIComponent(col));
       const d = await r.json();
-      results.push(d?.entries ? "✓ ELO" : "✗ ELO — missing or wrong format");
+      results.push(d?.entries ? `✓ ELO (${col})` : `✗ ELO (${col}) — missing or wrong format`);
     } catch {
       results.push("✗ ELO — unreachable");
     }

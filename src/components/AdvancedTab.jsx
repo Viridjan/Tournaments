@@ -473,8 +473,8 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
           >
             <span style={{ flex: 1, fontSize: 13 }}>ELO column</span>
             <select
-              value={f.eloCol ?? ""}
-              onChange={(e) => sf("eloCol", e.target.value)}
+              value={f.eloDB ?? ""}
+              onChange={(e) => sf("eloDB", e.target.value)}
               style={{ ...S.input, width: "auto", fontSize: 12, padding: "4px 8px", cursor: "pointer" }}
             >
               <option value="">— select —</option>
@@ -482,7 +482,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
                 <option key={col} value={col}>{col}</option>
               ))}
             </select>
-            {state.featureOverrides.eloCol !== undefined && (
+            {state.featureOverrides.eloDB !== undefined && (
               <span style={{ fontSize: 10, borderRadius: 4, padding: "1px 5px", background: "#f3e8ff", color: C.purple, fontWeight: 500 }}>
                 mod
               </span>
