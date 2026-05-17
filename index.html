@@ -349,7 +349,8 @@ function mkP(st, pl, h, ph) {
   const c = { ...st.tournaments?.[st.tournamentId]?.features, ...st.featureOverrides };
   if (!c) return [];
   const activeElo = st.eloDb?.[c.eloDB || "ELO"] || {};
-  return c.pairing === "multi"
+  const useMulti = c.pairing === "multi" || Number(c.matchMax) > 2;
+  return useMulti
     ? genMulti(pl, c.matchMin, c.matchMax, activeElo)
     : gen1v1(pl, h, ph, c.rrRounds, activeElo, c.firstPlayer);
 }
@@ -557,6 +558,18 @@ function reducer(st, a) {
                 pts > 0 ? p.w++ : p.l++;
               });
               rank += g.players.length;
+            });
+          } else if (so.length && c.scoring === "swiss") {
+            const topScore = parseFloat(m.scores[so[0]] || 0);
+            const tied = so.filter(n => parseFloat(m.scores[n] || 0) === topScore);
+            const isMultiWinner = tied.length > 1;
+            so.forEach(n => {
+              const p = pl.find(x => x.name === n);
+              if (!p) return;
+              const isTop = parseFloat(m.scores[n] || 0) === topScore;
+              if (isTop && isMultiWinner) { p.d++; p.score += c.drawPoints ?? 1; }
+              else if (isTop)             { p.w++; p.score += c.winPoints ?? 3; }
+              else                        { p.l++; p.score += c.lossPoints ?? 0; }
             });
           }
           if (c.elo) {

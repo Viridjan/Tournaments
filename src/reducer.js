@@ -202,6 +202,18 @@ function reducer(st, a) {
               });
               rank += g.players.length;
             });
+          } else if (so.length && c.scoring === "swiss") {
+            const topScore = parseFloat(m.scores[so[0]] || 0);
+            const tied = so.filter(n => parseFloat(m.scores[n] || 0) === topScore);
+            const isMultiWinner = tied.length > 1;
+            so.forEach(n => {
+              const p = pl.find(x => x.name === n);
+              if (!p) return;
+              const isTop = parseFloat(m.scores[n] || 0) === topScore;
+              if (isTop && isMultiWinner) { p.d++; p.score += c.drawPoints ?? 1; }
+              else if (isTop)             { p.w++; p.score += c.winPoints ?? 3; }
+              else                        { p.l++; p.score += c.lossPoints ?? 0; }
+            });
           }
           if (c.elo) {
             const n = m.players.length,
