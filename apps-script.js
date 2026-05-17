@@ -280,7 +280,7 @@ function loadRules(tournament) {
 // ── Tournaments ──
 
 var TOURNAMENT_FEATURE_KEYS = [
-  "scoring", "startScore", "winPoints", "drawPoints", "lossPoints",
+  "scoring", "startScore", "pts1", "pts2", "pts3", "ptsLast", "winPoints", "drawPoints", "lossPoints",
   "cumulativeDrawPenalty", "pairing", "rrRounds", "timerMinutes", "draft", "elo", "eloKMax",
   "eloScale", "eloDB", "firstPlayer", "grandPrix", "gpBestOfLast", "gpDropWorst", "prizes",
   "timeout", "timeoutTime", "spinner", "rules", "matchMin", "matchMax"

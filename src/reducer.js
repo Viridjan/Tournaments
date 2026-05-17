@@ -174,7 +174,12 @@ function reducer(st, a) {
               (a, b) => parseFloat(m.scores[b] || 0) - parseFloat(m.scores[a] || 0),
             );
           if (so.length) {
-            const ptMap = [3, 2, 1];
+            const ptMap = [
+              c.pts1 !== "" && c.pts1 !== undefined ? Number(c.pts1) : 3,
+              c.pts2 !== "" && c.pts2 !== undefined ? Number(c.pts2) : 2,
+              c.pts3 !== "" && c.pts3 !== undefined ? Number(c.pts3) : 1,
+            ];
+            const ptsLast = c.ptsLast !== "" && c.ptsLast !== undefined ? Number(c.ptsLast) : 0;
             const groups = [];
             let gi = 0;
             while (gi < so.length) {
@@ -188,7 +193,7 @@ function reducer(st, a) {
             let rank = 1;
             groups.forEach((g, idx) => {
               const isLast = multiGroup && idx === groups.length - 1;
-              const pts = isLast || g.score === 0 ? 0 : (ptMap[rank - 1] ?? 0);
+              const pts = isLast || g.score === 0 ? ptsLast : (ptMap[rank - 1] ?? ptsLast);
               g.players.forEach((n) => {
                 const p = pl.find((x) => x.name === n);
                 if (!p) return;

@@ -120,6 +120,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
     </div>
   );
   const isLP = f.scoring === "lifepoints";
+  const isPoints = f.scoring === "points";
   return (
     <div>
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
@@ -376,6 +377,40 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
                 opacity: isLP ? 1 : 0.5,
               }}
             />
+          </div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "5px 0",
+              borderBottom: `0.5px solid ${C.bL}`,
+              opacity: isPoints ? 1 : 0.35,
+            }}
+          >
+            <span style={{ flex: 1, fontSize: 13 }}>
+              1st / 2nd / 3rd / last
+              {!isPoints && (
+                <span style={{ fontSize: 10, color: C.faint, marginLeft: 4 }}>
+                  (points only)
+                </span>
+              )}
+            </span>
+            {[["pts1", "1st", 3], ["pts2", "2nd", 2], ["pts3", "3rd", 1], ["ptsLast", "last", 0]].map(([k, lbl, def]) => (
+              <div key={k} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                <span style={{ fontSize: 10, color: C.muted }}>{lbl}</span>
+                <input
+                  type="number"
+                  value={f[k] !== undefined && f[k] !== "" ? f[k] : def}
+                  disabled={!isPoints}
+                  onChange={(e) => sf(k, e.target.value === "" ? "" : Number(e.target.value))}
+                  style={{ ...S.input, width: 44, fontSize: 12, padding: "3px 6px", textAlign: "center", opacity: isPoints ? 1 : 0.5 }}
+                />
+              </div>
+            ))}
+            {["pts1","pts2","pts3","ptsLast"].some(k => state.featureOverrides[k] !== undefined) && (
+              <span style={{ fontSize: 10, borderRadius: 4, padding: "1px 5px", background: "#f3e8ff", color: C.purple, fontWeight: 500 }}>mod</span>
+            )}
           </div>
         </Card>
         <Card style={{ flex: 1, minWidth: 260 }}>

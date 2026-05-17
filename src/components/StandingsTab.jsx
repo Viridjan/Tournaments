@@ -5,7 +5,7 @@ function StandingsTab({ state, dispatch, config }) {
   const c = config.features,
     ac = state.players.filter((p) => !p.eliminated),
     gp = c.grandPrix,
-    gs = (p) => (gp ? gpScore(p.name, state.history, c.gpBestOfLast, c.gpDropWorst) : p.score);
+    gs = (p) => p.score;
   const so = [...state.players].sort(
       (a, b) => gs(b) - gs(a) || b.w - a.w || gE(state.eloDb, a.name) - gE(state.eloDb, b.name),
     ),
