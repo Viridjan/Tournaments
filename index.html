@@ -423,7 +423,7 @@ const init = {
 function reducer(st, a) {
   switch (a.type) {
     case "OPEN_TOURNAMENT":
-      return { ...st, screen: "tournament", tournamentId: a.id, activeTab: "players" };
+      return { ...st, screen: "tournament", tournamentId: a.id, activeTab: "players", featureOverrides: {} };
     case "GO_HOME":
       return { ...st, screen: "landing" };
     case "SET_TAB":
@@ -2080,17 +2080,20 @@ function LandingScreen({ dispatch, tournaments, onRetry, fetchError }) {
 //   - Player list with paid toggle, abandon button, remove button
 // Right card: full registered players table with ELO, filter search
 //   - Filters by test flag based on testMode state
-function PlayersTab({ state, dispatch, config }) {
+function PlayersTab({ state, dispatch, config, eloLoadedCols }) {
   const [input, setInput] = useState(""),
     [filter, setFilter] = useState(""),
     [acFocused, setAcFocused] = useState(false);
+  const eloCol = config?.features?.eloCol;
+  const activeElo = state.eloDb?.[eloCol] || {};
+  const eloReady = !eloCol || !!eloLoadedCols?.[eloCol];
   const addS = useMemo(
     () => new Set(state.players.map((p) => p.name.toLowerCase())),
     [state.players],
   );
   const dbE = useMemo(
     () =>
-      Object.values(state.eloDb)
+      Object.values(activeElo)
         .filter(
           (e) =>
             e?.name &&
@@ -2099,12 +2102,12 @@ function PlayersTab({ state, dispatch, config }) {
             (state.testMode ? !!e.test : !e.test),
         )
         .sort((a, b) => (b.elo || 0) - (a.elo || 0)),
-    [state.eloDb, filter, state.testMode, addS],
+    [activeElo, filter, state.testMode, addS],
   );
   const pc = state.players.filter((p) => p.paid).length;
   const suggestions = useMemo(() => {
     if (!input.trim() || input.length < 1) return [];
-    return Object.values(state.eloDb)
+    return Object.values(activeElo)
       .filter(
         (e) =>
           e?.name &&
@@ -2114,7 +2117,7 @@ function PlayersTab({ state, dispatch, config }) {
       )
       .sort((a, b) => (b.elo || 0) - (a.elo || 0))
       .slice(0, 6);
-  }, [input, state.eloDb, addS, state.testMode]);
+  }, [input, activeElo, addS, state.testMode]);
   const addPlayer = (name) => {
     dispatch({ type: "ADD_PLAYER", name });
     setInput("");
@@ -2249,7 +2252,7 @@ function PlayersTab({ state, dispatch, config }) {
                       )}
                     </span>
                     <span style={{ fontSize: 11, color: C.faint, flexShrink: 0 }}>
-                      {gE(state.eloDb, p.name)}
+                      {eloReady ? gE(activeElo, p.name) : "…"}
                     </span>
                     <Btn
                       onClick={() => dispatch({ type: "TOGGLE_PAID", index: i })}
@@ -2323,7 +2326,11 @@ function PlayersTab({ state, dispatch, config }) {
               style={{ ...S.input, fontSize: 12, padding: "4px 8px", width: 110, flexShrink: 0 }}
             />
           </div>
-          {!dbE.length ? (
+          {!eloReady ? (
+            <div style={{ textAlign: "center", padding: 16, color: C.faint, fontSize: 12 }}>
+              Loading ELO…
+            </div>
+          ) : !dbE.length ? (
             <div style={{ textAlign: "center", padding: 16, color: C.faint, fontSize: 12 }}>
               No ELO entries.
             </div>
@@ -4116,7 +4123,7 @@ function AdvancedTab({ state, dispatch, config }) {
 // Top-level tournament layout. Handles:
 // Shell — layout, tabs, banners, timeout, auto-push, backup
 //   - Tab bar (conditional tabs gated by test/experimental/advanced checkboxes)
-function Shell({ state, dispatch }) {
+function Shell({ state, dispatch, eloLoadedCols }) {
   const rawConfig = state.tournaments?.[state.tournamentId];
   if (!rawConfig) return null;
   const config = { ...rawConfig, features: { ...rawConfig.features, ...state.featureOverrides } };
@@ -4331,21 +4338,6 @@ function Shell({ state, dispatch }) {
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", marginBottom: 16 }}>
-        <button
-          onClick={() => dispatch({ type: "GO_HOME" })}
-          style={{
-            fontSize: 12,
-            color: C.muted,
-            border: "none",
-            background: "none",
-            cursor: "pointer",
-            padding: 0,
-            marginRight: 8,
-            fontFamily: "inherit",
-          }}
-        >
-          ← Home
-        </button>
         <h2 style={{ fontSize: 18, fontWeight: 500, margin: 0 }}>
           {config.icon} {config.name}
         </h2>
@@ -4359,13 +4351,13 @@ function Shell({ state, dispatch }) {
       />
       {state.activeTab === "rules" && c.rules && <RulesTab state={state} />}
       {state.activeTab === "players" && (
-        <PlayersTab state={state} dispatch={dispatch} config={config} />
+        <PlayersTab state={state} dispatch={dispatch} config={config} eloLoadedCols={eloLoadedCols} />
       )}
       {state.activeTab === "matches" && (
         <MatchesTab state={state} dispatch={dispatch} config={config} />
       )}
       {state.activeTab === "standings" && (
-        <StandingsTab state={state} dispatch={dispatch} config={config} />
+        <StandingsTab state={state} dispatch={dispatch} config={config} eloLoadedCols={eloLoadedCols} />
       )}
       {state.activeTab === "settings" && (
         <SettingsTab state={state} dispatch={dispatch} config={config} />
@@ -4390,6 +4382,7 @@ function App() {
   const [state, dispatch] = useReducer(reducer, init);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
+  const [eloLoadedCols, setEloLoadedCols] = useState({});
   const fetchTournaments = (url) => {
     const u = url || gSU();
     if (!u) { setLoading(false); return; }
@@ -4409,6 +4402,7 @@ function App() {
                   const db = {};
                   ed.entries.forEach((e) => { if (e?.name) db[e.name.toLowerCase()] = { elo: parseInt(e.elo) || ED, name: e.name, test: !!e.test }; });
                   dispatch({ type: "SET_ELO_DB", db, col });
+                  setEloLoadedCols((prev) => ({ ...prev, [col]: true }));
                 }
               })
               .catch(() => {});
@@ -4502,7 +4496,7 @@ function App() {
       }}
     >
       {state.screen === "landing" && <LandingScreen dispatch={dispatch} tournaments={state.tournaments} onRetry={fetchTournaments} fetchError={fetchError} />}
-      {state.screen === "tournament" && <Shell state={state} dispatch={dispatch} />}
+      {state.screen === "tournament" && <Shell state={state} dispatch={dispatch} eloLoadedCols={eloLoadedCols} />}
     </div>
   );
 }

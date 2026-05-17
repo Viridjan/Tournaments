@@ -3,17 +3,20 @@
 //   - Player list with paid toggle, abandon button, remove button
 // Right card: full registered players table with ELO, filter search
 //   - Filters by test flag based on testMode state
-function PlayersTab({ state, dispatch, config }) {
+function PlayersTab({ state, dispatch, config, eloLoadedCols }) {
   const [input, setInput] = useState(""),
     [filter, setFilter] = useState(""),
     [acFocused, setAcFocused] = useState(false);
+  const eloCol = config?.features?.eloCol;
+  const activeElo = state.eloDb?.[eloCol] || {};
+  const eloReady = !eloCol || !!eloLoadedCols?.[eloCol];
   const addS = useMemo(
     () => new Set(state.players.map((p) => p.name.toLowerCase())),
     [state.players],
   );
   const dbE = useMemo(
     () =>
-      Object.values(state.eloDb)
+      Object.values(activeElo)
         .filter(
           (e) =>
             e?.name &&
@@ -22,12 +25,12 @@ function PlayersTab({ state, dispatch, config }) {
             (state.testMode ? !!e.test : !e.test),
         )
         .sort((a, b) => (b.elo || 0) - (a.elo || 0)),
-    [state.eloDb, filter, state.testMode, addS],
+    [activeElo, filter, state.testMode, addS],
   );
   const pc = state.players.filter((p) => p.paid).length;
   const suggestions = useMemo(() => {
     if (!input.trim() || input.length < 1) return [];
-    return Object.values(state.eloDb)
+    return Object.values(activeElo)
       .filter(
         (e) =>
           e?.name &&
@@ -37,7 +40,7 @@ function PlayersTab({ state, dispatch, config }) {
       )
       .sort((a, b) => (b.elo || 0) - (a.elo || 0))
       .slice(0, 6);
-  }, [input, state.eloDb, addS, state.testMode]);
+  }, [input, activeElo, addS, state.testMode]);
   const addPlayer = (name) => {
     dispatch({ type: "ADD_PLAYER", name });
     setInput("");
@@ -172,7 +175,7 @@ function PlayersTab({ state, dispatch, config }) {
                       )}
                     </span>
                     <span style={{ fontSize: 11, color: C.faint, flexShrink: 0 }}>
-                      {gE(state.eloDb, p.name)}
+                      {eloReady ? gE(activeElo, p.name) : "…"}
                     </span>
                     <Btn
                       onClick={() => dispatch({ type: "TOGGLE_PAID", index: i })}
@@ -246,7 +249,11 @@ function PlayersTab({ state, dispatch, config }) {
               style={{ ...S.input, fontSize: 12, padding: "4px 8px", width: 110, flexShrink: 0 }}
             />
           </div>
-          {!dbE.length ? (
+          {!eloReady ? (
+            <div style={{ textAlign: "center", padding: 16, color: C.faint, fontSize: 12 }}>
+              Loading ELO…
+            </div>
+          ) : !dbE.length ? (
             <div style={{ textAlign: "center", padding: 16, color: C.faint, fontSize: 12 }}>
               No ELO entries.
             </div>

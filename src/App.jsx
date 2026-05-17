@@ -5,6 +5,7 @@ function App() {
   const [state, dispatch] = useReducer(reducer, init);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
+  const [eloLoadedCols, setEloLoadedCols] = useState({});
   const fetchTournaments = (url) => {
     const u = url || gSU();
     if (!u) { setLoading(false); return; }
@@ -24,6 +25,7 @@ function App() {
                   const db = {};
                   ed.entries.forEach((e) => { if (e?.name) db[e.name.toLowerCase()] = { elo: parseInt(e.elo) || ED, name: e.name, test: !!e.test }; });
                   dispatch({ type: "SET_ELO_DB", db, col });
+                  setEloLoadedCols((prev) => ({ ...prev, [col]: true }));
                 }
               })
               .catch(() => {});
@@ -117,7 +119,7 @@ function App() {
       }}
     >
       {state.screen === "landing" && <LandingScreen dispatch={dispatch} tournaments={state.tournaments} onRetry={fetchTournaments} fetchError={fetchError} />}
-      {state.screen === "tournament" && <Shell state={state} dispatch={dispatch} />}
+      {state.screen === "tournament" && <Shell state={state} dispatch={dispatch} eloLoadedCols={eloLoadedCols} />}
     </div>
   );
 }

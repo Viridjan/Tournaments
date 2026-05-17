@@ -16,11 +16,21 @@ const init = {
   startedAt: null,
   eloDb: (() => {
     const raw = lLS(EK, {});
-    const db = {};
-    Object.values(raw).forEach((e) => {
-      if (e?.name) db[e.name.toLowerCase()] = e;
+    const vals = Object.values(raw);
+    if (vals.length > 0 && vals.some((v) => v && typeof v === "object" && "elo" in v)) {
+      const db = {};
+      vals.forEach((e) => { if (e?.name) db[e.name.toLowerCase()] = e; });
+      return { "ELO": db };
+    }
+    const result = {};
+    Object.entries(raw).forEach(([sh, entries]) => {
+      if (entries && typeof entries === "object") {
+        const db = {};
+        Object.values(entries).forEach((e) => { if (e?.name) db[e.name.toLowerCase()] = e; });
+        result[sh] = db;
+      }
     });
-    return db;
+    return result;
   })(),
   activeTab: "players",
   matchSubTab: "pairings",
@@ -57,7 +67,7 @@ const init = {
 function reducer(st, a) {
   switch (a.type) {
     case "OPEN_TOURNAMENT":
-      return { ...st, screen: "tournament", tournamentId: a.id, activeTab: "players" };
+      return { ...st, screen: "tournament", tournamentId: a.id, activeTab: "players", featureOverrides: {} };
     case "GO_HOME":
       return { ...st, screen: "landing" };
     case "SET_TAB":
@@ -107,6 +117,7 @@ function reducer(st, a) {
       const c = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
       if (!c) return st;
       const ss = c.startScore ?? 0;
+      const activeElo = st.eloDb[c.eloCol || "ELO"] || {};
       const pl = st.players.map((p) => ({
         ...p,
         score: ss,
@@ -115,7 +126,7 @@ function reducer(st, a) {
         l: 0,
         eliminated: false,
         firstCount: 0,
-        eloStart: gE(st.eloDb, p.name),
+        eloStart: gE(activeElo, p.name),
       }));
       const ph = c.rrRounds > 0 ? "roundrobin" : "swiss";
       const ns = {
@@ -151,8 +162,9 @@ function reducer(st, a) {
     case "NEXT_ROUND": {
       const c = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
       if (!c) return st;
+      const eloNs = c.eloCol || "ELO";
       let pl = st.players.map((p) => ({ ...p })),
-        db = { ...st.eloDb };
+        db = { ...(st.eloDb[eloNs] || {}) };
       const sc = c.scoring,
         rp = st.pairings.map((m) => ({ ...m }));
       rp.forEach((m) => {
@@ -272,10 +284,11 @@ function reducer(st, a) {
       if (ph === "roundrobin" && nr > c.rrRounds) ph = "swiss";
       const ac = pl.filter((p) => !p.eliminated),
         go = c.scoring === "lifepoints" && ac.length <= 1;
+      const newEloDb = { ...st.eloDb, [eloNs]: db };
       const ns = {
         ...st,
         players: pl,
-        eloDb: db,
+        eloDb: newEloDb,
         history: h,
         currentRound: nr,
         phase: ph,
@@ -285,7 +298,7 @@ function reducer(st, a) {
         ],
         activeTab: go ? "standings" : st.activeTab,
       };
-      sLS(EK, db);
+      sLS(EK, newEloDb);
       return { ...ns, pairings: go ? [] : mkP(ns, pl, h, ph) };
     }
     case "END_TOURNAMENT": {
@@ -312,12 +325,14 @@ function reducer(st, a) {
       return { ...st, tournaments };
     }
     case "SET_ELO_DB": {
+      const sheet = a.col || "ELO";
       const db = {};
       Object.values(a.db).forEach((e) => {
         if (e?.name) db[e.name.toLowerCase()] = e;
       });
-      sLS(EK, db);
-      return { ...st, eloDb: db };
+      const newEloDb = { ...st.eloDb, [sheet]: db };
+      sLS(EK, newEloDb);
+      return { ...st, eloDb: newEloDb };
     }
 
     case "ADD_PRIZE":
@@ -400,7 +415,10 @@ function reducer(st, a) {
         "Ivan",
         "Julia",
       ];
-      let db = { ...st.eloDb };
+      const testNs = (st.tournaments?.[st.tournamentId] ?
+        { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides }.eloCol
+        : null) || "ELO";
+      let db = { ...(st.eloDb[testNs] || {}) };
       const pl = [];
       for (let i = 0; i < a.count; i++) {
         const n = ns[i] || `Player ${i + 1}`;
@@ -416,7 +434,7 @@ function reducer(st, a) {
           firstCount: 0,
         });
       }
-      return { ...st, players: pl, eloDb: db };
+      return { ...st, players: pl, eloDb: { ...st.eloDb, [testNs]: db } };
     }
     case "AUTO_SELECT_WINNERS":
       return {

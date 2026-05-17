@@ -1,7 +1,7 @@
 // Top-level tournament layout. Handles:
 // Shell — layout, tabs, banners, timeout, auto-push, backup
 //   - Tab bar (conditional tabs gated by test/experimental/advanced checkboxes)
-function Shell({ state, dispatch }) {
+function Shell({ state, dispatch, eloLoadedCols }) {
   const rawConfig = state.tournaments?.[state.tournamentId];
   if (!rawConfig) return null;
   const config = { ...rawConfig, features: { ...rawConfig.features, ...state.featureOverrides } };
@@ -216,21 +216,6 @@ function Shell({ state, dispatch }) {
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", marginBottom: 16 }}>
-        <button
-          onClick={() => dispatch({ type: "GO_HOME" })}
-          style={{
-            fontSize: 12,
-            color: C.muted,
-            border: "none",
-            background: "none",
-            cursor: "pointer",
-            padding: 0,
-            marginRight: 8,
-            fontFamily: "inherit",
-          }}
-        >
-          ← Home
-        </button>
         <h2 style={{ fontSize: 18, fontWeight: 500, margin: 0 }}>
           {config.icon} {config.name}
         </h2>
@@ -244,13 +229,13 @@ function Shell({ state, dispatch }) {
       />
       {state.activeTab === "rules" && c.rules && <RulesTab state={state} />}
       {state.activeTab === "players" && (
-        <PlayersTab state={state} dispatch={dispatch} config={config} />
+        <PlayersTab state={state} dispatch={dispatch} config={config} eloLoadedCols={eloLoadedCols} />
       )}
       {state.activeTab === "matches" && (
         <MatchesTab state={state} dispatch={dispatch} config={config} />
       )}
       {state.activeTab === "standings" && (
-        <StandingsTab state={state} dispatch={dispatch} config={config} />
+        <StandingsTab state={state} dispatch={dispatch} config={config} eloLoadedCols={eloLoadedCols} />
       )}
       {state.activeTab === "settings" && (
         <SettingsTab state={state} dispatch={dispatch} config={config} />
