@@ -12,10 +12,11 @@
 //    Then add your rules with the tournament name matching exactly
 //    (e.g., "Drunken Draft", "Vintage Draft", "Risk Grand Prix")
 // 6. In the Settings tab, add headers in row 1:
-//    id | name | icon | desc | scoring | startScore | winPoints | drawPoints | lossPoints |
-//    cumulativeDrawPenalty | pairing | rrRounds | timerMinutes | draft | elo | eloKMax |
-//    firstPlayer | grandPrix | gpBestOfLast | gpDropWorst | prizes | timeout | timeoutTime |
-//    spinner | rules | matchMin | matchMax
+//    id | name | icon | desc | scoring | startScore | pts1 | pts2 | pts3 | ptsLast |
+//    winPoints | drawPoints | lossPoints | cumulativeDrawPenalty | pairing | rrRounds |
+//    timerMinutes | draft | elo | eloKMax | eloScale | eloDB | firstPlayer | grandPrix |
+//    gpBestOfLast | gpDropWorst | prizes | timeout | timeoutTime | spinner | rules |
+//    matchMin | matchMax
 //    Then add one row per tournament type.
 // 7. Go to Extensions > Apps Script
 // 8. Paste this entire script, replacing any existing code
