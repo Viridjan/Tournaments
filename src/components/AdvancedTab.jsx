@@ -27,7 +27,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
           const v = e.target.value;
           sf(k, v === "" ? "" : isNaN(Number(v)) ? v : Number(v));
         }}
-        style={{ ...S.input, width: 56, textAlign: "center", fontSize: 13, padding: "4px 6px" }}
+        style={S.inputSm}
       />
       {state.featureOverrides[k] !== undefined && (
         <span
@@ -81,7 +81,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
       <select
         value={f[k] || ""}
         onChange={(e) => sf(k, e.target.value)}
-        style={{ ...S.input, width: "auto", fontSize: 12, padding: "4px 8px", cursor: "pointer" }}
+        style={S.select}
       >
         {options.map((o) => (
           <option key={o} value={o}>
@@ -177,18 +177,12 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
                   const v = e.target.value;
                   sf("matchMax", v === "" ? "" : isNaN(Number(v)) ? v : Number(v));
                 }}
-                style={{
-                  ...S.input,
-                  width: 40,
-                  textAlign: "center",
-                  fontSize: 13,
-                  padding: "4px 6px",
-                }}
+                style={{ ...S.inputSm, width: 40 }}
               />
               <select
                 value={f.matchRound || "none"}
                 onChange={(e) => sf("matchRound", e.target.value)}
-                style={{ ...S.input, width: "auto", fontSize: 12, padding: "4px 6px", cursor: "pointer" }}
+                style={S.select}
               >
                 <option value="none">BYE</option>
                 <option value="up">round up</option>
@@ -204,65 +198,31 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
           <div
             style={{
               display: "flex",
-              alignItems: "center",
+              alignItems: "flex-end",
               gap: 8,
               padding: "5px 0",
               borderBottom: `0.5px solid ${C.bL}`,
             }}
           >
-            <span style={{ flex: 1, fontSize: 13 }}>Win / Draw / Loss</span>
-            <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={f.winPoints ?? ""}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  sf("winPoints", v === "" ? "" : isNaN(Number(v)) ? v : Number(v));
-                }}
-                style={{
-                  ...S.input,
-                  width: 36,
-                  textAlign: "center",
-                  fontSize: 13,
-                  padding: "4px 6px",
-                }}
-              />
-              <span style={{ fontSize: 11, color: C.faint }}>/</span>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={f.drawPoints ?? ""}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  sf("drawPoints", v === "" ? "" : isNaN(Number(v)) ? v : Number(v));
-                }}
-                style={{
-                  ...S.input,
-                  width: 36,
-                  textAlign: "center",
-                  fontSize: 13,
-                  padding: "4px 6px",
-                }}
-              />
-              <span style={{ fontSize: 11, color: C.faint }}>/</span>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={f.lossPoints ?? ""}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  sf("lossPoints", v === "" ? "" : isNaN(Number(v)) ? v : Number(v));
-                }}
-                style={{
-                  ...S.input,
-                  width: 36,
-                  textAlign: "center",
-                  fontSize: 13,
-                  padding: "4px 6px",
-                }}
-              />
-            </div>
+            <span style={{ flex: 1, fontSize: 13 }}>Points</span>
+            {[["winPoints", "Win"], ["drawPoints", "Draw"], ["lossPoints", "Loss"]].map(([k, lbl]) => (
+              <div key={k} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                <span style={{ fontSize: 10, color: C.muted }}>{lbl}</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={f[k] ?? ""}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    sf(k, v === "" ? "" : isNaN(Number(v)) ? v : Number(v));
+                  }}
+                  style={S.inputXs}
+                />
+              </div>
+            ))}
+            {["winPoints", "drawPoints", "lossPoints"].some((k) => state.featureOverrides[k] !== undefined) && (
+              <span style={S.modTag}>mod</span>
+            )}
           </div>
           <div
             style={{
@@ -315,14 +275,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
                 const v = e.target.value;
                 sf("startScore", v === "" ? "" : isNaN(Number(v)) ? v : Number(v));
               }}
-              style={{
-                ...S.input,
-                width: 56,
-                textAlign: "center",
-                fontSize: 13,
-                padding: "4px 6px",
-                opacity: isLP ? 1 : 0.5,
-              }}
+              style={{ ...S.inputSm, opacity: isLP ? 1 : 0.5 }}
             />
           </div>
           <div
@@ -347,11 +300,12 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
               <div key={k} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
                 <span style={{ fontSize: 10, color: C.muted }}>{lbl}</span>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   value={f[k] !== undefined && f[k] !== "" ? f[k] : def}
                   disabled={!isPoints}
                   onChange={(e) => sf(k, e.target.value === "" ? "" : Number(e.target.value))}
-                  style={{ ...S.input, width: 44, fontSize: 12, padding: "3px 6px", textAlign: "center", opacity: isPoints ? 1 : 0.5 }}
+                  style={{ ...S.inputXs, opacity: isPoints ? 1 : 0.5 }}
                 />
               </div>
             ))}
@@ -387,14 +341,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
                 const v = e.target.value.replace(/[^0-9:]/g, "");
                 sf("timeoutTime", v);
               }}
-              style={{
-                ...S.input,
-                width: 64,
-                fontSize: 13,
-                padding: "4px 6px",
-                textAlign: "center",
-                fontVariantNumeric: "tabular-nums",
-              }}
+              style={{ ...S.inputSm, width: 64, fontVariantNumeric: "tabular-nums" }}
             />
           </div>
           <BoolF label="Decide first player" k="firstPlayer" />
@@ -403,12 +350,66 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
           <BoolF label="Spinner" k="spinner" />
           <div style={S.sectionLabel}>Grand Prix</div>
           <BoolF label="GP enabled" k="grandPrix" />
-          <NumF label="GP best of last N" k="gpBestOfLast" />
-          <NumF label="GP drop worst N" k="gpDropWorst" />
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-end",
+              gap: 8,
+              padding: "5px 0",
+              borderBottom: `0.5px solid ${C.bL}`,
+            }}
+          >
+            <span style={{ flex: 1, fontSize: 13 }}>Sessions</span>
+            {[["gpBestOfLast", "Best of"], ["gpDropWorst", "Drop"]].map(([k, lbl]) => (
+              <div key={k} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                <span style={{ fontSize: 10, color: C.muted }}>{lbl}</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={f[k] ?? ""}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    sf(k, v === "" ? "" : isNaN(Number(v)) ? v : Number(v));
+                  }}
+                  style={S.inputSm}
+                />
+              </div>
+            ))}
+            {["gpBestOfLast", "gpDropWorst"].some((k) => state.featureOverrides[k] !== undefined) && (
+              <span style={S.modTag}>mod</span>
+            )}
+          </div>
           <div style={S.sectionLabel}>ELO</div>
           <BoolF label="ELO tracking" k="elo" />
-          <NumF label="ELO K-max" k="eloKMax" desc="max delta per match" />
-          <NumF label="ELO scale" k="eloScale" desc={`sensitivity (default ${ES})`} />
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-end",
+              gap: 8,
+              padding: "5px 0",
+              borderBottom: `0.5px solid ${C.bL}`,
+            }}
+          >
+            <span style={{ flex: 1, fontSize: 13 }}>Parameters</span>
+            {[["eloKMax", "K-max"], ["eloScale", "Scale"]].map(([k, lbl]) => (
+              <div key={k} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                <span style={{ fontSize: 10, color: C.muted }}>{lbl}</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={f[k] ?? ""}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    sf(k, v === "" ? "" : isNaN(Number(v)) ? v : Number(v));
+                  }}
+                  style={S.inputSm}
+                />
+              </div>
+            ))}
+            {["eloKMax", "eloScale"].some((k) => state.featureOverrides[k] !== undefined) && (
+              <span style={S.modTag}>mod</span>
+            )}
+          </div>
           <div
             style={{
               display: "flex",
@@ -422,7 +423,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
             <select
               value={f.eloDB ?? ""}
               onChange={(e) => sf("eloDB", e.target.value)}
-              style={{ ...S.input, width: "auto", fontSize: 12, padding: "4px 8px", cursor: "pointer" }}
+              style={S.select}
             >
               <option value="">— select —</option>
               {(eloColOptions || []).map((col) => (

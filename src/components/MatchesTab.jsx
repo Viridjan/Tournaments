@@ -31,7 +31,7 @@ function MatchCard({ match, index, dispatch, scoring, eloDb }) {
               placeholder="—"
               value={match.scores[n] ?? ""}
               onChange={(e) => dispatch({ type: "SET_MATCH_SCORE", index, player: n, value: e.target.value })}
-              style={{ ...S.input, width: 56, textAlign: "center", fontSize: 13, padding: "4px 6px" }}
+              style={S.inputSm}
             />
           </div>
         ))}
