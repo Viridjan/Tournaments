@@ -238,6 +238,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
           </div>
           <NumF label="Timer (minutes)" k="timerMinutes" />
           <NumF label="Round-robin rounds" k="rrRounds" />
+          <SelF label="Pairing mode" k="pairing" options={["1v1", "multi"]} />
           <div
             style={{
               fontSize: 12,
@@ -427,6 +428,8 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
           </div>
           <BoolF label="Decide first player" k="firstPlayer" />
           <BoolF label="Prizes" k="prizes" />
+          <BoolF label="Rules tab" k="rules" />
+          <BoolF label="Spinner" k="spinner" />
           <div
             style={{
               fontSize: 12,
