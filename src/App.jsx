@@ -6,6 +6,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
   const [eloLoadedCols, setEloLoadedCols] = useState({});
+  const [eloColOptions, setEloColOptions] = useState([]);
   const fetchTournaments = (url) => {
     const u = url || gSU();
     if (!u) { setLoading(false); return; }
@@ -30,14 +31,18 @@ function App() {
               })
               .catch(() => {});
           });
-          if (configuredCols.length > 0) {
-            loadEloCols(configuredCols);
-          } else {
-            fetch(u + "?action=elo_cols")
-              .then((r) => r.json())
-              .then((cd) => { if (cd?.cols?.length) loadEloCols(cd.cols); })
-              .catch(() => {});
-          }
+          fetch(u + "?action=elo_cols")
+            .then((r) => r.json())
+            .then((cd) => {
+              if (cd?.cols?.length) {
+                setEloColOptions(cd.cols);
+                const toLoad = configuredCols.length > 0 ? configuredCols : cd.cols;
+                loadEloCols(toLoad);
+              }
+            })
+            .catch(() => {
+              if (configuredCols.length > 0) loadEloCols(configuredCols);
+            });
         } else if (d?.error) {
           setFetchError("Script error: " + d.error);
         } else {
@@ -119,7 +124,7 @@ function App() {
       }}
     >
       {state.screen === "landing" && <LandingScreen dispatch={dispatch} tournaments={state.tournaments} onRetry={fetchTournaments} fetchError={fetchError} />}
-      {state.screen === "tournament" && <Shell state={state} dispatch={dispatch} eloLoadedCols={eloLoadedCols} />}
+      {state.screen === "tournament" && <Shell state={state} dispatch={dispatch} eloLoadedCols={eloLoadedCols} eloColOptions={eloColOptions} />}
     </div>
   );
 }

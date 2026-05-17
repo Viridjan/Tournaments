@@ -2802,9 +2802,8 @@ function StandingsTab({ state, dispatch, config }) {
     ac = state.players.filter((p) => !p.eliminated),
     gp = c.grandPrix,
     gs = (p) => (gp ? gpScore(p.name, state.history, c.gpBestOfLast, c.gpDropWorst) : p.score);
-  const activeElo = state.eloDb?.[c.eloCol || "ELO"] || {};
   const so = [...state.players].sort(
-      (a, b) => gs(b) - gs(a) || b.w - a.w || gE(activeElo, a.name) - gE(activeElo, b.name),
+      (a, b) => gs(b) - gs(a) || b.w - a.w || gE(state.eloDb, a.name) - gE(state.eloDb, b.name),
     ),
     w = ac.length === 1 ? ac[0] : null;
   const al = c.prizes
@@ -2891,7 +2890,7 @@ function StandingsTab({ state, dispatch, config }) {
               {so.map((p, i) => {
                 const ds = gs(p);
                 const pr = prizeFor(i);
-                const elo = gE(activeElo, p.name);
+                const elo = gE(state.eloDb, p.name);
                 const eloDelta = c.elo && p.eloStart != null ? elo - p.eloStart : null;
                 return (
                   <tr key={p.name}>
@@ -3191,7 +3190,7 @@ function TestTab({ state, dispatch }) {
 // Full tournament config editor — two cards side by side:
 // Advanced tab — full config editor, prizes, payouts, sheets sync
 // Left: Identity (id/name/icon) + Rounds & Matches (min/max, timer, RR)
-function AdvancedTab({ state, dispatch, config }) {
+function AdvancedTab({ state, dispatch, config, eloColOptions }) {
   const f = config.features;
   const sf = (k, v) => dispatch({ type: "SET_FEATURE", key: k, value: v });
   const NumF = ({ label, k, desc }) => (
@@ -3633,17 +3632,17 @@ function AdvancedTab({ state, dispatch, config }) {
               borderBottom: `0.5px solid ${C.bL}`,
             }}
           >
-            <span style={{ flex: 1, fontSize: 13 }}>
-              ELO column
-              <span style={{ fontSize: 10, color: C.faint, marginLeft: 4 }}>sheet column name</span>
-            </span>
-            <input
-              type="text"
+            <span style={{ flex: 1, fontSize: 13 }}>ELO column</span>
+            <select
               value={f.eloCol ?? ""}
-              placeholder="ELO"
               onChange={(e) => sf("eloCol", e.target.value)}
-              style={{ ...S.input, width: 90, fontSize: 12, padding: "4px 6px" }}
-            />
+              style={{ ...S.input, width: "auto", fontSize: 12, padding: "4px 8px", cursor: "pointer" }}
+            >
+              <option value="">— select —</option>
+              {(eloColOptions || []).map((col) => (
+                <option key={col} value={col}>{col}</option>
+              ))}
+            </select>
             {state.featureOverrides.eloCol !== undefined && (
               <span style={{ fontSize: 10, borderRadius: 4, padding: "1px 5px", background: "#f3e8ff", color: C.purple, fontWeight: 500 }}>
                 mod
@@ -4123,7 +4122,7 @@ function AdvancedTab({ state, dispatch, config }) {
 // Top-level tournament layout. Handles:
 // Shell — layout, tabs, banners, timeout, auto-push, backup
 //   - Tab bar (conditional tabs gated by test/experimental/advanced checkboxes)
-function Shell({ state, dispatch, eloLoadedCols }) {
+function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
   const rawConfig = state.tournaments?.[state.tournamentId];
   if (!rawConfig) return null;
   const config = { ...rawConfig, features: { ...rawConfig.features, ...state.featureOverrides } };
@@ -4363,7 +4362,7 @@ function Shell({ state, dispatch, eloLoadedCols }) {
         <SettingsTab state={state} dispatch={dispatch} config={config} />
       )}
       {state.activeTab === "advanced" && state.advancedSetup && (
-        <AdvancedTab state={state} dispatch={dispatch} config={config} />
+        <AdvancedTab state={state} dispatch={dispatch} config={config} eloColOptions={eloColOptions} />
       )}
       {state.activeTab === "test" && state.testMode && (
         <TestTab state={state} dispatch={dispatch} />
@@ -4383,6 +4382,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
   const [eloLoadedCols, setEloLoadedCols] = useState({});
+  const [eloColOptions, setEloColOptions] = useState([]);
   const fetchTournaments = (url) => {
     const u = url || gSU();
     if (!u) { setLoading(false); return; }
@@ -4407,14 +4407,18 @@ function App() {
               })
               .catch(() => {});
           });
-          if (configuredCols.length > 0) {
-            loadEloCols(configuredCols);
-          } else {
-            fetch(u + "?action=elo_cols")
-              .then((r) => r.json())
-              .then((cd) => { if (cd?.cols?.length) loadEloCols(cd.cols); })
-              .catch(() => {});
-          }
+          fetch(u + "?action=elo_cols")
+            .then((r) => r.json())
+            .then((cd) => {
+              if (cd?.cols?.length) {
+                setEloColOptions(cd.cols);
+                const toLoad = configuredCols.length > 0 ? configuredCols : cd.cols;
+                loadEloCols(toLoad);
+              }
+            })
+            .catch(() => {
+              if (configuredCols.length > 0) loadEloCols(configuredCols);
+            });
         } else if (d?.error) {
           setFetchError("Script error: " + d.error);
         } else {
@@ -4496,7 +4500,7 @@ function App() {
       }}
     >
       {state.screen === "landing" && <LandingScreen dispatch={dispatch} tournaments={state.tournaments} onRetry={fetchTournaments} fetchError={fetchError} />}
-      {state.screen === "tournament" && <Shell state={state} dispatch={dispatch} eloLoadedCols={eloLoadedCols} />}
+      {state.screen === "tournament" && <Shell state={state} dispatch={dispatch} eloLoadedCols={eloLoadedCols} eloColOptions={eloColOptions} />}
     </div>
   );
 }

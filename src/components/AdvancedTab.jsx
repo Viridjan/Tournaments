@@ -1,7 +1,7 @@
 // Full tournament config editor — two cards side by side:
 // Advanced tab — full config editor, prizes, payouts, sheets sync
 // Left: Identity (id/name/icon) + Rounds & Matches (min/max, timer, RR)
-function AdvancedTab({ state, dispatch, config }) {
+function AdvancedTab({ state, dispatch, config, eloColOptions }) {
   const f = config.features;
   const sf = (k, v) => dispatch({ type: "SET_FEATURE", key: k, value: v });
   const NumF = ({ label, k, desc }) => (
@@ -434,8 +434,34 @@ function AdvancedTab({ state, dispatch, config }) {
           </div>
           <BoolF label="ELO tracking" k="elo" />
           <NumF label="ELO K-max" k="eloKMax" desc="max delta per match" />
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "5px 0",
+              borderBottom: `0.5px solid ${C.bL}`,
+            }}
+          >
+            <span style={{ flex: 1, fontSize: 13 }}>ELO column</span>
+            <select
+              value={f.eloCol ?? ""}
+              onChange={(e) => sf("eloCol", e.target.value)}
+              style={{ ...S.input, width: "auto", fontSize: 12, padding: "4px 8px", cursor: "pointer" }}
+            >
+              <option value="">— select —</option>
+              {(eloColOptions || []).map((col) => (
+                <option key={col} value={col}>{col}</option>
+              ))}
+            </select>
+            {state.featureOverrides.eloCol !== undefined && (
+              <span style={{ fontSize: 10, borderRadius: 4, padding: "1px 5px", background: "#f3e8ff", color: C.purple, fontWeight: 500 }}>
+                mod
+              </span>
+            )}
+          </div>
           <div style={{ marginTop: 16 }}>
-            <SheetsSync state={state} dispatch={dispatch} />
+            <SheetsSync state={state} dispatch={dispatch} config={config} />
           </div>
         </Card>
       </div>

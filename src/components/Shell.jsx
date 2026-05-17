@@ -1,7 +1,7 @@
 // Top-level tournament layout. Handles:
 // Shell — layout, tabs, banners, timeout, auto-push, backup
 //   - Tab bar (conditional tabs gated by test/experimental/advanced checkboxes)
-function Shell({ state, dispatch, eloLoadedCols }) {
+function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
   const rawConfig = state.tournaments?.[state.tournamentId];
   if (!rawConfig) return null;
   const config = { ...rawConfig, features: { ...rawConfig.features, ...state.featureOverrides } };
@@ -241,7 +241,7 @@ function Shell({ state, dispatch, eloLoadedCols }) {
         <SettingsTab state={state} dispatch={dispatch} config={config} />
       )}
       {state.activeTab === "advanced" && state.advancedSetup && (
-        <AdvancedTab state={state} dispatch={dispatch} config={config} />
+        <AdvancedTab state={state} dispatch={dispatch} config={config} eloColOptions={eloColOptions} />
       )}
       {state.activeTab === "test" && state.testMode && (
         <TestTab state={state} dispatch={dispatch} />
