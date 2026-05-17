@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════
 // Pure functions: ELO, pairing, scoring, prizes (no DOM, no state)
-function eExp(a, b) {
-  return 1 / (1 + Math.pow(10, (b - a) / ES));
+function eExp(a, b, scale) {
+  return 1 / (1 + Math.pow(10, (b - a) / (scale || ES)));
 }
 function gE(d, n) {
   return d[n.toLowerCase()]?.elo ?? ED;
@@ -9,9 +9,9 @@ function gE(d, n) {
 function sE(d, n, e, t) {
   return { ...d, [n.toLowerCase()]: { elo: e, name: n, test: !!t } };
 }
-function eCalc(a, b, s, kMax) {
+function eCalc(a, b, s, kMax, scale) {
   const k = kMax || EM;
-  const e = eExp(a, b),
+  const e = eExp(a, b, scale),
     r = k * (s - e),
     d = Math.round(Math.max(-k, Math.min(k, r)));
   return { dA: d, dB: -d };

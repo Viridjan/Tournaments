@@ -210,7 +210,7 @@ function reducer(st, a) {
                   sB = parseFloat(m.scores[pB] || 0),
                   rA = gE(db, pA),
                   rB = gE(db, pB),
-                  eA = 1 / (1 + Math.pow(10, (rB - rA) / ES)),
+                  eA = eExp(rA, rB, c.eloScale),
                   scA = sA > sB ? 1 : sA < sB ? 0 : 0.5;
                 dl[pA] += K * (scA - eA);
                 dl[pB] += K * (1 - scA - (1 - eA));
@@ -271,7 +271,7 @@ function reducer(st, a) {
           const rA = gE(db, m.p1),
             rB = gE(db, m.p2),
             scA = m.result === "p1win" ? 1 : m.result === "p2win" ? 0 : 0.5,
-            { dA, dB } = eCalc(rA, rB, scA, c.eloKMax);
+            { dA, dB } = eCalc(rA, rB, scA, c.eloKMax, c.eloScale);
           m.eloDelta1 = dA;
           m.eloDelta2 = dB;
           db = sE(db, m.p1, rA + dA, db[m.p1.toLowerCase()]?.test);

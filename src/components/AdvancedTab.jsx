@@ -434,6 +434,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
           </div>
           <BoolF label="ELO tracking" k="elo" />
           <NumF label="ELO K-max" k="eloKMax" desc="max delta per match" />
+          <NumF label="ELO scale" k="eloScale" desc={`sensitivity (default ${ES})`} />
           <div
             style={{
               display: "flex",
