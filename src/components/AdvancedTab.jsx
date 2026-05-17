@@ -319,6 +319,30 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
             style={{
               display: "flex",
               alignItems: "center",
+              justifyContent: "flex-end",
+              gap: 8,
+              padding: "5px 0",
+              borderBottom: `0.5px solid ${C.bL}`,
+              cursor: "pointer",
+            }}
+            onClick={() => dispatch({ type: "TOGGLE_FEATURE", key: "cumulativeDrawPenalty" })}
+          >
+            <span style={{ fontSize: 13, color: C.muted }}>Cumulative draw penalty</span>
+            {state.featureOverrides.cumulativeDrawPenalty !== undefined && (
+              <span style={{ fontSize: 10, borderRadius: 4, padding: "1px 5px", background: "#f3e8ff", color: C.purple, fontWeight: 500 }}>mod</span>
+            )}
+            <input
+              type="checkbox"
+              checked={!!f.cumulativeDrawPenalty}
+              onChange={() => dispatch({ type: "TOGGLE_FEATURE", key: "cumulativeDrawPenalty" })}
+              onClick={(e) => e.stopPropagation()}
+              style={{ width: 15, height: 15, accentColor: C.accent, cursor: "pointer", margin: 0 }}
+            />
+          </div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
               gap: 8,
               padding: "5px 0",
               borderBottom: `0.5px solid ${C.bL}`,
@@ -352,7 +376,6 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
               }}
             />
           </div>
-          <BoolF label="Cumulative draw penalty" k="cumulativeDrawPenalty" />
         </Card>
         <Card style={{ flex: 1, minWidth: 260 }}>
           <div
