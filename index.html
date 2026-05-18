@@ -2669,6 +2669,7 @@ function MatchesTab({ state, dispatch, config }) {
       c.draft && { id: "draft", label: "Draft" },
       { id: "pairings", label: "Pairings" },
       { id: "log", label: "Log" },
+      { id: "session", label: "Session" },
     ].filter(Boolean);
   const isRR = state.phase === "roundrobin" && c.rrRounds > 0,
     scoringLabel = { points: "Points", lifepoints: "Lifepoints", swiss: "Swiss" }[c.scoring] || "Swiss",
@@ -2713,26 +2714,6 @@ function MatchesTab({ state, dispatch, config }) {
               >
                 Next round ↗
               </Btn>
-              {c.grandPrix && state.tournamentStarted && (
-                <Btn
-                  onClick={() => {
-                    if (confirm("New session?")) dispatch({ type: "NEW_GP_SESSION" });
-                  }}
-                  style={{ borderColor: "#e63946", color: "#e63946" }}
-                >
-                  New session ＋
-                </Btn>
-              )}
-              {c.scoring !== "lifepoints" && state.tournamentStarted && (
-                <Btn
-                  onClick={() => {
-                    if (confirm("End?")) dispatch({ type: "END_TOURNAMENT" });
-                  }}
-                  style={{ borderColor: C.red, color: C.red }}
-                >
-                  End
-                </Btn>
-              )}
             </div>
           </div>
           {c.timerMinutes > 0 && <Timer minutes={c.timerMinutes} key={state.currentRound} />}
@@ -2762,6 +2743,42 @@ function MatchesTab({ state, dispatch, config }) {
         </div>
       )}
       {state.matchSubTab === "log" && <ML state={state} />}
+      {state.matchSubTab === "session" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {c.grandPrix && (
+            <Card>
+              <h3 style={S.cardTitle}>New session ＋</h3>
+              <p style={{ fontSize: 13, color: C.muted, margin: "0 0 12px" }}>
+                Resets the round counter to 1 and generates fresh pairings, but keeps all match history. GP scoring continues across sessions — the sliding window runs over all rounds ever played.
+              </p>
+              <Btn
+                onClick={() => {
+                  if (confirm("Start a new session? Round counter resets but history is kept.")) dispatch({ type: "NEW_GP_SESSION" });
+                }}
+                style={{ borderColor: "#e63946", color: "#e63946" }}
+              >
+                New session ＋
+              </Btn>
+            </Card>
+          )}
+          {c.scoring !== "lifepoints" && (
+            <Card>
+              <h3 style={S.cardTitle}>End tournament</h3>
+              <p style={{ fontSize: 13, color: C.muted, margin: "0 0 12px" }}>
+                Finalizes the tournament. Players are sorted by score; the leader is declared the winner and everyone else is marked eliminated. The in-progress backup is cleared.
+              </p>
+              <Btn
+                onClick={() => {
+                  if (confirm("End the tournament?")) dispatch({ type: "END_TOURNAMENT" });
+                }}
+                style={{ borderColor: C.red, color: C.red }}
+              >
+                End tournament
+              </Btn>
+            </Card>
+          )}
+        </div>
+      )}
     </div>
   );
 }
