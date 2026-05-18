@@ -1,8 +1,105 @@
 # Tournament Manager
 
-Single-page tournament manager. React 18 + Babel Standalone via CDN, no bundler. All source files concatenated by `build.sh` into one `<script type="text/babel">` block. No import/export — everything is a global. Google Apps Script web app serves as backend (read/write to Google Sheet). Sheet is sole source of truth for ELO players and tournament configs.
+Single-page tournament manager built with React 18 + Babel Standalone (CDN), no bundler. All source files are concatenated by `build.sh` into one `<script type="text/babel">` block. No import/export — everything is a global. A Google Apps Script web app acts as the backend, reading and writing to a Google Sheet that is the sole source of truth for ELO ratings and tournament configurations.
 
-**Live cycle**: Load → fetch ELO + tournaments from Sheet → landing screen → pick tournament → run rounds (pairing → results → ELO → next round) → standings. State backed up to localStorage each change.
+**Live**: deployed automatically to GitHub Pages on every push to `main`.
+
+---
+
+## How It Works
+
+### Setup (one-time)
+
+1. Deploy `apps-script.js` to Google Apps Script (see [Backend setup](#backend-setup))
+2. Copy the deployment URL
+3. Open the app → paste the URL into the **Database URL** field in Settings → save
+
+On load the app fetches ELO data and all tournament configurations from the Sheet. If no URL is configured it still runs with a hardcoded default URL (`DU` in `src/config.js`).
+
+### Running a tournament
+
+1. **Landing screen** — pick a tournament type (pulled from the Sheet's Settings tab)
+2. **Players tab** — add players, then click Start
+3. **Matches tab → Draft** (if draft enabled) — assign players to pods
+4. **Matches tab → Pairings** — enter results round by round; click **Next round ↗** to advance
+5. **Matches tab → Session** — **New session** resets the round counter (GP only); **End tournament** finalizes standings for all tournament types
+6. **Standings tab** — live rankings throughout; final results after end
+7. **Settings tab → Seeds** — save/load snapshots manually (auto-save also fires after every state change when a Sheets URL is configured)
+
+### Tabs overview
+
+| Tab | Visibility | Purpose |
+|---|---|---|
+| Rules | `rules` feature flag | Tournament-specific rules pulled from Sheet |
+| Players | always | Add players, start tournament, manage eliminations |
+| Matches | after start | Pairings, draft groups, match log, session controls |
+| Standings | after start | Live rankings, ELO changes, GP scores |
+| Settings | always | Feature flags, test mode, advanced setup, seeds |
+| ⚙ Advanced | opt-in | Per-session config overrides, prizes, Sheets sync |
+| 🧪 Test | opt-in | Inject players, simulate rounds |
+| 🎲 Spinner | opt-in (experimental) | Weighted random spinner |
+
+### Matches sub-tabs
+
+| Sub-tab | Description |
+|---|---|
+| Draft | Pod assignment grid (only when `draft` flag is on) |
+| Pairings | Current round match cards + Next round button |
+| Log | Full timeline of rounds and events |
+| Session | New session (GP) and End tournament controls |
+
+---
+
+## Adding Tournament Types via Spreadsheet
+
+No code changes needed. Add a row to the **Settings** tab of the Sheet and redeploy isn't required — the app reads it on next load.
+
+### Settings tab columns
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | string | Unique identifier (used as key, no spaces) |
+| `name` | string | Display name |
+| `icon` | string | Emoji shown on the landing card |
+| `desc` | string | Short description shown on the landing card |
+| `scoring` | `lifepoints` \| `swiss` \| `points` | Scoring mode (see below) |
+| `startScore` | number | Starting score per player (lifepoints only) |
+| `pts1` | number | Points for 1st place (points mode) |
+| `pts2` | number | Points for 2nd place |
+| `pts3` | number | Points for 3rd place |
+| `ptsLast` | number | Points for last place |
+| `winPoints` | number | Points awarded for a win (swiss mode) |
+| `drawPoints` | number | Points for a draw |
+| `lossPoints` | number | Points for a loss |
+| `cumulativeDrawPenalty` | TRUE/FALSE | Penalise repeated draws |
+| `rrRounds` | number | Number of round-robin rounds before Swiss begins (0 = Swiss only) |
+| `timerMinutes` | number | Round timer in minutes (0 = no timer) |
+| `draft` | TRUE/FALSE | Enable draft sub-tab |
+| `elo` | TRUE/FALSE | Enable ELO tracking |
+| `eloKMax` | number | Maximum ELO K-factor (default 50) |
+| `eloScale` | number | ELO scale factor (default 500) |
+| `eloDB` | string | Column name in the ELO sheet to read/write |
+| `firstPlayer` | TRUE/FALSE | Track and balance who goes first |
+| `grandPrix` | TRUE/FALSE | Enable GP cumulative scoring (best 3 of last 4 rounds) |
+| `prizes` | TRUE/FALSE | Enable prize pool allocation |
+| `timeout` | TRUE/FALSE | Enable hard timeout warning |
+| `timeoutTime` | `HH:MM` | Time of day at which the timeout fires |
+| `spinner` | TRUE/FALSE | Enable the spinner tab |
+| `rules` | TRUE/FALSE | Enable the rules tab |
+| `matchRound` | `none` \| `up` \| `down` | What to do with leftover players: bye, round up to bigger groups, or round down |
+| `matchMax` | number | Max players per match (2 = 1v1, 3+ = multi-player) |
+
+### Scoring modes
+
+**`lifepoints`** — players start at `startScore` and lose points on loss or draw. Reaching 0 eliminates the player. Suitable for games with a life-total mechanic.
+
+**`swiss`** — players accumulate `winPoints`/`drawPoints`/`lossPoints` per round. Pairings are sorted by win rate then score, avoiding rematches. Standard Swiss tournament format.
+
+**`points`** — players score `pts1`/`pts2`/`pts3`/`ptsLast` per finish position within each match. With `grandPrix: TRUE`, applies the GP sliding window: scores from all rounds are kept but only the best 3 of the last 4 count toward standings.
+
+### Multiple ELO leaderboards
+
+Each tournament can point at a different column in the ELO sheet via `eloDB`. This lets you run a "Drunken Draft" ELO and a "Risk GP" ELO independently in the same Sheet.
 
 ---
 
@@ -14,15 +111,17 @@ bash build.sh
 
 Concatenates `src/` files in fixed order into `index.html`. Edit source files, then rebuild. CI runs `build.sh` on push to `main` and deploys to GitHub Pages.
 
-### Load order (matters — globals must exist before use)
+### Source load order
 
-1. `src/config.js` — constants, localStorage keys, default Apps Script URL (`DU`)
-2. `src/logic.js` — pure functions: ELO, pairing, prize calc, GP scoring
-3. `src/storage.js` — localStorage helpers, `gSU()`, `mkP()` pairing dispatcher
-4. `src/reducer.js` — initial state + all reducer cases
-5. `src/ui.js` — `C` (colors), `S` (styles), `Card`/`Btn`/`Tag`/`TabBar`/`Hearts`
-6. `src/components/` — feature components in dependency order (see `build.sh`)
-7. `src/App.jsx` — root component
+| # | File | Exports (globals) |
+|---|---|---|
+| 1 | `src/config.js` | `ED`, `EM`, `ES`, `EK`, `SK`, `BK`, `DU` |
+| 2 | `src/logic.js` | `gpBestOf`, `eCalc`, `genPairings`, `calcAlloc`, … |
+| 3 | `src/storage.js` | `now`, `mkId`, `lLS`, `sLS`, `gSU`, `buildSnap`, `autoSeedSave`, `mkP` |
+| 4 | `src/reducer.js` | `init`, `reducer` |
+| 5 | `src/ui.js` | `C`, `S`, `Card`, `Btn`, `Tag`, `TabBar`, `Hearts` |
+| 6 | `src/components/` | feature components (dependency order — see `build.sh`) |
+| 7 | `src/App.jsx` | `App` (root) |
 
 ---
 
@@ -35,116 +134,102 @@ Single `useReducer(reducer, init)` in `App.jsx`. All state transitions go throug
 | Key | Type | Description |
 |---|---|---|
 | `screen` | string | `"landing"` \| `"tournament"` |
-| `tournamentId` | string\|null | Key into `state.tournaments` |
-| `tournaments` | object | `{id: {id, name, icon, desc, features{}}}` — loaded from Sheets Settings tab |
-| `featureOverrides` | object | Runtime overrides merged over tournament features at dispatch time |
-| `players` | array | `{name, score, w, d, l, eliminated, paid, firstCount, eloStart?}` |
-| `pairings` | array | Current round matches (1v1 or multi) |
+| `tournamentId` | string | Key into `state.tournaments` |
+| `tournaments` | object | `{id: {id, name, icon, desc, features{}}}` — loaded from Sheets |
+| `featureOverrides` | object | Runtime overrides merged over tournament features |
+| `players` | array | `{name, score, w, d, l, eliminated, paid, firstCount, gpScores?, eloStart?}` |
+| `pairings` | array | Current round matches |
 | `history` | array | Past rounds (array of pairing arrays) |
-| `matchLog` | array | `{type, label, ts}` timeline |
-| `eloDb` | object | `{nameLower: {elo, name, test}}` — replaced from Sheet on load |
+| `matchLog` | array | `{type, label, ts}` timeline entries |
+| `eloDb` | object | `{colName: {nameLower: {elo, name, test}}}` |
 | `currentRound` | number | 1-indexed, 0 before start |
 | `phase` | string | `"roundrobin"` \| `"swiss"` |
-| `tournamentStarted` | bool | Controls tab visibility + auto-backup |
-| `prizes` | array | Prize pool definitions |
-| `ranks` | array | Payout % per rank |
-| `spinnerOptions` | array | Weighted random spinner entries |
-| `testMode`, `experimental`, `advancedSetup` | bool | Unlock extra tabs |
+| `tournamentStarted` | bool | Controls tab visibility and auto-backup |
+| `prizes` | array | Prize pool entries |
+| `ranks` | array | Payout percentage per rank |
 | `sheetsUrl` | string | Apps Script deployment URL |
+| `testMode` / `experimental` / `advancedSetup` | bool | Unlock extra tabs |
 
 **Feature config access pattern** (used everywhere):
 ```js
 const c = { ...state.tournaments[state.tournamentId]?.features, ...state.featureOverrides };
 ```
 
-### Feature Flags (live in Sheets Settings tab)
+### localStorage keys
 
-| Flag | Type | Effect |
-|---|---|---|
-| `scoring` | string | `"lifepoints"` \| `"swiss"` \| `"points"` |
-| `pairing` | string | `"1v1"` \| `"multi"` |
-| `startScore` | number | Initial score per player |
-| `winPoints` / `drawPoints` / `lossPoints` | number | Score deltas |
-| `cumulativeDrawPenalty` | bool | Extra loss on repeated draws |
-| `rrRounds` | number | Round-robin rounds before Swiss |
-| `timerMinutes` | number | Match timer duration |
-| `draft` | bool | Show Draft sub-tab |
-| `elo` | bool | ELO tracking active |
-| `eloKMax` | number | Max ELO K-factor |
-| `firstPlayer` | bool | Track who goes first |
-| `grandPrix` | bool | GP cumulative scoring mode |
-| `gpBestOfLast` / `gpDropWorst` | number | GP score window |
-| `prizes` | bool | Show prize allocation |
-| `timeout` | bool | Hard cutoff at `timeoutTime` |
-| `timeoutTime` | string | `"HH:MM"` cutoff |
-| `spinner` | bool | Show spinner tab |
-| `rules` | bool | Show rules tab |
-| `matchMin` / `matchMax` | number | Multi-match group size |
-
-### localStorage Keys
-
-| Constant | Key string | Content |
+| Constant | Key | Content |
 |---|---|---|
 | `EK` | `tournament_elo_db_v2` | ELO database object |
 | `SK` | `tournament_sheets_url_v1` | Apps Script URL |
-| `BK` | `tournament_local_backup` | Full tournament snapshot (auto-restored on next open) |
+| `BK` | `tournament_local_backup` | Full in-progress snapshot (auto-restored on next open) |
+
+### Auto-save
+
+`autoSeedSave(state)` fires automatically 2 seconds after any change to pairings, history, players, round, or phase — and immediately (before dispatch) on **New session** and **End tournament**. Saves are fire-and-forget (`mode: "no-cors"`); failures are silent. Seeds are labelled `[auto]` to distinguish from manual saves.
 
 ---
 
-## Google Apps Script Backend
+## Backend Setup
 
-Source: `apps-script.js` (deploy separately). Embed: `src/apps-script-embed.js` (regenerate after edits).
-
-**Required Sheet tabs**: `ELO` | `Seeds` | `Rules` | `Settings`
-
-| Action | Method | Sheet | Description |
-|---|---|---|---|
-| `load` | GET | ELO | Returns `{entries:[{name,elo,test}]}` |
-| `save` | POST | ELO | Upserts by name, deduplicates |
-| `seed_list` | GET | Seeds | Returns `{seeds:[{id,label,timestamp}]}` |
-| `seed_load&id=X` | GET | Seeds | Returns snapshot JSON |
-| `seed_save` | POST | Seeds | Appends row |
-| `seed_delete` | POST | Seeds | Deletes matching rows |
-| `rules&tournament=X` | GET | Rules | Filters by tournament name |
-| `tournament_list` | GET | Settings | Returns all tournament configs |
-| `tournament_save` | POST | Settings | Upserts tournament config by id |
-
-After editing `apps-script.js`, regenerate the embed then redeploy as a new Apps Script version and update `DU` in `src/config.js`:
+Source: `apps-script.js`. Deploy separately to Google Apps Script (not bundled into `index.html`). The embed at `src/apps-script-embed.js` is a string constant used to display the script in the Advanced tab — regenerate it after editing:
 
 ```bash
-python3 -c "
-content = open('apps-script.js').read()
-escaped = content.replace('\\\\', '\\\\\\\\').replace(\"'\", \"\\\\'\"  ).replace('\n', '\\\\n')
-open('src/apps-script-embed.js', 'w').write(\"const APPS_SCRIPT =\\n  '\" + escaped + \"';\\n\")
+node -e "
+const c = require('fs').readFileSync('apps-script.js','utf8');
+const e = JSON.stringify(c);
+require('fs').writeFileSync('src/apps-script-embed.js','const APPS_SCRIPT = ' + e + ';\n');
 "
 ```
 
+### Required Sheet tabs
+
+| Tab | Headers |
+|---|---|
+| `ELO` | `Test \| <elo-col-name> \| … \| Name` |
+| `Seeds` | `ID \| Label \| Timestamp \| Data` |
+| `Rules` | `Tournament \| Category \| Rule \| Description \| Update` |
+| `Settings` | `id \| name \| icon \| desc \| <feature columns…>` |
+
+### API endpoints
+
+| Action | Method | Description |
+|---|---|---|
+| `?action=load&col=X` | GET | Returns `{entries:[{name,elo,test}]}` for ELO column X |
+| `?action=elo_cols` | GET | Returns all ELO column names |
+| `?action=seed_list` | GET | Returns `{seeds:[{id,label,timestamp}]}` |
+| `?action=seed_load&id=X` | GET | Returns snapshot JSON for seed ID X |
+| `?action=tournament_list` | GET | Returns all tournament configs from Settings tab |
+| POST `{action:"save"}` | POST | Upserts ELO entries by name |
+| POST `{action:"seed_save"}` | POST | Appends seed row |
+| POST `{action:"seed_delete"}` | POST | Deletes all rows with matching ID |
+| POST `{action:"tournament_save"}` | POST | Upserts tournament row by id |
+
 ---
 
-## Expanding the App
+## Expanding in Code
 
-### New tournament type
-Add a row to the Sheets Settings tab. No code change needed — appears on landing screen automatically.
+### New tournament type (no code)
+Add a row to the Sheet's Settings tab. Appears on the landing screen automatically on next load.
 
 ### New feature flag
-1. Add column to Sheets Settings tab
+1. Add column to the Sheet's Settings tab
 2. Add key to `TOURNAMENT_FEATURE_KEYS` in `apps-script.js` → redeploy
-3. Consume in component: `if (c.myNewFlag) { ... }`
-4. Optionally expose in `AdvancedTab` for runtime override
+3. Consume in a component: `if (c.myNewFlag) { … }`
+4. Optionally expose in `AdvancedTab.jsx` for runtime override
 
 ### New tab
-1. Create `src/components/MyTab.jsx` — function component receiving `{state, dispatch, config}`
-2. Add to `build.sh` at correct dependency position
-3. In `Shell.jsx`: add to tabs array (gate with `c.myFeature && {id, label}`) + add render case
+1. Create `src/components/MyTab.jsx` — function receiving `{state, dispatch, config}`
+2. Add to `build.sh` at the correct dependency position
+3. In `Shell.jsx`: add to tabs array (gate with a feature flag if needed) + add render case
 
 ### New scoring mode
-Add scoring function in `src/logic.js` + handle in `reducer.js` `NEXT_ROUND` case.
+Add scoring function in `src/logic.js` + handle in the `NEXT_ROUND` case in `reducer.js`.
 
 ### New pairing mode
-Add pairing function in `src/logic.js` + add branch in `storage.js` `mkP()`.
+Add pairing function in `src/logic.js` + add a branch in `mkP()` in `storage.js`.
 
 ### New backend endpoint
-Add handler + doGet/doPost branch in `apps-script.js` → regenerate embed → redeploy → call via `fetch(gSU() + "?action=my_action")`.
+Add handler in `apps-script.js` + register in `doGet`/`doPost` → regenerate embed → redeploy → call via `fetch(gSU() + "?action=my_action")`.
 
 ### New persistent state field
-Add to `reducer.js` `init` + relevant actions + `RESTORE_SNAPSHOT` (if it should survive reload).
+Add to `init` in `reducer.js` + handle in relevant actions + include in `buildSnap()` in `storage.js` if it should survive reload.
