@@ -117,6 +117,7 @@ function reducer(st, a) {
       const pl = st.players.map((p) => ({
         ...p,
         score: ss,
+        gpScores: [],
         w: 0,
         d: 0,
         l: 0,
@@ -199,7 +200,13 @@ function reducer(st, a) {
             g.players.forEach((n) => {
               const p = pl.find((x) => x.name === n);
               if (!p) return;
-              p.score += pts;
+              if (c.grandPrix) {
+                if (!p.gpScores) p.gpScores = [];
+                p.gpScores.push(pts);
+                p.score = gpBestOf(p.gpScores);
+              } else {
+                p.score += pts;
+              }
               pts > 0 ? p.w++ : p.l++;
             });
             rank += g.players.length;

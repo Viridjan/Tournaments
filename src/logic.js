@@ -1,5 +1,12 @@
 // ═══════════════════════════════════════════════════════
 // Pure functions: ELO, pairing, scoring, prizes (no DOM, no state)
+function gpBestOf(scores) {
+  if (scores.length <= 3) return scores.reduce((a, b) => a + b, 0);
+  const last4 = scores.slice(-4);
+  const min = Math.min(...last4);
+  last4.splice(last4.lastIndexOf(min), 1);
+  return last4.reduce((a, b) => a + b, 0);
+}
 function eExp(a, b, scale) {
   return 1 / (1 + Math.pow(10, (b - a) / (scale || ES)));
 }

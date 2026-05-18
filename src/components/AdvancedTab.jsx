@@ -193,6 +193,20 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
                 />
               </div>
             ))}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, opacity: isLP ? 1 : 0.35 }}>
+              <span style={{ fontSize: 10, color: C.muted }}>Start</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={f.startScore ?? ""}
+                disabled={!isLP}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  sf("startScore", v === "" ? "" : isNaN(Number(v)) ? v : Number(v));
+                }}
+                style={{ ...S.inputXs, opacity: isLP ? 1 : 0.5 }}
+              />
+            </div>
             {["winPoints", "drawPoints", "lossPoints"].some((k) => state.featureOverrides[k] !== undefined) && (
               <span style={S.modTag}>mod</span>
             )}
@@ -219,36 +233,6 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
               onChange={() => dispatch({ type: "TOGGLE_FEATURE", key: "cumulativeDrawPenalty" })}
               onClick={(e) => e.stopPropagation()}
               style={{ width: 15, height: 15, accentColor: C.accent, cursor: "pointer", margin: 0 }}
-            />
-          </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "5px 0",
-              borderBottom: `0.5px solid ${C.bL}`,
-              opacity: isLP ? 1 : 0.35,
-            }}
-          >
-            <span style={{ flex: 1, fontSize: 13 }}>
-              Start score
-              {!isLP && (
-                <span style={{ fontSize: 10, color: C.faint, marginLeft: 4 }}>
-                  (lifepoints only)
-                </span>
-              )}
-            </span>
-            <input
-              type="text"
-              inputMode="numeric"
-              value={f.startScore ?? ""}
-              disabled={!isLP}
-              onChange={(e) => {
-                const v = e.target.value;
-                sf("startScore", v === "" ? "" : isNaN(Number(v)) ? v : Number(v));
-              }}
-              style={{ ...S.inputSm, opacity: isLP ? 1 : 0.5 }}
             />
           </div>
           <div
