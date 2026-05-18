@@ -21,7 +21,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
         }}
         style={S.inputSm}
       />
-      {suffix && <span style={{ fontSize: 12, color: C.muted }}>{suffix}</span>}
+      {suffix && <span style={{ fontSize: 12, color: C.muted, minWidth: 48 }}>{suffix}</span>}
       {state.featureOverrides[k] !== undefined && (
         <span
           style={S.modTag}
@@ -344,7 +344,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
               borderBottom: `0.5px solid ${C.bL}`,
             }}
           >
-            <span style={{ flex: 1, fontSize: 13 }}>Parameters</span>
+            <span style={{ flex: 1, fontSize: 13 }}>ELO parameters</span>
             {[["eloKMax", "K-max"], ["eloScale", "Scale"]].map(([k, lbl]) => (
               <div key={k} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
                 <span style={{ fontSize: 10, color: C.muted }}>{lbl}</span>
