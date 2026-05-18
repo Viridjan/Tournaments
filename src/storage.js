@@ -66,7 +66,7 @@ function buildSnap(state) {
 }
 function autoSeedSave(state) {
   const url = gSU();
-  if (!url || !state.tournamentStarted || !state.players.length) return;
+  if (!url || !state.tournamentStarted || !state.players.length || state.testMode) return;
   const t = state.tournaments?.[state.tournamentId];
   const id = mkId();
   const label = `${t?.icon || ""} ${t?.name || ""} · ${state.players.length}p · R${state.currentRound} [auto]`;
