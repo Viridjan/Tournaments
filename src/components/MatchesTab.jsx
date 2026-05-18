@@ -297,14 +297,14 @@ function MatchesTab({ state, dispatch, config }) {
           {c.grandPrix && (
             <Card>
               <h3 style={S.cardTitle}>New session ＋</h3>
-              <p style={{ fontSize: 13, color: C.muted, margin: "0 0 12px" }}>
+              <div style={{ fontSize: 13, color: C.muted, marginBottom: 16 }}>
                 Resets the round counter to 1 and generates fresh pairings, but keeps all match history. GP scoring continues across sessions — the sliding window runs over all rounds ever played.
-              </p>
+              </div>
               <Btn
                 onClick={() => {
                   if (confirm("Start a new session? Round counter resets but history is kept.")) dispatch({ type: "NEW_GP_SESSION" });
                 }}
-                style={{ borderColor: "#e63946", color: "#e63946" }}
+                style={{ borderColor: C.aBd, color: C.amber, background: C.aBg, padding: "10px 20px", fontSize: 14, fontWeight: 500 }}
               >
                 New session ＋
               </Btn>
@@ -313,14 +313,14 @@ function MatchesTab({ state, dispatch, config }) {
           {c.scoring !== "lifepoints" && (
             <Card>
               <h3 style={S.cardTitle}>End tournament</h3>
-              <p style={{ fontSize: 13, color: C.muted, margin: "0 0 12px" }}>
+              <div style={{ fontSize: 13, color: C.muted, marginBottom: 16 }}>
                 Finalizes the tournament. Players are sorted by score; the leader is declared the winner and everyone else is marked eliminated. The in-progress backup is cleared.
-              </p>
+              </div>
               <Btn
                 onClick={() => {
                   if (confirm("End the tournament?")) dispatch({ type: "END_TOURNAMENT" });
                 }}
-                style={{ borderColor: C.red, color: C.red }}
+                style={{ borderColor: C.red, color: C.red, background: C.rBg, padding: "10px 20px", fontSize: 14, fontWeight: 500 }}
               >
                 End tournament
               </Btn>
