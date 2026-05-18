@@ -96,15 +96,15 @@ function reducer(st, a) {
         players: st.players.map((p, i) => (i === a.index ? { ...p, paid: !p.paid } : p)),
       };
     case "ABANDON_PLAYER": {
-      const ab = st.players[a.index];
-      if (!ab) return st;
+      const abandoned = st.players[a.index];
+      if (!abandoned) return st;
       const pl = st.players.map((p, i) =>
         i === a.index ? { ...p, eliminated: true, score: 0 } : p,
       );
       const pa = st.pairings.map((m) => {
         if (m.result || m.isBye || m.players.length !== 2) return m;
-        if (!m.players.includes(ab.name)) return m;
-        const winner = m.players.find(n => n !== ab.name);
+        if (!m.players.includes(abandoned.name)) return m;
+        const winner = m.players.find(n => n !== abandoned.name);
         const scores = Object.fromEntries(m.players.map(n => [n, n === winner ? 1 : 0]));
         return { ...m, scores, result: "done", noElo: true, forfeit: true };
       });
@@ -112,7 +112,7 @@ function reducer(st, a) {
         ...st,
         players: pl,
         pairings: pa,
-        matchLog: [...st.matchLog, { type: "abandon", label: `${ab.name} abandoned`, ts: now() }],
+        matchLog: [...st.matchLog, { type: "abandon", label: `${abandoned.name} abandoned`, ts: now() }],
       };
     }
     // ── Tournament flow ──
@@ -182,9 +182,9 @@ function reducer(st, a) {
         rp = st.pairings.map((m) => ({ ...m }));
       rp.forEach((m) => {
         if (m.isBye || m.result !== "done") return;
-        const fl = m.players.filter((n) => String(m.scores[n]).trim() !== "");
-        if (!fl.length) return;
-        const sorted = [...fl].sort((a, b) => parseFloat(m.scores[b] || 0) - parseFloat(m.scores[a] || 0));
+        const scored = m.players.filter((n) => String(m.scores[n]).trim() !== "");
+        if (!scored.length) return;
+        const sorted = [...scored].sort((a, b) => parseFloat(m.scores[b] || 0) - parseFloat(m.scores[a] || 0));
         const topScore = parseFloat(m.scores[sorted[0]] || 0);
 
         if (sc === "points") {

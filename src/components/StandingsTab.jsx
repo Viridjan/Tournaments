@@ -84,7 +84,6 @@ function StandingsTab({ state, dispatch, config }) {
             </thead>
             <tbody>
               {sorted.map((p, i) => {
-                const ds = p.score;
                 const pr = prizeCalc?.allocs?.[i] || null;
                 const elo = getElo(activeElo, p.name);
                 const eloDelta = cfg.elo && p.eloStart != null ? elo - p.eloStart : null;
@@ -124,7 +123,7 @@ function StandingsTab({ state, dispatch, config }) {
                         </>
                       ) : (
                         <span style={{ fontWeight: 600 }}>
-                          {ds}pt
+                          {p.score}pt
                           {gp ? <span style={{ fontSize: 10, color: C.faint }}> GP</span> : ""}
                         </span>
                       )}

@@ -47,7 +47,7 @@ function MatchCard({ match, index, dispatch, scoring, eloDb }) {
   const sel = !isDone ? null : p1Score > p2Score ? "p1" : p2Score > p1Score ? "p2" : "draw";
 
   if (match.players.length === 2) {
-    const bs = (active, t) => ({
+    const btnStyle = (active, t) => ({
       flex: 1, display: "flex", flexDirection: "column", padding: "6px 8px", borderRadius: 5,
       cursor: "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: 500, lineHeight: 1.3,
       border: `0.5px solid ${active ? (t === "d" ? C.aBd : C.gBd) : "#ddd"}`,
@@ -67,11 +67,11 @@ function MatchCard({ match, index, dispatch, scoring, eloDb }) {
     return (
       <Card variant="compact">
         <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 2fr", gap: 4, alignItems: "stretch" }}>
-          <button style={bs(sel === "p1", "l")} onClick={() => pick("p1")}>
+          <button style={btnStyle(sel === "p1", "l")} onClick={() => pick("p1")}>
             <span>{p1}{match.rematch && <> <Tag variant="amber">re</Tag></>}</span>
           </button>
-          <button style={bs(sel === "draw", "d")} onClick={() => pick("draw")}>draw</button>
-          <button style={bs(sel === "p2", "r")} onClick={() => pick("p2")}>
+          <button style={btnStyle(sel === "draw", "d")} onClick={() => pick("draw")}>draw</button>
+          <button style={btnStyle(sel === "p2", "r")} onClick={() => pick("p2")}>
             <span>{p2}</span>
           </button>
         </div>
@@ -177,14 +177,14 @@ function ML({ state }) {
                 const isDraw = s1 === s2 && m.result === "done";
                 const w = !isDraw ? (s1 > s2 ? p1 : p2) : null;
                 const l = !isDraw ? (s1 > s2 ? p2 : p1) : null;
-                const wd = w && m.eloDeltas?.[w];
+                const winnerDelta = w && m.eloDeltas?.[w];
                 return (
                   <div key={mi} style={{ fontSize: 13, padding: "4px 0", display: "flex", gap: 12, borderBottom: `0.5px solid ${C.bL}`, alignItems: "center" }}>
                     <span style={{ fontWeight: 500, color: isDraw ? C.text : C.green }}>{w || p1}</span>
                     <span style={{ color: C.muted }}>{l || p2}</span>
-                    {wd != null && (
-                      <span style={{ fontSize: 11, fontWeight: 500, color: wd > 0 ? C.green : wd < 0 ? C.red : C.muted }}>
-                        {wd > 0 ? "+" : ""}{wd}
+                    {winnerDelta != null && (
+                      <span style={{ fontSize: 11, fontWeight: 500, color: winnerDelta > 0 ? C.green : winnerDelta < 0 ? C.red : C.muted }}>
+                        {winnerDelta > 0 ? "+" : ""}{winnerDelta}
                       </span>
                     )}
                     {isDraw && <span style={{ color: C.amber, fontWeight: 500, fontSize: 11 }}>Draw</span>}
@@ -196,13 +196,13 @@ function ML({ state }) {
             </Card>
           );
         }
-        const ic = { start: "🏁", abandon: "⚑", "draft-end": "📋", "tournament-timeout": "⏰" },
+        const icons = { start: "🏁", abandon: "⚑", "draft-end": "📋", "tournament-timeout": "⏰" },
           bg = { start: C.gBg, abandon: C.aBg, "draft-end": C.bBg, "tournament-timeout": C.rBg },
-          co = { start: C.green, abandon: C.amber, "draft-end": C.blue, "tournament-timeout": C.red };
+          colors = { start: C.green, abandon: C.amber, "draft-end": C.blue, "tournament-timeout": C.red };
         return (
           <div key={ei} style={{ background: bg[ev.type] || C.subtle, borderRadius: 8, padding: "8px 12px", marginBottom: 12, display: "flex", justifyContent: "space-between" }}>
-            <span style={{ fontSize: 13, fontWeight: 500, color: co[ev.type] || C.text }}>
-              {ic[ev.type] || "•"} {ev.label}
+            <span style={{ fontSize: 13, fontWeight: 500, color: colors[ev.type] || C.text }}>
+              {icons[ev.type] || "•"} {ev.label}
             </span>
             <span style={{ fontSize: 11, color: C.faint }}>{ev.ts}</span>
           </div>

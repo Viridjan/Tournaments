@@ -3,12 +3,12 @@ function Timer({ minutes }) {
   const total = minutes * 60;
   const [left, setLeft] = useState(total);
   const [running, setRunning] = useState(false);
-  const ir = useRef(null),
-    ar = useRef(null);
+  const intervalRef = useRef(null),
+    audioRef = useRef(null);
   const alarm = useCallback(() => {
     try {
-      if (!ar.current) ar.current = new (window.AudioContext || window.webkitAudioContext)();
-      const ctx = ar.current;
+      if (!audioRef.current) audioRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      const ctx = audioRef.current;
       [880, 660, 880, 660, 880, 1100].forEach((f, i) => {
         const o = ctx.createOscillator(),
           g = ctx.createGain();
@@ -27,7 +27,7 @@ function Timer({ minutes }) {
   }, []);
   useEffect(() => {
     if (running && left > 0)
-      ir.current = setInterval(
+      intervalRef.current = setInterval(
         () =>
           setLeft((p) => {
             if (p <= 1) {
@@ -39,9 +39,9 @@ function Timer({ minutes }) {
           }),
         1000,
       );
-    return () => clearInterval(ir.current);
+    return () => clearInterval(intervalRef.current);
   }, [running, left, alarm]);
-  const u = left <= 60,
+  const urgent = left <= 60,
     m = Math.floor(left / 60),
     sec = left % 60;
   return (
@@ -64,7 +64,7 @@ function Timer({ minutes }) {
           fontVariantNumeric: "tabular-nums",
           letterSpacing: 3,
           minWidth: 100,
-          color: u ? C.heart : C.text,
+          color: urgent ? C.heart : C.text,
         }}
       >
         {String(m).padStart(2, "0")}:{String(sec).padStart(2, "0")}
@@ -83,7 +83,7 @@ function Timer({ minutes }) {
           style={{
             height: "100%",
             borderRadius: 3,
-            background: u ? C.heart : C.accent,
+            background: urgent ? C.heart : C.accent,
             width: `${(left / total) * 100}%`,
             transition: "width 0.9s linear",
           }}
@@ -93,7 +93,7 @@ function Timer({ minutes }) {
         <Btn
           onClick={() => {
             try {
-              ar.current?.resume();
+              audioRef.current?.resume();
             } catch {}
             setRunning(!running);
           }}

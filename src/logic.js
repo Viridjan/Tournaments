@@ -136,15 +136,15 @@ function genPairings(pl, h, ph, cfg, db) {
     }
   }
 
-  if (c.firstPlayer && groupSize === 2) {
-    const cm = {};
-    pl.forEach(p => (cm[p.name] = p.firstCount || 0));
+  if (cfg.firstPlayer && groupSize === 2) {
+    const firstCounts = {};
+    pl.forEach(p => (firstCounts[p.name] = p.firstCount || 0));
     pa.forEach(mm => {
       if (mm.isBye || mm.players.length !== 2) return;
       const [a, b] = mm.players;
-      if ((cm[a] || 0) > (cm[b] || 0) || ((cm[a] || 0) === (cm[b] || 0) && Math.random() < 0.5))
+      if ((firstCounts[a] || 0) > (firstCounts[b] || 0) || ((firstCounts[a] || 0) === (firstCounts[b] || 0) && Math.random() < 0.5))
         [mm.players[0], mm.players[1]] = [b, a];
-      cm[mm.players[0]] = (cm[mm.players[0]] || 0) + 1;
+      firstCounts[mm.players[0]] = (firstCounts[mm.players[0]] || 0) + 1;
     });
   }
 
@@ -175,7 +175,7 @@ function calcAlloc(pl, pr, rk, ec, prizePct, prizePctUp, ruPct, ruPctUp) {
   const rupct = ruPct || 50;
   const rawRu = (allocated * rupct) / 100;
   const ruCount = ruPctUp ? Math.ceil(rawRu) : Math.floor(rawRu);
-  const ar = rk.slice(0, allocated),
+  const prizeRanks = rk.slice(0, allocated),
     inv = pr.map((p) => ({ ...p }));
   const gbr = {};
   const avoidMap = {};
@@ -183,7 +183,7 @@ function calcAlloc(pl, pr, rk, ec, prizePct, prizePctUp, ruPct, ruPctUp) {
     const gList = String(p.guaranteed || "")
       .split(",")
       .map((s) => parseInt(s.trim()))
-      .filter((n) => n > 0 && n <= ar.length);
+      .filter((n) => n > 0 && n <= prizeRanks.length);
     gList.forEach((g) => {
       if (p.maxQty > 0) {
         (gbr[g - 1] = gbr[g - 1] || []).push({
@@ -232,7 +232,7 @@ function calcAlloc(pl, pr, rk, ec, prizePct, prizePctUp, ruPct, ruPctUp) {
     return best;
   }
   let gt = 0;
-  const al = ar.map((r, ri) => {
+  const allocs = prizeRanks.map((r, ri) => {
     const rd = ri >= ruCount;
     const tgt = (tp * r.pct) / 100;
     const ch = (gbr[ri] || []).map((g) => ({ ...g }));
@@ -265,21 +265,21 @@ function calcAlloc(pl, pr, rk, ec, prizePct, prizePctUp, ruPct, ruPctUp) {
     gt += av;
     return { rank: r.label, target: tgt, chosen: ch, actualValue: av };
   });
-  const tk =
+  const tiebreaker =
     inv.find((p) => p.name === "Token" && p.value > 0) ||
     inv.filter((p) => p.value > 0).sort((a, b) => a.value - b.value)[0];
-  if (tk)
-    for (let h = 0; h < al.length - 1; h++)
-      for (let l = h + 1; l < al.length; l++)
-        while (al[h].actualValue < al[l].actualValue && tk.maxQty > 0) {
-          const ex = al[h].chosen.find((c) => c.name === tk.name);
+  if (tiebreaker)
+    for (let h = 0; h < allocs.length - 1; h++)
+      for (let l = h + 1; l < allocs.length; l++)
+        while (al[h].actualValue < al[l].actualValue && tiebreaker.maxQty > 0) {
+          const ex = al[h].chosen.find((c) => c.name === tiebreaker.name);
           if (ex) {
             ex.qty++;
-            ex.total += tk.value;
-          } else al[h].chosen.push({ name: tk.name, value: tk.value, qty: 1, total: tk.value });
-          al[h].actualValue += tk.value;
-          gt += tk.value;
-          tk.maxQty--;
+            ex.total += tiebreaker.value;
+          } else al[h].chosen.push({ name: tiebreaker.name, value: tiebreaker.value, qty: 1, total: tiebreaker.value });
+          al[h].actualValue += tiebreaker.value;
+          gt += tiebreaker.value;
+          tiebreaker.maxQty--;
         }
-  return { allocs: al, totalPool: tp, grandTotal: gt };
+  return { allocs, totalPool: tp, grandTotal: gt };
 }

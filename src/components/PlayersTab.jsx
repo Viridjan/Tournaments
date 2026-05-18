@@ -27,7 +27,7 @@ function PlayersTab({ state, dispatch, config, eloLoadedCols }) {
         .sort((a, b) => (b.elo || 0) - (a.elo || 0)),
     [activeElo, filter, state.testMode, addS],
   );
-  const pc = state.players.filter((p) => p.paid).length;
+  const paidCount = state.players.filter((p) => p.paid).length;
   const suggestions = useMemo(() => {
     if (!input.trim() || input.length < 1) return [];
     return Object.values(activeElo)
@@ -229,8 +229,8 @@ function PlayersTab({ state, dispatch, config, eloLoadedCols }) {
                 <span>
                   {state.players.length} player{state.players.length !== 1 ? "s" : ""}
                 </span>
-                <span style={{ color: pc === state.players.length ? C.green : C.amber }}>
-                  {pc}/{state.players.length} paid
+                <span style={{ color: paidCount === state.players.length ? C.green : C.amber }}>
+                  {paidCount}/{state.players.length} paid
                 </span>
               </div>
             </>
