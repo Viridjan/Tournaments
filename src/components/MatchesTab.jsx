@@ -302,7 +302,10 @@ function MatchesTab({ state, dispatch, config }) {
               </div>
               <Btn
                 onClick={() => {
-                  if (confirm("Start a new session? Round counter resets but history is kept.")) dispatch({ type: "NEW_GP_SESSION" });
+                  if (confirm("Start a new session? Round counter resets but history is kept.")) {
+                    autoSeedSave(state);
+                    dispatch({ type: "NEW_GP_SESSION" });
+                  }
                 }}
                 style={{ borderColor: C.aBd, color: C.amber, background: C.aBg, padding: "10px 20px", fontSize: 14, fontWeight: 500 }}
               >
@@ -310,22 +313,23 @@ function MatchesTab({ state, dispatch, config }) {
               </Btn>
             </Card>
           )}
-          {c.scoring !== "lifepoints" && (
-            <Card>
-              <h3 style={S.cardTitle}>End tournament</h3>
-              <div style={{ fontSize: 13, color: C.muted, marginBottom: 16 }}>
-                Finalizes the tournament. Players are sorted by score; the leader is declared the winner and everyone else is marked eliminated. The in-progress backup is cleared.
-              </div>
-              <Btn
-                onClick={() => {
-                  if (confirm("End the tournament?")) dispatch({ type: "END_TOURNAMENT" });
-                }}
-                style={{ borderColor: C.red, color: C.red, background: C.rBg, padding: "10px 20px", fontSize: 14, fontWeight: 500 }}
-              >
-                End tournament
-              </Btn>
-            </Card>
-          )}
+          <Card>
+            <h3 style={S.cardTitle}>End tournament</h3>
+            <div style={{ fontSize: 13, color: C.muted, marginBottom: 16 }}>
+              Finalizes the tournament. Players are sorted by score; the leader is declared the winner and everyone else is marked eliminated. The in-progress backup is cleared.
+            </div>
+            <Btn
+              onClick={() => {
+                if (confirm("End the tournament?")) {
+                  autoSeedSave(state);
+                  dispatch({ type: "END_TOURNAMENT" });
+                }
+              }}
+              style={{ borderColor: C.red, color: C.red, background: C.rBg, padding: "10px 20px", fontSize: 14, fontWeight: 500 }}
+            >
+              End tournament
+            </Btn>
+          </Card>
         </div>
       )}
     </div>
