@@ -306,7 +306,32 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
           <BoolF label="Rules tab" k="rules" />
           <BoolF label="Spinner" k="spinner" />
           <div style={S.sectionLabel}>Grand Prix</div>
-          <BoolF label="GP enabled" k="grandPrix" />
+          <div style={S.fieldRow}>
+            <input
+              type="checkbox"
+              checked={!!f.grandPrix}
+              onChange={() => dispatch({ type: "TOGGLE_FEATURE", key: "grandPrix" })}
+              onClick={(e) => e.stopPropagation()}
+              style={{ width: 15, height: 15, accentColor: C.accent, cursor: "pointer", margin: 0 }}
+            />
+            <span style={{ flex: 1, fontSize: 13 }}>GP enabled</span>
+            {[["gpBestOfLast", "Last", 4], ["gpDropWorst", "Drop", 1]].map(([k, lbl, def]) => (
+              <div key={k} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, opacity: f.grandPrix ? 1 : 0.35 }}>
+                <span style={{ fontSize: 10, color: C.muted }}>{lbl}</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={f[k] !== undefined && f[k] !== "" ? f[k] : def}
+                  disabled={!f.grandPrix}
+                  onChange={(e) => { const v = e.target.value; sf(k, v === "" ? "" : isNaN(Number(v)) ? v : Number(v)); }}
+                  style={{ ...S.inputXs, opacity: f.grandPrix ? 1 : 0.5 }}
+                />
+              </div>
+            ))}
+            {["grandPrix", "gpBestOfLast", "gpDropWorst"].some(k => state.featureOverrides[k] !== undefined) && (
+              <span style={S.modTag}>mod</span>
+            )}
+          </div>
           <div style={S.sectionLabel}>ELO</div>
           <BoolF label="ELO tracking" k="elo" />
           <div

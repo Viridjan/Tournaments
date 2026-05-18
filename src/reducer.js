@@ -207,7 +207,7 @@ function reducer(st, a) {
               if (c.grandPrix) {
                 if (!p.gpScores) p.gpScores = [];
                 p.gpScores.push(pts);
-                p.score = gpBestOf(p.gpScores);
+                p.score = gpBestOf(p.gpScores, c.gpBestOfLast, c.gpDropWorst);
               } else {
                 p.score += pts;
               }
