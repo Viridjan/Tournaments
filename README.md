@@ -127,15 +127,15 @@ Each tournament can point at a different column in the ELO sheet via `eloDB`. Th
 ║  ┌─────────┐  ┌─────────┐  ┌──────────────────┐  ┌──────────┐  ║
 ║  │  RULES  │  │ PLAYERS │  │     MATCHES      │  │STANDINGS │  ║
 ║  └────┬────┘  └────┬────┘  └────────┬─────────┘  └────┬─────┘  ║
-║       │            │                │                  │        ║
+║       │            │                │                 │        ║
 ║  Read-only    Add players      ┌────┴─────┐       Live rankings ║
-║  from Sheet   ─────────────►  │  Draft   │       ELO deltas    ║
+║  from Sheet   ──────────────►  │  Draft   │       ELO deltas    ║
 ║               Start button     │ (groups) │       GP scores     ║
 ║                                ├──────────┤                     ║
 ║                                │Pairings  │                     ║
 ║                                │ → enter  │                     ║
 ║                                │  results │                     ║
-║                                │ → Next   │◄────── repeats ─┐  ║
+║                                │ → Next   │◄──── repeats ────┐  ║
 ║                                │  round ↗ │                  │  ║
 ║                                ├──────────┤                  │  ║
 ║                                │   Log    │                  │  ║
@@ -160,7 +160,7 @@ Each tournament can point at a different column in the ELO sheet via `eloDB`. Th
    affects all users)               per-device)
         │                                 │
         ▼                                 ▼
-  ┌───────────────────┐        ┌──────────────────────┐
+  ┌───────────────────┐        ┌───────────────────────┐
   │   Settings tab    │        │    Advanced tab       │
   │   in the Sheet    │        │    (in the app)       │
   │                   │        │                       │
@@ -174,59 +174,10 @@ Each tournament can point at a different column in the ELO sheet via `eloDB`. Th
   │ • draft phase     │        │ • toggle ELO          │
   │ • match size      │        │ • prizes setup        │
   │ • GP mode         │        │ • Sheets URL / sync   │
-  │ • prizes          │        └──────────────────────┘
+  │ • prizes          │        └───────────────────────┘
   │ • rules tab       │
-  │ • timeout         │        ┌──────────────────────┐
-  └───────────────────┘        │    Settings tab       │
-                               │    (in the app)       │
-                               │                       │
-                               │ Toggle opt-in modes:  │
-                               │ • Test mode           │
-                               │   (inject players,    │
-                               │    quick actions)     │
-                               │ • Experimental        │
-                               │   (spinner, flag      │
-                               │    overrides visible) │
-                               │ • Advanced setup      │
-                               │   (shows Adv tab)     │
-                               │                       │
-                               │ Seeds: manual save /  │
-                               │ load snapshots        │
-                               └──────────────────────┘
-```
-
-### Round loop
-
-```
-  ┌─────────────────────────────────────────────────────┐
-  │                                                     │
-  │  [Pairings tab]                                     │
-  │   App generates matchups (avoids rematches)         │
-  │        │                                            │
-  │        ▼                                            │
-  │   Players play their matches                        │
-  │        │                                            │
-  │        ▼                                            │
-  │   Enter results in the app                          │
-  │   (win/draw/loss or per-player score)               │
-  │        │                                            │
-  │        ▼                                            │
-  │   Click "Next round ↗"                              │
-  │   • scores computed                                 │
-  │   • ELO updated (if enabled)                        │
-  │   • eliminations applied (lifepoints)               │
-  │   • new pairings generated                          │
-  │   • auto-saved to Sheets                            │
-  │        │                                            │
-  │        └──────────────── repeat ───────────────┐   │
-  │                                                 │   │
-  │  [Session tab — when done]                      │   │
-  │   End tournament → final standings              │   │
-  │   ELO saved back to Sheets                      │   │
-  │                                                 │   │
-  └─────────────────────────────────────────────────┘   │
-                                                        │
-                                              ◄─────────┘
+  │ • timeout         │
+  └───────────────────┘
 ```
 
 ### Tab reference
@@ -247,7 +198,7 @@ Each tournament can point at a different column in the ELO sheet via `eloDB`. Th
 
 ## Build
 
-```bash
+```
 bash build.sh
 ```
 
