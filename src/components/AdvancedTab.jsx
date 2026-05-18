@@ -305,7 +305,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
           <BoolF label="Decide first player" k="firstPlayer" />
           <BoolF label="Prizes" k="prizes" />
           <BoolF label="Rules tab" k="rules" />
-          <BoolF label="Spinner" k="spinner" />
+
           <div style={S.sectionLabel}>Grand Prix</div>
           <div style={S.fieldRow}>
             <input

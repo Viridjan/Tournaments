@@ -283,7 +283,7 @@ var TOURNAMENT_FEATURE_KEYS = [
   "scoring", "startScore", "pts1", "pts2", "pts3", "ptsLast", "winPoints", "drawPoints", "lossPoints",
   "cumulativeDrawPenalty", "rrRounds", "timerMinutes", "draft", "elo", "eloKMax",
   "eloScale", "eloDB", "firstPlayer", "grandPrix", "prizes",
-  "timeout", "timeoutTime", "spinner", "rules", "matchRound", "matchMax",
+  "timeout", "timeoutTime", "rules", "matchRound", "matchMax",
   "gpBestOfLast", "gpDropWorst"
 ];
 
