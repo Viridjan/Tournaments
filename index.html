@@ -20,7 +20,8 @@ const ED = 1000,
   ES = 500,
   EK = "tournament_elo_db_v2",
   SK = "tournament_sheets_url_v1",
-  BK = "tournament_local_backup";
+  BK = "tournament_local_backup",
+  BK_LAST = "tournament_local_backup_last";
 const DU =
   "https://script.google.com/macros/s/AKfycby_FEGovdBvl8oYWU1J40NXGdbQpL-B6wKaUTq4m1O9sb81s5pku3qjM6sGA0nFBWp6VQ/exec";
 
@@ -291,9 +292,7 @@ function calcAlloc(pl, pr, rk, ec, prizePct, prizePctUp, ruPct, ruPctUp) {
     gt += av;
     return { rank: r.label, target: tgt, chosen: ch, actualValue: av };
   });
-  const tiebreaker =
-    inv.find((p) => p.name === "Token" && p.value > 0) ||
-    inv.filter((p) => p.value > 0).sort((a, b) => a.value - b.value)[0];
+  const tiebreaker = inv.filter((p) => p.value > 0).sort((a, b) => a.value - b.value)[0];
   if (tiebreaker)
     for (let h = 0; h < allocs.length - 1; h++)
       for (let l = h + 1; l < allocs.length; l++)
@@ -471,7 +470,22 @@ function reducer(st, a) {
   switch (a.type) {
     // ── Navigation ──
     case "OPEN_TOURNAMENT":
-      return { ...st, screen: "tournament", tournamentId: a.id, activeTab: "players", featureOverrides: {} };
+      return {
+        ...st,
+        screen: "tournament",
+        tournamentId: a.id,
+        activeTab: "players",
+        matchSubTab: "pairings",
+        featureOverrides: {},
+        players: [],
+        currentRound: 0,
+        phase: "roundrobin",
+        pairings: [],
+        history: [],
+        matchLog: [],
+        tournamentStarted: false,
+        startedAt: null,
+      };
     case "SET_TAB":
       return { ...st, activeTab: a.tab };
     case "SET_MATCH_SUBTAB":
@@ -713,7 +727,8 @@ function reducer(st, a) {
     }
     case "END_TOURNAMENT": {
       try {
-        localStorage.removeItem(BK);
+        localStorage.removeItem(BK + "_" + st.tournamentId);
+        localStorage.removeItem(BK_LAST);
       } catch {}
       const sorted = [...st.players].sort((a, b) => b.score - a.score || b.w - a.w);
       return {
@@ -870,7 +885,8 @@ function reducer(st, a) {
     // ── Session / settings ──
     case "FULL_RESET":
       try {
-        localStorage.removeItem(BK);
+        localStorage.removeItem(BK + "_" + st.tournamentId);
+        localStorage.removeItem(BK_LAST);
       } catch {}
       return {
         ...init,
@@ -2143,7 +2159,7 @@ function PlayersTab({ state, dispatch, config, eloLoadedCols }) {
   const [input, setInput] = useState(""),
     [filter, setFilter] = useState(""),
     [acFocused, setAcFocused] = useState(false);
-  const eloCol = config?.features?.eloDB;
+  const eloCol = config?.features?.eloDB || "ELO";
   const activeElo = state.eloDb?.[eloCol] || {};
   const eloReady = !eloCol || !!eloLoadedCols?.[eloCol] || Object.keys(activeElo).length > 0;
   const addS = useMemo(
@@ -4078,7 +4094,7 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
   }, [state.tournamentStarted, cfg.timeout, cfg.timeoutTime, timedOut, dispatch, state.startedAt]);
   useEffect(() => {
     if (!state.players.length) return;
-    saveLS(BK, {
+    saveLS(BK + "_" + state.tournamentId, {
       state: {
         players: state.players,
         currentRound: state.currentRound,
@@ -4100,6 +4116,7 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
       featureOverrides: state.featureOverrides,
       savedAt: Date.now(),
     });
+    try { localStorage.setItem(BK_LAST, state.tournamentId); } catch {}
   }, [state.players, state.pairings, state.currentRound, state.tournamentStarted, state.history]);
   const lastPushedRound = useRef(0);
   useEffect(() => {
@@ -4357,7 +4374,8 @@ function App() {
     if (restored.current) return;
     restored.current = true;
     try {
-      const raw = localStorage.getItem(BK);
+      const lastId = localStorage.getItem(BK_LAST);
+      const raw = lastId ? localStorage.getItem(BK + "_" + lastId) : null;
       if (!raw) return;
       const snap = JSON.parse(raw);
       if (snap?.tournamentStarted && snap?.state?.players?.length) {
@@ -4368,7 +4386,8 @@ function App() {
         ) {
           dispatch({ type: "RESTORE_SNAPSHOT", snapshot: snap });
         } else {
-          localStorage.removeItem(BK);
+          localStorage.removeItem(BK + "_" + lastId);
+          localStorage.removeItem(BK_LAST);
         }
       }
     } catch {}

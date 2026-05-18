@@ -50,7 +50,7 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
   }, [state.tournamentStarted, cfg.timeout, cfg.timeoutTime, timedOut, dispatch, state.startedAt]);
   useEffect(() => {
     if (!state.players.length) return;
-    saveLS(BK, {
+    saveLS(BK + "_" + state.tournamentId, {
       state: {
         players: state.players,
         currentRound: state.currentRound,
@@ -72,6 +72,7 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
       featureOverrides: state.featureOverrides,
       savedAt: Date.now(),
     });
+    try { localStorage.setItem(BK_LAST, state.tournamentId); } catch {}
   }, [state.players, state.pairings, state.currentRound, state.tournamentStarted, state.history]);
   const lastPushedRound = useRef(0);
   useEffect(() => {

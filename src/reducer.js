@@ -71,7 +71,22 @@ function reducer(st, a) {
   switch (a.type) {
     // ── Navigation ──
     case "OPEN_TOURNAMENT":
-      return { ...st, screen: "tournament", tournamentId: a.id, activeTab: "players", featureOverrides: {} };
+      return {
+        ...st,
+        screen: "tournament",
+        tournamentId: a.id,
+        activeTab: "players",
+        matchSubTab: "pairings",
+        featureOverrides: {},
+        players: [],
+        currentRound: 0,
+        phase: "roundrobin",
+        pairings: [],
+        history: [],
+        matchLog: [],
+        tournamentStarted: false,
+        startedAt: null,
+      };
     case "SET_TAB":
       return { ...st, activeTab: a.tab };
     case "SET_MATCH_SUBTAB":
@@ -313,7 +328,8 @@ function reducer(st, a) {
     }
     case "END_TOURNAMENT": {
       try {
-        localStorage.removeItem(BK);
+        localStorage.removeItem(BK + "_" + st.tournamentId);
+        localStorage.removeItem(BK_LAST);
       } catch {}
       const sorted = [...st.players].sort((a, b) => b.score - a.score || b.w - a.w);
       return {
@@ -470,7 +486,8 @@ function reducer(st, a) {
     // ── Session / settings ──
     case "FULL_RESET":
       try {
-        localStorage.removeItem(BK);
+        localStorage.removeItem(BK + "_" + st.tournamentId);
+        localStorage.removeItem(BK_LAST);
       } catch {}
       return {
         ...init,

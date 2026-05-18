@@ -7,7 +7,7 @@ function PlayersTab({ state, dispatch, config, eloLoadedCols }) {
   const [input, setInput] = useState(""),
     [filter, setFilter] = useState(""),
     [acFocused, setAcFocused] = useState(false);
-  const eloCol = config?.features?.eloDB;
+  const eloCol = config?.features?.eloDB || "ELO";
   const activeElo = state.eloDb?.[eloCol] || {};
   const eloReady = !eloCol || !!eloLoadedCols?.[eloCol] || Object.keys(activeElo).length > 0;
   const addS = useMemo(

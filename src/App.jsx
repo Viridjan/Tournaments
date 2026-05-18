@@ -80,7 +80,8 @@ function App() {
     if (restored.current) return;
     restored.current = true;
     try {
-      const raw = localStorage.getItem(BK);
+      const lastId = localStorage.getItem(BK_LAST);
+      const raw = lastId ? localStorage.getItem(BK + "_" + lastId) : null;
       if (!raw) return;
       const snap = JSON.parse(raw);
       if (snap?.tournamentStarted && snap?.state?.players?.length) {
@@ -91,7 +92,8 @@ function App() {
         ) {
           dispatch({ type: "RESTORE_SNAPSHOT", snapshot: snap });
         } else {
-          localStorage.removeItem(BK);
+          localStorage.removeItem(BK + "_" + lastId);
+          localStorage.removeItem(BK_LAST);
         }
       }
     } catch {}

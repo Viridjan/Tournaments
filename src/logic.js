@@ -265,9 +265,7 @@ function calcAlloc(pl, pr, rk, ec, prizePct, prizePctUp, ruPct, ruPctUp) {
     gt += av;
     return { rank: r.label, target: tgt, chosen: ch, actualValue: av };
   });
-  const tiebreaker =
-    inv.find((p) => p.name === "Token" && p.value > 0) ||
-    inv.filter((p) => p.value > 0).sort((a, b) => a.value - b.value)[0];
+  const tiebreaker = inv.filter((p) => p.value > 0).sort((a, b) => a.value - b.value)[0];
   if (tiebreaker)
     for (let h = 0; h < allocs.length - 1; h++)
       for (let l = h + 1; l < allocs.length; l++)
