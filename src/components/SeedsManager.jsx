@@ -6,37 +6,6 @@ function SeedsManager({ state, dispatch }) {
     [seedId, setSeedId] = useState(""),
     [seeds, setSeeds] = useState([]);
   const url = state.sheetsUrl;
-  const buildSnap = () => {
-    const t = state.tournaments?.[state.tournamentId];
-    return {
-      v: 3,
-      tournamentMode: state.tournamentId,
-      tournamentName: t?.name || "",
-      tournamentStarted: state.tournamentStarted,
-      playerCount: state.players.length,
-      round: state.currentRound,
-      state: {
-        players: state.players,
-        currentRound: state.currentRound,
-        phase: state.phase,
-        pairings: state.pairings,
-        history: state.history,
-        matchLog: state.matchLog,
-        startedAt: state.startedAt,
-      },
-      prizes: state.prizes,
-      ranks: state.ranks,
-      entryCost: state.entryCost,
-      prizePct: state.prizePct,
-      prizePctRoundUp: state.prizePctRoundUp,
-      roundUpPct: state.roundUpPct,
-      roundUpPctRoundUp: state.roundUpPctRoundUp,
-      featureOverrides: state.featureOverrides,
-      testMode: state.testMode,
-      experimental: state.experimental,
-      advancedSetup: state.advancedSetup,
-    };
-  };
   const save = async () => {
     if (!url) {
       setStatus("⚠ No URL");
@@ -47,7 +16,7 @@ function SeedsManager({ state, dispatch }) {
       return;
     }
     const id = mkId();
-    const snap = buildSnap();
+    const snap = buildSnap(state);
     const data = JSON.stringify(snap);
     const t = state.tournaments?.[state.tournamentId];
     const label = `${t?.icon || ""} ${t?.name || ""} · ${state.players.length}p · R${state.currentRound}`;

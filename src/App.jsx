@@ -72,6 +72,11 @@ function App() {
       })
       .catch(() => {});
   }, [state.featureOverrides?.eloDB]);
+  useEffect(() => {
+    if (!state.tournamentStarted || !state.players.length) return;
+    const t = setTimeout(() => autoSeedSave(state), 2000);
+    return () => clearTimeout(t);
+  }, [state.pairings, state.history, state.players, state.currentRound, state.phase]);
   const restored = useRef(false);
   useEffect(() => {
     if (restored.current) return;

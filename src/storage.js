@@ -33,6 +33,52 @@ function gSU() {
     return DU;
   }
 }
+function buildSnap(state) {
+  const t = state.tournaments?.[state.tournamentId];
+  return {
+    v: 3,
+    tournamentMode: state.tournamentId,
+    tournamentName: t?.name || "",
+    tournamentStarted: state.tournamentStarted,
+    playerCount: state.players.length,
+    round: state.currentRound,
+    state: {
+      players: state.players,
+      currentRound: state.currentRound,
+      phase: state.phase,
+      pairings: state.pairings,
+      history: state.history,
+      matchLog: state.matchLog,
+      startedAt: state.startedAt,
+    },
+    prizes: state.prizes,
+    ranks: state.ranks,
+    entryCost: state.entryCost,
+    prizePct: state.prizePct,
+    prizePctRoundUp: state.prizePctRoundUp,
+    roundUpPct: state.roundUpPct,
+    roundUpPctRoundUp: state.roundUpPctRoundUp,
+    featureOverrides: state.featureOverrides,
+    testMode: state.testMode,
+    experimental: state.experimental,
+    advancedSetup: state.advancedSetup,
+  };
+}
+function autoSeedSave(state) {
+  const url = gSU();
+  if (!url || !state.tournamentStarted || !state.players.length) return;
+  const t = state.tournaments?.[state.tournamentId];
+  const id = mkId();
+  const label = `${t?.icon || ""} ${t?.name || ""} · ${state.players.length}p · R${state.currentRound} [auto]`;
+  try {
+    fetch(url, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "seed_save", id, label, data: JSON.stringify(buildSnap(state)) }),
+    }).catch(() => {});
+  } catch {}
+}
 function mkP(st, pl, h, ph) {
   const c = { ...st.tournaments?.[st.tournamentId]?.features, ...st.featureOverrides };
   if (!c) return [];
