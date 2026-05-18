@@ -305,7 +305,8 @@ function reducer(st, a) {
           ...st.matchLog,
           { type: "round", label: `Round ${st.currentRound} completed`, ts: now() },
         ],
-        activeTab: go ? "standings" : st.activeTab,
+        activeTab: "matches",
+        matchSubTab: go ? "standings" : st.matchSubTab,
       };
       saveLS(EK, newEloDb);
       return { ...ns, pairings: go ? [] : makePairings(ns, pl, h, ph) };
@@ -318,7 +319,8 @@ function reducer(st, a) {
       return {
         ...st,
         players: st.players.map((p) => (p.name === sorted[0]?.name ? p : { ...p, eliminated: true })),
-        activeTab: "standings",
+        activeTab: "matches",
+        matchSubTab: "standings",
       };
     }
     case "NEW_GP_SESSION": {

@@ -116,7 +116,6 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
     cfg.rules && { id: "rules", label: "Rules" },
     { id: "players", label: "Players" },
     { id: "matches", label: "Matches", disabled: !state.tournamentStarted },
-    { id: "standings", label: "Standings", disabled: !state.tournamentStarted },
     { id: "settings", label: "Settings" },
     state.testMode && { id: "test", label: "🧪 Test", color: C.red },
     state.experimental && { id: "spinner", label: "🎲 Spinner", color: C.purple },
@@ -230,10 +229,7 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
         <PlayersTab state={state} dispatch={dispatch} config={config} eloLoadedCols={eloLoadedCols} />
       )}
       {state.activeTab === "matches" && (
-        <MatchesTab state={state} dispatch={dispatch} config={config} />
-      )}
-      {state.activeTab === "standings" && (
-        <StandingsTab state={state} dispatch={dispatch} config={config} eloLoadedCols={eloLoadedCols} />
+        <MatchesTab state={state} dispatch={dispatch} config={config} eloLoadedCols={eloLoadedCols} />
       )}
       {state.activeTab === "settings" && (
         <SettingsTab state={state} dispatch={dispatch} config={config} />

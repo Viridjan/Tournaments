@@ -29,24 +29,23 @@ const DU =
 function gpBestOf(scores, last, drop) {
   const l = Math.max(2, Number(last) || 4);
   const d = Math.max(0, Number(drop) || 1);
-  const keep = l - d;
-  if (scores.length <= keep) return scores.reduce((a, b) => a + b, 0);
-  const window = scores.slice(-l);
-  const sorted = [...window].sort((a, b) => a - b);
+  if (scores.length <= l - d) return scores.reduce((a, b) => a + b, 0);
+  const recent = scores.slice(-l);
+  const sorted = [...recent].sort((a, b) => a - b);
   return sorted.slice(d).reduce((a, b) => a + b, 0);
 }
-function eExp(a, b, scale) {
+function eloExpected(a, b, scale) {
   return 1 / (1 + Math.pow(10, (b - a) / (scale || ES)));
 }
-function gE(d, n) {
+function getElo(d, n) {
   return d[n.toLowerCase()]?.elo ?? ED;
 }
-function sE(d, n, e, t) {
+function setElo(d, n, e, t) {
   return { ...d, [n.toLowerCase()]: { elo: e, name: n, test: !!t } };
 }
 function eCalc(a, b, s, kMax, scale) {
   const k = kMax || EM;
-  const e = eExp(a, b, scale),
+  const e = eloExpected(a, b, scale),
     r = k * (s - e),
     d = Math.round(Math.max(-k, Math.min(k, r)));
   return { dA: d, dB: -d };
@@ -93,12 +92,12 @@ function getPrev(h, a) {
   return m;
 }
 function getByes(h, a) {
-  const c = {};
-  a.forEach(p => (c[p.name] = 0));
+  const counts = {};
+  a.forEach(p => (counts[p.name] = 0));
   h.forEach(r => r.forEach(m => {
-    if (m.isBye && c[m.players[0]] !== undefined) c[m.players[0]]++;
+    if (m.isBye && counts[m.players[0]] !== undefined) counts[m.players[0]]++;
   }));
-  return c;
+  return counts;
 }
 function splitGroups(n, max, round) {
   if (n <= 0) return [];
@@ -112,27 +111,27 @@ function splitGroups(n, max, round) {
   const base = Math.floor(n / g), extra = n % g;
   return Array.from({ length: g }, (_, i) => (i < extra ? base + 1 : base));
 }
-function genPairings(pl, h, ph, c, db) {
-  const groupSize = Math.max(2, Number(c.matchMax) || 2);
-  const matchRound = c.matchRound || "none";
-  const ac = pl.filter(p => !p.eliminated);
-  const so = [...ac].sort((a, b) =>
+function genPairings(pl, h, ph, cfg, db) {
+  const groupSize = Math.max(2, Number(cfg.matchMax) || 2);
+  const matchRound = cfg.matchRound || "none";
+  const activePlayers = pl.filter(p => !p.eliminated);
+  const sorted = [...activePlayers].sort((a, b) =>
     ph === "roundrobin"
-      ? gE(db, b.name) - gE(db, a.name)
+      ? getElo(db, b.name) - getElo(db, a.name)
       : b.w / (b.w + b.d + b.l || 1) - a.w / (a.w + a.d + a.l || 1) || b.score - a.score
   );
-  const pr = getPrev(h, ac);
+  const pr = getPrev(h, activePlayers);
   const pa = [];
-  let tp = so;
+  let tp = sorted;
 
-  if (groupSize <= 2 && so.length % 2 === 1) {
-    const bc = getByes(h, ac);
+  if (groupSize <= 2 && sorted.length % 2 === 1) {
+    const bc = getByes(h, activePlayers);
     const mb = Math.min(...Object.values(bc));
     let byeName = null;
-    for (let i = so.length - 1; i >= 0; i--)
-      if (bc[so[i].name] <= mb) { byeName = so[i].name; break; }
-    if (!byeName) byeName = so[so.length - 1].name;
-    tp = so.filter(p => p.name !== byeName);
+    for (let i = sorted.length - 1; i >= 0; i--)
+      if (bc[sorted[i].name] <= mb) { byeName = sorted[i].name; break; }
+    if (!byeName) byeName = sorted[sorted.length - 1].name;
+    tp = sorted.filter(p => p.name !== byeName);
     pa.push({ players: [byeName], scores: {}, result: "done", isBye: true, rematch: false, eloDeltas: {}, noElo: false });
   }
 
@@ -163,15 +162,15 @@ function genPairings(pl, h, ph, c, db) {
     }
   }
 
-  if (c.firstPlayer && groupSize === 2) {
-    const cm = {};
-    pl.forEach(p => (cm[p.name] = p.firstCount || 0));
+  if (cfg.firstPlayer && groupSize === 2) {
+    const firstCounts = {};
+    pl.forEach(p => (firstCounts[p.name] = p.firstCount || 0));
     pa.forEach(mm => {
       if (mm.isBye || mm.players.length !== 2) return;
       const [a, b] = mm.players;
-      if ((cm[a] || 0) > (cm[b] || 0) || ((cm[a] || 0) === (cm[b] || 0) && Math.random() < 0.5))
+      if ((firstCounts[a] || 0) > (firstCounts[b] || 0) || ((firstCounts[a] || 0) === (firstCounts[b] || 0) && Math.random() < 0.5))
         [mm.players[0], mm.players[1]] = [b, a];
-      cm[mm.players[0]] = (cm[mm.players[0]] || 0) + 1;
+      firstCounts[mm.players[0]] = (firstCounts[mm.players[0]] || 0) + 1;
     });
   }
 
@@ -197,12 +196,12 @@ function calcAlloc(pl, pr, rk, ec, prizePct, prizePctUp, ruPct, ruPctUp) {
   if (!tp || !rk.length || !pr.length) return null;
   const ppct = prizePct || 50;
   const rawAc = (pl.length * ppct) / 100;
-  const ac = prizePctUp ? Math.ceil(rawAc) : Math.floor(rawAc);
-  if (ac < 1) return null;
+  const allocated = prizePctUp ? Math.ceil(rawAc) : Math.floor(rawAc);
+  if (allocated < 1) return null;
   const rupct = ruPct || 50;
-  const rawRu = (ac * rupct) / 100;
+  const rawRu = (allocated * rupct) / 100;
   const ruCount = ruPctUp ? Math.ceil(rawRu) : Math.floor(rawRu);
-  const ar = rk.slice(0, ac),
+  const prizeRanks = rk.slice(0, allocated),
     inv = pr.map((p) => ({ ...p }));
   const gbr = {};
   const avoidMap = {};
@@ -210,7 +209,7 @@ function calcAlloc(pl, pr, rk, ec, prizePct, prizePctUp, ruPct, ruPctUp) {
     const gList = String(p.guaranteed || "")
       .split(",")
       .map((s) => parseInt(s.trim()))
-      .filter((n) => n > 0 && n <= ar.length);
+      .filter((n) => n > 0 && n <= prizeRanks.length);
     gList.forEach((g) => {
       if (p.maxQty > 0) {
         (gbr[g - 1] = gbr[g - 1] || []).push({
@@ -259,7 +258,7 @@ function calcAlloc(pl, pr, rk, ec, prizePct, prizePctUp, ruPct, ruPctUp) {
     return best;
   }
   let gt = 0;
-  const al = ar.map((r, ri) => {
+  const allocs = prizeRanks.map((r, ri) => {
     const rd = ri >= ruCount;
     const tgt = (tp * r.pct) / 100;
     const ch = (gbr[ri] || []).map((g) => ({ ...g }));
@@ -282,33 +281,33 @@ function calcAlloc(pl, pr, rk, ec, prizePct, prizePctUp, ruPct, ruPctUp) {
         });
     }
     if (!ch.length) {
-      const c = inv.filter((p) => p.maxQty > 0 && p.value > 0).sort((a, b) => a.value - b.value)[0];
-      if (c) {
-        ch.push({ name: c.name, value: c.value, qty: 1, total: c.value });
-        c.maxQty--;
+      const cheapest = inv.filter((p) => p.maxQty > 0 && p.value > 0).sort((a, b) => a.value - b.value)[0];
+      if (cheapest) {
+        ch.push({ name: cheapest.name, value: cheapest.value, qty: 1, total: cheapest.value });
+        cheapest.maxQty--;
       }
     }
     const av = ch.reduce((s, c) => s + c.total, 0);
     gt += av;
     return { rank: r.label, target: tgt, chosen: ch, actualValue: av };
   });
-  const tk =
+  const tiebreaker =
     inv.find((p) => p.name === "Token" && p.value > 0) ||
     inv.filter((p) => p.value > 0).sort((a, b) => a.value - b.value)[0];
-  if (tk)
-    for (let h = 0; h < al.length - 1; h++)
-      for (let l = h + 1; l < al.length; l++)
-        while (al[h].actualValue < al[l].actualValue && tk.maxQty > 0) {
-          const ex = al[h].chosen.find((c) => c.name === tk.name);
+  if (tiebreaker)
+    for (let h = 0; h < allocs.length - 1; h++)
+      for (let l = h + 1; l < allocs.length; l++)
+        while (al[h].actualValue < al[l].actualValue && tiebreaker.maxQty > 0) {
+          const ex = al[h].chosen.find((c) => c.name === tiebreaker.name);
           if (ex) {
             ex.qty++;
-            ex.total += tk.value;
-          } else al[h].chosen.push({ name: tk.name, value: tk.value, qty: 1, total: tk.value });
-          al[h].actualValue += tk.value;
-          gt += tk.value;
-          tk.maxQty--;
+            ex.total += tiebreaker.value;
+          } else al[h].chosen.push({ name: tiebreaker.name, value: tiebreaker.value, qty: 1, total: tiebreaker.value });
+          al[h].actualValue += tiebreaker.value;
+          gt += tiebreaker.value;
+          tiebreaker.maxQty--;
         }
-  return { allocs: al, totalPool: tp, grandTotal: gt };
+  return { allocs, totalPool: tp, grandTotal: gt };
 }
 
 // ═══════════════════════════════════════════════════════
@@ -320,13 +319,13 @@ function now() {
     second: "2-digit",
   });
 }
-function mkId() {
+function makeId() {
   const c = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
   let i = "";
   for (let x = 0; x < 6; x++) i += c[Math.floor(Math.random() * c.length)];
   return i;
 }
-function lLS(k, f) {
+function loadLS(k, f) {
   try {
     const v = localStorage.getItem(k);
     return v ? JSON.parse(v) : f;
@@ -334,12 +333,12 @@ function lLS(k, f) {
     return f;
   }
 }
-function sLS(k, v) {
+function saveLS(k, v) {
   try {
     localStorage.setItem(k, JSON.stringify(v));
   } catch {}
 }
-function gSU() {
+function getSheetsUrl() {
   try {
     return localStorage.getItem(SK) || DU;
   } catch {
@@ -378,10 +377,10 @@ function buildSnap(state) {
   };
 }
 function autoSeedSave(state) {
-  const url = gSU();
+  const url = getSheetsUrl();
   if (!url || !state.tournamentStarted || !state.players.length || state.testMode) return;
   const t = state.tournaments?.[state.tournamentId];
-  const id = mkId();
+  const id = makeId();
   const label = `${t?.icon || ""} ${t?.name || ""} · ${state.players.length}p · R${state.currentRound} [auto]`;
   try {
     fetch(url, {
@@ -392,11 +391,11 @@ function autoSeedSave(state) {
     }).catch(() => {});
   } catch {}
 }
-function mkP(st, pl, h, ph) {
-  const c = { ...st.tournaments?.[st.tournamentId]?.features, ...st.featureOverrides };
-  if (!c) return [];
-  const activeElo = st.eloDb?.[c.eloDB || "ELO"] || {};
-  return genPairings(pl, h, ph, c, activeElo);
+function makePairings(st, pl, h, ph) {
+  const cfg = { ...st.tournaments?.[st.tournamentId]?.features, ...st.featureOverrides };
+  if (!cfg) return [];
+  const activeElo = st.eloDb?.[cfg.eloDB || "ELO"] || {};
+  return genPairings(pl, h, ph, cfg, activeElo);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -416,7 +415,7 @@ const init = {
   tournamentStarted: false,
   startedAt: null,
   eloDb: (() => {
-    const raw = lLS(EK, {});
+    const raw = loadLS(EK, {});
     const vals = Object.values(raw);
     if (vals.length > 0 && vals.some((v) => v && typeof v === "object" && "elo" in v)) {
       const db = {};
@@ -461,17 +460,23 @@ const init = {
   testMode: false,
   experimental: false,
   advancedSetup: false,
-  sheetsUrl: gSU(),
+  sheetsUrl: getSheetsUrl(),
 };
+
+function featureBase(st) {
+  return st.tournaments[st.tournamentId]?.features || {};
+}
 
 function reducer(st, a) {
   switch (a.type) {
+    // ── Navigation ──
     case "OPEN_TOURNAMENT":
       return { ...st, screen: "tournament", tournamentId: a.id, activeTab: "players", featureOverrides: {} };
     case "SET_TAB":
       return { ...st, activeTab: a.tab };
     case "SET_MATCH_SUBTAB":
       return { ...st, matchSubTab: a.tab };
+    // ── Player management ──
     case "ADD_PLAYER": {
       const n = a.name.trim();
       if (!n || st.players.some((p) => p.name.toLowerCase() === n.toLowerCase())) return st;
@@ -491,15 +496,15 @@ function reducer(st, a) {
         players: st.players.map((p, i) => (i === a.index ? { ...p, paid: !p.paid } : p)),
       };
     case "ABANDON_PLAYER": {
-      const ab = st.players[a.index];
-      if (!ab) return st;
+      const abandoned = st.players[a.index];
+      if (!abandoned) return st;
       const pl = st.players.map((p, i) =>
         i === a.index ? { ...p, eliminated: true, score: 0 } : p,
       );
       const pa = st.pairings.map((m) => {
         if (m.result || m.isBye || m.players.length !== 2) return m;
-        if (!m.players.includes(ab.name)) return m;
-        const winner = m.players.find(n => n !== ab.name);
+        if (!m.players.includes(abandoned.name)) return m;
+        const winner = m.players.find(n => n !== abandoned.name);
         const scores = Object.fromEntries(m.players.map(n => [n, n === winner ? 1 : 0]));
         return { ...m, scores, result: "done", noElo: true, forfeit: true };
       });
@@ -507,14 +512,15 @@ function reducer(st, a) {
         ...st,
         players: pl,
         pairings: pa,
-        matchLog: [...st.matchLog, { type: "abandon", label: `${ab.name} abandoned`, ts: now() }],
+        matchLog: [...st.matchLog, { type: "abandon", label: `${abandoned.name} abandoned`, ts: now() }],
       };
     }
+    // ── Tournament flow ──
     case "START_TOURNAMENT": {
-      const c = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
-      if (!c) return st;
-      const ss = c.startScore ?? 0;
-      const activeElo = st.eloDb[c.eloDB || "ELO"] || {};
+      const cfg = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
+      if (!cfg) return st;
+      const ss = cfg.startScore ?? 0;
+      const activeElo = st.eloDb[cfg.eloDB || "ELO"] || {};
       const pl = st.players.map((p) => ({
         ...p,
         score: ss,
@@ -528,9 +534,9 @@ function reducer(st, a) {
         pLast: 0,
         eliminated: false,
         firstCount: 0,
-        eloStart: gE(activeElo, p.name),
+        eloStart: getElo(activeElo, p.name),
       }));
-      const ph = c.rrRounds > 0 ? "roundrobin" : "swiss";
+      const ph = cfg.rrRounds > 0 ? "roundrobin" : "swiss";
       const ns = {
         ...st,
         players: pl,
@@ -543,9 +549,9 @@ function reducer(st, a) {
           { type: "start", label: `Tournament started — ${pl.length} players`, ts: now() },
         ],
         activeTab: "matches",
-        matchSubTab: c.draft ? "draft" : "pairings",
+        matchSubTab: cfg.draft ? "draft" : "pairings",
       };
-      return { ...ns, pairings: mkP(ns, pl, [], ph) };
+      return { ...ns, pairings: makePairings(ns, pl, [], ph) };
     }
     case "SET_MATCH_RESULT":
       return {
@@ -567,48 +573,47 @@ function reducer(st, a) {
         }),
       };
     case "NEXT_ROUND": {
-      const c = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
-      if (!c) return st;
-      const eloNs = c.eloDB || "ELO";
+      const cfg = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
+      if (!cfg) return st;
+      const eloNs = cfg.eloDB || "ELO";
       let pl = st.players.map((p) => ({ ...p })),
         db = { ...(st.eloDb[eloNs] || {}) };
-      const sc = c.scoring,
+      const sc = cfg.scoring,
         rp = st.pairings.map((m) => ({ ...m }));
       rp.forEach((m) => {
         if (m.isBye || m.result !== "done") return;
-        const fl = m.players.filter((n) => String(m.scores[n]).trim() !== "");
-        if (!fl.length) return;
-        const so = [...fl].sort((a, b) => parseFloat(m.scores[b] || 0) - parseFloat(m.scores[a] || 0));
-        const topScore = parseFloat(m.scores[so[0]] || 0);
+        const scored = m.players.filter((n) => String(m.scores[n]).trim() !== "");
+        if (!scored.length) return;
+        const sorted = [...scored].sort((a, b) => parseFloat(m.scores[b] || 0) - parseFloat(m.scores[a] || 0));
+        const topScore = parseFloat(m.scores[sorted[0]] || 0);
 
         if (sc === "points") {
           const ptMap = [
-            c.pts1 !== "" && c.pts1 !== undefined ? Number(c.pts1) : 3,
-            c.pts2 !== "" && c.pts2 !== undefined ? Number(c.pts2) : 2,
-            c.pts3 !== "" && c.pts3 !== undefined ? Number(c.pts3) : 1,
+            cfg.pts1 !== "" && cfg.pts1 !== undefined ? Number(cfg.pts1) : 3,
+            cfg.pts2 !== "" && cfg.pts2 !== undefined ? Number(cfg.pts2) : 2,
+            cfg.pts3 !== "" && cfg.pts3 !== undefined ? Number(cfg.pts3) : 1,
           ];
-          const ptsLast = c.ptsLast !== "" && c.ptsLast !== undefined ? Number(c.ptsLast) : 0;
+          const ptsLast = cfg.ptsLast !== "" && cfg.ptsLast !== undefined ? Number(cfg.ptsLast) : 0;
           const groups = [];
           let gi = 0;
-          while (gi < so.length) {
-            const gs = parseFloat(m.scores[so[gi]] || 0);
+          while (gi < sorted.length) {
+            const gs = parseFloat(m.scores[sorted[gi]] || 0);
             let gj = gi;
-            while (gj < so.length && parseFloat(m.scores[so[gj]] || 0) === gs) gj++;
-            groups.push({ players: so.slice(gi, gj), score: gs });
+            while (gj < sorted.length && parseFloat(m.scores[sorted[gj]] || 0) === gs) gj++;
+            groups.push({ players: sorted.slice(gi, gj), score: gs });
             gi = gj;
           }
-          const multiGroup = groups.length > 1;
           let rank = 1;
           groups.forEach((g, idx) => {
-            const isLast = multiGroup && idx === groups.length - 1;
+            const isLast = groups.length > 1 && idx === groups.length - 1;
             const pts = isLast || g.score === 0 ? ptsLast : (ptMap[rank - 1] ?? ptsLast);
             g.players.forEach((n) => {
               const p = pl.find((x) => x.name === n);
               if (!p) return;
-              if (c.grandPrix) {
+              if (cfg.grandPrix) {
                 if (!p.gpScores) p.gpScores = [];
                 p.gpScores.push(pts);
-                p.score = gpBestOf(p.gpScores, c.gpBestOfLast, c.gpDropWorst);
+                p.score = gpBestOf(p.gpScores, cfg.gpBestOfLast, cfg.gpDropWorst);
               } else {
                 p.score += pts;
               }
@@ -621,33 +626,33 @@ function reducer(st, a) {
             rank += g.players.length;
           });
         } else if (sc === "swiss") {
-          const tied = so.filter(n => parseFloat(m.scores[n] || 0) === topScore);
+          const tied = sorted.filter(n => parseFloat(m.scores[n] || 0) === topScore);
           const multi = tied.length > 1;
-          so.forEach(n => {
+          sorted.forEach(n => {
             const p = pl.find(x => x.name === n);
             if (!p) return;
             const isTop = parseFloat(m.scores[n] || 0) === topScore;
             let pts;
-            if (isTop && multi) { p.d++; pts = c.drawPoints ?? 1; }
-            else if (isTop)     { p.w++; pts = c.winPoints ?? 3; }
-            else                { p.l++; pts = c.lossPoints ?? 0; }
-            if (c.grandPrix) {
+            if (isTop && multi) { p.d++; pts = cfg.drawPoints ?? 1; }
+            else if (isTop)     { p.w++; pts = cfg.winPoints ?? 3; }
+            else                { p.l++; pts = cfg.lossPoints ?? 0; }
+            if (cfg.grandPrix) {
               if (!p.gpScores) p.gpScores = [];
               p.gpScores.push(pts);
-              p.score = gpBestOf(p.gpScores, c.gpBestOfLast, c.gpDropWorst);
+              p.score = gpBestOf(p.gpScores, cfg.gpBestOfLast, cfg.gpDropWorst);
             } else {
               p.score += pts;
             }
           });
         } else if (sc === "lifepoints") {
-          const draw = so.every(n => parseFloat(m.scores[n] || 0) === topScore);
-          so.forEach(n => {
+          const draw = sorted.every(n => parseFloat(m.scores[n] || 0) === topScore);
+          sorted.forEach(n => {
             const p = pl.find(x => x.name === n);
             if (!p) return;
             const isTop = parseFloat(m.scores[n] || 0) === topScore;
             if (draw) {
               p.d++;
-              const dp = c.cumulativeDrawPenalty ? 0.5 * p.d : 0.5;
+              const dp = cfg.cumulativeDrawPenalty ? 0.5 * p.d : 0.5;
               p.score = Math.max(0, p.score - dp);
               if (p.score <= 0) p.eliminated = true;
             } else if (isTop) {
@@ -660,16 +665,16 @@ function reducer(st, a) {
           });
         }
 
-        if (c.elo && !m.noElo) {
+        if (cfg.elo && !m.noElo) {
           const n = m.players.length,
-            K = (c.eloKMax || 50) / n,
+            K = (cfg.eloKMax || 50) / n,
             dl = Object.fromEntries(m.players.map((p) => [p, 0]));
           for (let i = 0; i < n; i++)
             for (let j = i + 1; j < n; j++) {
               const pA = m.players[i], pB = m.players[j],
                 sA = parseFloat(m.scores[pA] || 0), sB = parseFloat(m.scores[pB] || 0),
-                rA = gE(db, pA), rB = gE(db, pB),
-                eA = eExp(rA, rB, c.eloScale),
+                rA = getElo(db, pA), rB = getElo(db, pB),
+                eA = eloExpected(rA, rB, cfg.eloScale),
                 scA = sA > sB ? 1 : sA < sB ? 0 : 0.5;
               dl[pA] += K * (scA - eA);
               dl[pB] += K * ((1 - scA) - (1 - eA));
@@ -678,16 +683,16 @@ function reducer(st, a) {
           m.players.forEach((p) => {
             const d = Math.round(dl[p]);
             m.eloDeltas[p] = d;
-            db = sE(db, p, gE(db, p) + d, db[p.toLowerCase()]?.test);
+            db = setElo(db, p, getElo(db, p) + d, db[p.toLowerCase()]?.test);
           });
         }
       });
       const h = [...st.history, rp],
         nr = st.currentRound + 1;
       let ph = st.phase;
-      if (ph === "roundrobin" && nr > c.rrRounds) ph = "swiss";
-      const ac = pl.filter((p) => !p.eliminated),
-        go = c.scoring === "lifepoints" && ac.length <= 1;
+      if (ph === "roundrobin" && nr > cfg.rrRounds) ph = "swiss";
+      const activePlayers = pl.filter((p) => !p.eliminated),
+        go = cfg.scoring === "lifepoints" && activePlayers.length <= 1;
       const newEloDb = { ...st.eloDb, [eloNs]: db };
       const ns = {
         ...st,
@@ -700,29 +705,32 @@ function reducer(st, a) {
           ...st.matchLog,
           { type: "round", label: `Round ${st.currentRound} completed`, ts: now() },
         ],
-        activeTab: go ? "standings" : st.activeTab,
+        activeTab: "matches",
+        matchSubTab: go ? "standings" : st.matchSubTab,
       };
-      sLS(EK, newEloDb);
-      return { ...ns, pairings: go ? [] : mkP(ns, pl, h, ph) };
+      saveLS(EK, newEloDb);
+      return { ...ns, pairings: go ? [] : makePairings(ns, pl, h, ph) };
     }
     case "END_TOURNAMENT": {
       try {
         localStorage.removeItem(BK);
       } catch {}
-      const so = [...st.players].sort((a, b) => b.score - a.score || b.w - a.w);
+      const sorted = [...st.players].sort((a, b) => b.score - a.score || b.w - a.w);
       return {
         ...st,
-        players: st.players.map((p) => (p.name === so[0]?.name ? p : { ...p, eliminated: true })),
-        activeTab: "standings",
+        players: st.players.map((p) => (p.name === sorted[0]?.name ? p : { ...p, eliminated: true })),
+        activeTab: "matches",
+        matchSubTab: "standings",
       };
     }
     case "NEW_GP_SESSION": {
-      const c = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
-      if (!c) return st;
-      const ph = c.rrRounds > 0 ? "roundrobin" : "swiss";
+      const cfg = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
+      if (!cfg) return st;
+      const ph = cfg.rrRounds > 0 ? "roundrobin" : "swiss";
       const ns = { ...st, currentRound: 1, phase: ph, pairings: [] };
-      return { ...ns, pairings: mkP(ns, st.players, st.history, ph) };
+      return { ...ns, pairings: makePairings(ns, st.players, st.history, ph) };
     }
+    // ── Remote data ──
     case "SET_TOURNAMENTS": {
       const tournaments = {};
       a.tournaments.forEach((t) => { if (t.id) tournaments[t.id] = t; });
@@ -735,10 +743,11 @@ function reducer(st, a) {
         if (e?.name) db[e.name.toLowerCase()] = e;
       });
       const newEloDb = { ...st.eloDb, [sheet]: db };
-      sLS(EK, newEloDb);
+      saveLS(EK, newEloDb);
       return { ...st, eloDb: newEloDb };
     }
 
+    // ── Prizes ──
     case "ADD_PRIZE":
       return {
         ...st,
@@ -780,6 +789,7 @@ function reducer(st, a) {
           i === a.index ? { ...o, weight: Math.max(1, parseInt(a.value) || 1) } : o,
         ),
       };
+    // ── Dev / test ──
     case "INJECT_TEST_PLAYERS": {
       const ns = [
         "Alice",
@@ -826,7 +836,7 @@ function reducer(st, a) {
       const pl = [];
       for (let i = 0; i < a.count; i++) {
         const n = ns[i] || `Player ${i + 1}`;
-        db = sE(db, n, 800 + Math.floor(Math.random() * 800), true);
+        db = setElo(db, n, 800 + Math.floor(Math.random() * 800), true);
         pl.push({
           name: n,
           score: 0,
@@ -857,6 +867,7 @@ function reducer(st, a) {
         }),
       };
     }
+    // ── Session / settings ──
     case "FULL_RESET":
       try {
         localStorage.removeItem(BK);
@@ -882,14 +893,14 @@ function reducer(st, a) {
       };
     case "TOGGLE_FEATURE": {
       const ov = { ...st.featureOverrides };
-      const base = st.tournaments[st.tournamentId]?.features || {};
+      const base = featureBase(st);
       if (ov[a.key] !== undefined) delete ov[a.key];
       else ov[a.key] = !base[a.key];
       return { ...st, featureOverrides: ov };
     }
     case "SET_FEATURE": {
       const ov = { ...st.featureOverrides };
-      const base = st.tournaments[st.tournamentId]?.features || {};
+      const base = featureBase(st);
       if (a.value === base[a.key]) delete ov[a.key];
       else ov[a.key] = a.value;
       return { ...st, featureOverrides: ov };
@@ -1104,27 +1115,25 @@ function Hearts({ score, max }) {
   );
 }
 
-// Countdown timer with start/pause/reset
-// Timer — countdown with audio alarm
-// Plays 6-tone audio alarm when it hits zero
+// Timer — countdown with start/pause/reset, plays 6-tone audio alarm at zero
 function Timer({ minutes }) {
   const total = minutes * 60;
   const [left, setLeft] = useState(total);
   const [running, setRunning] = useState(false);
-  const ir = useRef(null),
-    ar = useRef(null);
+  const intervalRef = useRef(null),
+    audioRef = useRef(null);
   const alarm = useCallback(() => {
     try {
-      if (!ar.current) ar.current = new (window.AudioContext || window.webkitAudioContext)();
-      const c = ar.current;
+      if (!audioRef.current) audioRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      const ctx = audioRef.current;
       [880, 660, 880, 660, 880, 1100].forEach((f, i) => {
-        const o = c.createOscillator(),
-          g = c.createGain();
+        const o = ctx.createOscillator(),
+          g = ctx.createGain();
         o.connect(g);
-        g.connect(c.destination);
+        g.connect(ctx.destination);
         o.type = "sine";
         o.frequency.value = f;
-        const t = c.currentTime + i * 0.38;
+        const t = ctx.currentTime + i * 0.38;
         g.gain.setValueAtTime(0, t);
         g.gain.linearRampToValueAtTime(0.45, t + 0.05);
         g.gain.linearRampToValueAtTime(0, t + 0.33);
@@ -1135,7 +1144,7 @@ function Timer({ minutes }) {
   }, []);
   useEffect(() => {
     if (running && left > 0)
-      ir.current = setInterval(
+      intervalRef.current = setInterval(
         () =>
           setLeft((p) => {
             if (p <= 1) {
@@ -1147,9 +1156,9 @@ function Timer({ minutes }) {
           }),
         1000,
       );
-    return () => clearInterval(ir.current);
+    return () => clearInterval(intervalRef.current);
   }, [running, left, alarm]);
-  const u = left <= 60,
+  const urgent = left <= 60,
     m = Math.floor(left / 60),
     sec = left % 60;
   return (
@@ -1172,7 +1181,7 @@ function Timer({ minutes }) {
           fontVariantNumeric: "tabular-nums",
           letterSpacing: 3,
           minWidth: 100,
-          color: u ? C.heart : C.text,
+          color: urgent ? C.heart : C.text,
         }}
       >
         {String(m).padStart(2, "0")}:{String(sec).padStart(2, "0")}
@@ -1191,7 +1200,7 @@ function Timer({ minutes }) {
           style={{
             height: "100%",
             borderRadius: 3,
-            background: u ? C.heart : C.accent,
+            background: urgent ? C.heart : C.accent,
             width: `${(left / total) * 100}%`,
             transition: "width 0.9s linear",
           }}
@@ -1201,7 +1210,7 @@ function Timer({ minutes }) {
         <Btn
           onClick={() => {
             try {
-              ar.current?.resume();
+              audioRef.current?.resume();
             } catch {}
             setRunning(!running);
           }}
@@ -1222,9 +1231,7 @@ function Timer({ minutes }) {
   );
 }
 
-// Snake-draft table seating
-// Draft groups — snake-draft seating by ELO
-// Sorts players by ELO, distributes across tables using
+// Draft groups — snake-draft seating by ELO across tables
 function DraftGroups({ players, eloDb, dispatch }) {
   const n = players.length;
   if (n < 2)
@@ -1234,9 +1241,9 @@ function DraftGroups({ players, eloDb, dispatch }) {
       </div>
     );
   const ng = Math.max(1, Math.floor(n / 5)),
-    so = [...players].sort((a, b) => gE(eloDb, b.name) - gE(eloDb, a.name)),
+    sorted = [...players].sort((a, b) => getElo(eloDb, b.name) - getElo(eloDb, a.name)),
     g = Array.from({ length: ng }, () => []);
-  so.forEach((p, i) => {
+  sorted.forEach((p, i) => {
     const r = Math.floor(i / ng);
     g[r % 2 === 0 ? i % ng : ng - 1 - (i % ng)].push(p);
   });
@@ -1265,7 +1272,7 @@ function DraftGroups({ players, eloDb, dispatch }) {
       >
         {g.map((gr, gi) => {
           const co = gc[gi % gc.length],
-            elos = gr.map((p) => gE(eloDb, p.name)),
+            elos = gr.map((p) => getElo(eloDb, p.name)),
             avg = Math.round(elos.reduce((a, v) => a + v, 0) / elos.length);
           return (
             <Card key={gi} style={{ borderLeft: `3px solid ${co}`, padding: "14px 16px" }}>
@@ -1276,7 +1283,7 @@ function DraftGroups({ players, eloDb, dispatch }) {
                 </span>
               </div>
               {gr
-                .sort((a, b) => gE(eloDb, b.name) - gE(eloDb, a.name))
+                .sort((a, b) => getElo(eloDb, b.name) - getElo(eloDb, a.name))
                 .map((p) => (
                   <div
                     key={p.name}
@@ -1289,7 +1296,7 @@ function DraftGroups({ players, eloDb, dispatch }) {
                     }}
                   >
                     <span>{p.name}</span>
-                    <span style={{ color: C.muted, fontSize: 11 }}>{gE(eloDb, p.name)}</span>
+                    <span style={{ color: C.muted, fontSize: 11 }}>{getElo(eloDb, p.name)}</span>
                   </div>
                 ))}
             </Card>
@@ -1769,7 +1776,7 @@ function SeedsManager({ state, dispatch }) {
       setStatus("⚠ No players");
       return;
     }
-    const id = mkId();
+    const id = makeId();
     const snap = buildSnap(state);
     const data = JSON.stringify(snap);
     const t = state.tournaments?.[state.tournamentId];
@@ -1929,9 +1936,7 @@ function SeedsManager({ state, dispatch }) {
   );
 }
 
-// Fetches rules from Google Sheet's 'Rules' tab
-// Rules tab — fetches from Google Sheet, caches locally
-// Filtered by tournament name. Cached in localStorage
+// Rules tab — fetches from Sheets by tournament name, caches in localStorage
 function RulesTab({ state }) {
   const [rows, setRows] = useState(null),
     [status, setStatus] = useState("");
@@ -1940,9 +1945,9 @@ function RulesTab({ state }) {
     const ck = "rules_" + tn;
     if (!f)
       try {
-        const c = localStorage.getItem(ck);
-        if (c) {
-          setRows(JSON.parse(c));
+        const cached = localStorage.getItem(ck);
+        if (cached) {
+          setRows(JSON.parse(cached));
           setStatus("Cached");
         }
       } catch {}
@@ -2158,7 +2163,7 @@ function PlayersTab({ state, dispatch, config, eloLoadedCols }) {
         .sort((a, b) => (b.elo || 0) - (a.elo || 0)),
     [activeElo, filter, state.testMode, addS],
   );
-  const pc = state.players.filter((p) => p.paid).length;
+  const paidCount = state.players.filter((p) => p.paid).length;
   const suggestions = useMemo(() => {
     if (!input.trim() || input.length < 1) return [];
     return Object.values(activeElo)
@@ -2306,7 +2311,7 @@ function PlayersTab({ state, dispatch, config, eloLoadedCols }) {
                       )}
                     </span>
                     <span style={{ fontSize: 11, color: C.faint, flexShrink: 0 }}>
-                      {eloReady ? gE(activeElo, p.name) : "…"}
+                      {eloReady ? getElo(activeElo, p.name) : "…"}
                     </span>
                     <Btn
                       onClick={() => dispatch({ type: "TOGGLE_PAID", index: i })}
@@ -2360,8 +2365,8 @@ function PlayersTab({ state, dispatch, config, eloLoadedCols }) {
                 <span>
                   {state.players.length} player{state.players.length !== 1 ? "s" : ""}
                 </span>
-                <span style={{ color: pc === state.players.length ? C.green : C.amber }}>
-                  {pc}/{state.players.length} paid
+                <span style={{ color: paidCount === state.players.length ? C.green : C.amber }}>
+                  {paidCount}/{state.players.length} paid
                 </span>
               </div>
             </>
@@ -2493,7 +2498,7 @@ function MatchCard({ match, index, dispatch, scoring, eloDb }) {
             style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: `0.5px solid ${C.bL}` }}
           >
             <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{n}</span>
-            <span style={{ fontSize: 11, color: C.faint }}>{gE(eloDb, n)}</span>
+            <span style={{ fontSize: 11, color: C.faint }}>{getElo(eloDb, n)}</span>
             <input
               type="text"
               inputMode="numeric"
@@ -2516,7 +2521,7 @@ function MatchCard({ match, index, dispatch, scoring, eloDb }) {
   const sel = !isDone ? null : p1Score > p2Score ? "p1" : p2Score > p1Score ? "p2" : "draw";
 
   if (match.players.length === 2) {
-    const bs = (active, t) => ({
+    const btnStyle = (active, t) => ({
       flex: 1, display: "flex", flexDirection: "column", padding: "6px 8px", borderRadius: 5,
       cursor: "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: 500, lineHeight: 1.3,
       border: `0.5px solid ${active ? (t === "d" ? C.aBd : C.gBd) : "#ddd"}`,
@@ -2536,11 +2541,11 @@ function MatchCard({ match, index, dispatch, scoring, eloDb }) {
     return (
       <Card variant="compact">
         <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 2fr", gap: 4, alignItems: "stretch" }}>
-          <button style={bs(sel === "p1", "l")} onClick={() => pick("p1")}>
+          <button style={btnStyle(sel === "p1", "l")} onClick={() => pick("p1")}>
             <span>{p1}{match.rematch && <> <Tag variant="amber">re</Tag></>}</span>
           </button>
-          <button style={bs(sel === "draw", "d")} onClick={() => pick("draw")}>draw</button>
-          <button style={bs(sel === "p2", "r")} onClick={() => pick("p2")}>
+          <button style={btnStyle(sel === "draw", "d")} onClick={() => pick("draw")}>draw</button>
+          <button style={btnStyle(sel === "p2", "r")} onClick={() => pick("p2")}>
             <span>{p2}</span>
           </button>
         </div>
@@ -2578,7 +2583,7 @@ function MatchCard({ match, index, dispatch, scoring, eloDb }) {
             }}
           >
             <span style={{ flex: 1 }}>{n}</span>
-            <span style={{ fontSize: 11, color: C.faint }}>{gE(eloDb, n)}</span>
+            <span style={{ fontSize: 11, color: C.faint }}>{getElo(eloDb, n)}</span>
             {isWinner && <span style={{ fontSize: 11 }}>Win</span>}
             {isDraw && <span style={{ fontSize: 11 }}>Draw</span>}
           </button>
@@ -2646,14 +2651,14 @@ function ML({ state }) {
                 const isDraw = s1 === s2 && m.result === "done";
                 const w = !isDraw ? (s1 > s2 ? p1 : p2) : null;
                 const l = !isDraw ? (s1 > s2 ? p2 : p1) : null;
-                const wd = w && m.eloDeltas?.[w];
+                const winnerDelta = w && m.eloDeltas?.[w];
                 return (
                   <div key={mi} style={{ fontSize: 13, padding: "4px 0", display: "flex", gap: 12, borderBottom: `0.5px solid ${C.bL}`, alignItems: "center" }}>
                     <span style={{ fontWeight: 500, color: isDraw ? C.text : C.green }}>{w || p1}</span>
                     <span style={{ color: C.muted }}>{l || p2}</span>
-                    {wd != null && (
-                      <span style={{ fontSize: 11, fontWeight: 500, color: wd > 0 ? C.green : wd < 0 ? C.red : C.muted }}>
-                        {wd > 0 ? "+" : ""}{wd}
+                    {winnerDelta != null && (
+                      <span style={{ fontSize: 11, fontWeight: 500, color: winnerDelta > 0 ? C.green : winnerDelta < 0 ? C.red : C.muted }}>
+                        {winnerDelta > 0 ? "+" : ""}{winnerDelta}
                       </span>
                     )}
                     {isDraw && <span style={{ color: C.amber, fontWeight: 500, fontSize: 11 }}>Draw</span>}
@@ -2665,13 +2670,13 @@ function ML({ state }) {
             </Card>
           );
         }
-        const ic = { start: "🏁", abandon: "⚑", "draft-end": "📋", "tournament-timeout": "⏰" },
+        const icons = { start: "🏁", abandon: "⚑", "draft-end": "📋", "tournament-timeout": "⏰" },
           bg = { start: C.gBg, abandon: C.aBg, "draft-end": C.bBg, "tournament-timeout": C.rBg },
-          co = { start: C.green, abandon: C.amber, "draft-end": C.blue, "tournament-timeout": C.red };
+          colors = { start: C.green, abandon: C.amber, "draft-end": C.blue, "tournament-timeout": C.red };
         return (
           <div key={ei} style={{ background: bg[ev.type] || C.subtle, borderRadius: 8, padding: "8px 12px", marginBottom: 12, display: "flex", justifyContent: "space-between" }}>
-            <span style={{ fontSize: 13, fontWeight: 500, color: co[ev.type] || C.text }}>
-              {ic[ev.type] || "•"} {ev.label}
+            <span style={{ fontSize: 13, fontWeight: 500, color: colors[ev.type] || C.text }}>
+              {icons[ev.type] || "•"} {ev.label}
             </span>
             <span style={{ fontSize: 11, color: C.faint }}>{ev.ts}</span>
           </div>
@@ -2681,19 +2686,20 @@ function ML({ state }) {
   );
 }
 
-function MatchesTab({ state, dispatch, config }) {
-  const c = config.features,
+function MatchesTab({ state, dispatch, config, eloLoadedCols }) {
+  const cfg = config.features,
     st = [
-      c.draft && { id: "draft", label: "Draft" },
+      cfg.draft && { id: "draft", label: "Draft" },
       { id: "pairings", label: "Pairings" },
+      { id: "standings", label: "Standings" },
       { id: "log", label: "Log" },
       { id: "session", label: "Session" },
     ].filter(Boolean);
-  const isRR = state.phase === "roundrobin" && c.rrRounds > 0,
-    scoringLabel = { points: "Points", lifepoints: "Lifepoints", swiss: "Swiss" }[c.scoring] || "Swiss",
+  const isRR = state.phase === "roundrobin" && cfg.rrRounds > 0,
+    scoringLabel = { points: "Points", lifepoints: "Lifepoints", swiss: "Swiss" }[cfg.scoring] || "Swiss",
     rl = isRR
-      ? `Round Robin — R${state.currentRound}/${c.rrRounds}`
-      : `${scoringLabel} — R${state.currentRound - (isRR ? 0 : c.rrRounds)}`;
+      ? `Round Robin — R${state.currentRound}/${cfg.rrRounds}`
+      : `${scoringLabel} — R${state.currentRound - (isRR ? 0 : cfg.rrRounds)}`;
   return (
     <div>
       <TabBar
@@ -2719,7 +2725,7 @@ function MatchesTab({ state, dispatch, config }) {
             <div>
               <div style={{ fontSize: 16, fontWeight: 500 }}>{rl}</div>
               <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
-                {isRR ? "By ELO" : c.scoring === "points" ? "By points" : "By win rate"}
+                {isRR ? "By ELO" : cfg.scoring === "points" ? "By points" : "By win rate"}
               </div>
             </div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -2734,8 +2740,8 @@ function MatchesTab({ state, dispatch, config }) {
               </Btn>
             </div>
           </div>
-          {c.timerMinutes > 0 && <Timer minutes={c.timerMinutes} key={state.currentRound} />}
-          {c.firstPlayer && state.pairings.some((m) => !m.isBye && m.players.length === 2) && (
+          {cfg.timerMinutes > 0 && <Timer minutes={cfg.timerMinutes} key={state.currentRound} />}
+          {cfg.firstPlayer && state.pairings.some((m) => !m.isBye && m.players.length === 2) && (
             <div
               style={{
                 display: "grid",
@@ -2756,14 +2762,17 @@ function MatchesTab({ state, dispatch, config }) {
             <div style={{ textAlign: "center", padding: 32, color: C.faint }}>No pairings.</div>
           )}
           {state.pairings.map((m, i) => (
-            <MatchCard key={i} match={m} index={i} dispatch={dispatch} scoring={c.scoring} eloDb={state.eloDb[c.eloDB || "ELO"] || {}} />
+            <MatchCard key={i} match={m} index={i} dispatch={dispatch} scoring={cfg.scoring} eloDb={state.eloDb[cfg.eloDB || "ELO"] || {}} />
           ))}
         </div>
+      )}
+      {state.matchSubTab === "standings" && (
+        <StandingsTab state={state} dispatch={dispatch} config={config} eloLoadedCols={eloLoadedCols} />
       )}
       {state.matchSubTab === "log" && <ML state={state} />}
       {state.matchSubTab === "session" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {c.grandPrix && (
+          {cfg.grandPrix && (
             <Card>
               <h3 style={S.cardTitle}>New session ＋</h3>
               <div style={{ fontSize: 13, color: C.muted, marginBottom: 16 }}>
@@ -2805,20 +2814,17 @@ function MatchesTab({ state, dispatch, config }) {
   );
 }
 
-// Rankings table with inline prize allocations in Status column
-// Standings — rankings with inline prizes, ELO deltas
-// Prizes show as green tags (e.g. '1x Pauper', '2x Booster')
+// Standings — rankings, ELO deltas, inline prize tags
 function StandingsTab({ state, dispatch, config }) {
-  const c = config.features,
-    ac = state.players.filter((p) => !p.eliminated),
-    gp = c.grandPrix,
-    gs = (p) => p.score,
-    activeElo = state.eloDb[c.eloDB || "ELO"] || {};
-  const so = [...state.players].sort(
-      (a, b) => gs(b) - gs(a) || b.w - a.w || gE(activeElo, a.name) - gE(activeElo, b.name),
+  const cfg = config.features,
+    activePlayers = state.players.filter((p) => !p.eliminated),
+    gp = cfg.grandPrix,
+    activeElo = state.eloDb[cfg.eloDB || "ELO"] || {};
+  const sorted = [...state.players].sort(
+      (a, b) => b.score - a.score || b.w - a.w || getElo(activeElo, a.name) - getElo(activeElo, b.name),
     ),
-    w = ac.length === 1 ? ac[0] : null;
-  const al = c.prizes
+    winner = activePlayers.length === 1 ? activePlayers[0] : null;
+  const prizeCalc = cfg.prizes
     ? calcAlloc(
         state.players,
         state.prizes,
@@ -2830,13 +2836,9 @@ function StandingsTab({ state, dispatch, config }) {
         state.roundUpPctRoundUp,
       )
     : null;
-  const prizeFor = (i) => {
-    if (!al?.allocs?.[i]) return null;
-    return al.allocs[i];
-  };
   return (
     <div>
-      {w && (
+      {winner && (
         <div
           style={{
             background: C.gBg,
@@ -2849,7 +2851,7 @@ function StandingsTab({ state, dispatch, config }) {
             marginBottom: 16,
           }}
         >
-          🏆 Winner: {w.name}
+          🏆 Winner: {winner.name}
         </div>
       )}
       <div
@@ -2867,7 +2869,7 @@ function StandingsTab({ state, dispatch, config }) {
         </div>
         <div style={S.metric}>
           <div style={S.metricLabel}>Active</div>
-          <div style={{ fontSize: 22, fontWeight: 500 }}>{ac.length || "—"}</div>
+          <div style={{ fontSize: 22, fontWeight: 500 }}>{activePlayers.length || "—"}</div>
         </div>
       </div>
       <Card>
@@ -2879,8 +2881,8 @@ function StandingsTab({ state, dispatch, config }) {
                   "#",
                   "Player",
                   "ELO",
-                  c.scoring === "lifepoints" ? "LP" : "Pts",
-                  c.scoring === "points" ? "1/2/3/L" : "W/D/L",
+                  cfg.scoring === "lifepoints" ? "LP" : "Pts",
+                  cfg.scoring === "points" ? "1/2/3/L" : "W/D/L",
                   "Status",
                 ].map((h, hi) => (
                   <th
@@ -2897,11 +2899,10 @@ function StandingsTab({ state, dispatch, config }) {
               </tr>
             </thead>
             <tbody>
-              {so.map((p, i) => {
-                const ds = gs(p);
-                const pr = prizeFor(i);
-                const elo = gE(activeElo, p.name);
-                const eloDelta = c.elo && p.eloStart != null ? elo - p.eloStart : null;
+              {sorted.map((p, i) => {
+                const pr = prizeCalc?.allocs?.[i] || null;
+                const elo = getElo(activeElo, p.name);
+                const eloDelta = cfg.elo && p.eloStart != null ? elo - p.eloStart : null;
                 return (
                   <tr key={p.name}>
                     <td
@@ -2931,14 +2932,14 @@ function StandingsTab({ state, dispatch, config }) {
                       )}
                     </td>
                     <td style={{ padding: "7px 8px", borderBottom: `0.5px solid ${C.bL}` }}>
-                      {c.scoring === "lifepoints" ? (
+                      {cfg.scoring === "lifepoints" ? (
                         <>
-                          <Hearts score={p.score} max={c.startScore} />{" "}
+                          <Hearts score={p.score} max={cfg.startScore} />{" "}
                           <span style={{ fontSize: 11, color: C.faint }}>({p.score})</span>
                         </>
                       ) : (
                         <span style={{ fontWeight: 600 }}>
-                          {ds}pt
+                          {p.score}pt
                           {gp ? <span style={{ fontSize: 10, color: C.faint }}> GP</span> : ""}
                         </span>
                       )}
@@ -2950,7 +2951,7 @@ function StandingsTab({ state, dispatch, config }) {
                         color: C.muted,
                       }}
                     >
-                      {c.scoring === "points"
+                      {cfg.scoring === "points"
                         ? `${p.p1||0}/${p.p2||0}/${p.p3||0}/${p.pLast||0}`
                         : `${p.w}/${p.d}/${p.l}`}
                     </td>
@@ -2988,9 +2989,9 @@ function StandingsTab({ state, dispatch, config }) {
               })}
             </tbody>
           </table>
-          {al && (
+          {prizeCalc && (
             <div style={{ fontSize: 11, color: C.muted, marginTop: 8, textAlign: "right" }}>
-              Prize pool: €{al.totalPool.toFixed(2)} · Allocated: €{al.grandTotal.toFixed(2)}
+              Prize pool: €{prizeCalc.totalPool.toFixed(2)} · Allocated: €{prizeCalc.grandTotal.toFixed(2)}
             </div>
           )}
       </Card>
@@ -3061,10 +3062,6 @@ function SettingsTab({ state, dispatch, config }) {
             style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}
           >
             <div style={S.metric}>
-              <div style={S.metricLabel}>Scoring</div>
-              <div style={{ fontSize: 14, fontWeight: 500 }}>{f.scoring}</div>
-            </div>
-            <div style={S.metric}>
               <div style={S.metricLabel}>Timer</div>
               <div style={{ fontSize: 14, fontWeight: 500 }}>{f.timerMinutes}m</div>
             </div>
@@ -3074,17 +3071,15 @@ function SettingsTab({ state, dispatch, config }) {
                 {f.timeout && f.timeoutTime ? f.timeoutTime : "OFF"}
               </div>
             </div>
+            <div style={S.metric}>
+              <div style={S.metricLabel}>Scoring</div>
+              <div style={{ fontSize: 14, fontWeight: 500 }}>{f.scoring}</div>
+            </div>
             {f.matchMax > 2 && (
-              <>
-                <div style={S.metric}>
-                  <div style={S.metricLabel}>Min</div>
-                  <div style={{ fontSize: 14, fontWeight: 500 }}>{f.matchMin}</div>
-                </div>
-                <div style={S.metric}>
-                  <div style={S.metricLabel}>Max</div>
-                  <div style={{ fontSize: 14, fontWeight: 500 }}>{f.matchMax}</div>
-                </div>
-              </>
+              <div style={S.metric}>
+                <div style={S.metricLabel}>Players/match</div>
+                <div style={{ fontSize: 14, fontWeight: 500 }}>{f.matchMax}</div>
+              </div>
             )}
           </div>
           <div style={{ ...S.sectionLabel, marginTop: 8, marginBottom: 4 }}>Feature flags</div>
@@ -3204,8 +3199,8 @@ function TestTab({ state, dispatch }) {
 // Left: Identity (id/name/icon) + Rounds & Matches (min/max, timer, RR)
 function AdvancedTab({ state, dispatch, config, eloColOptions }) {
   const [dbOpen, setDbOpen] = React.useState(false);
-  const f = config.features;
-  const sf = (k, v) => dispatch({ type: "SET_FEATURE", key: k, value: v });
+  const cfg = config.features;
+  const setFeature = (k, v) => dispatch({ type: "SET_FEATURE", key: k, value: v });
   const NumF = ({ label, k, desc, suffix }) => (
     <div style={S.fieldRow}>
       <span style={{ flex: 1, fontSize: 13 }}>
@@ -3215,10 +3210,10 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
       <input
         type="text"
         inputMode="numeric"
-        value={f[k] ?? ""}
+        value={cfg[k] ?? ""}
         onChange={(e) => {
           const v = e.target.value;
-          sf(k, v === "" ? "" : isNaN(Number(v)) ? v : Number(v));
+          setFeature(k, v === "" ? "" : isNaN(Number(v)) ? v : Number(v));
         }}
         style={S.inputSm}
       />
@@ -3236,7 +3231,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
     <div style={{ ...S.fieldRow, cursor: "pointer" }} onClick={() => dispatch({ type: "TOGGLE_FEATURE", key: k })}>
       <input
         type="checkbox"
-        checked={!!f[k]}
+        checked={!!cfg[k]}
         onChange={() => dispatch({ type: "TOGGLE_FEATURE", key: k })}
         onClick={(e) => e.stopPropagation()}
         style={{ width: 15, height: 15, accentColor: C.accent, cursor: "pointer", margin: 0 }}
@@ -3255,8 +3250,8 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
     <div style={S.fieldRow}>
       <span style={{ flex: 1, fontSize: 13 }}>{label}</span>
       <select
-        value={f[k] || ""}
-        onChange={(e) => sf(k, e.target.value)}
+        value={cfg[k] || ""}
+        onChange={(e) => setFeature(k, e.target.value)}
         style={S.select}
       >
         {options.map((o) => (
@@ -3274,8 +3269,8 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
       )}
     </div>
   );
-  const isLP = f.scoring === "lifepoints";
-  const isPoints = f.scoring === "points";
+  const isLP = cfg.scoring === "lifepoints";
+  const isPoints = cfg.scoring === "points";
   return (
     <div>
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
@@ -3348,16 +3343,16 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
               <input
                 type="text"
                 inputMode="numeric"
-                value={f.matchMax ?? ""}
+                value={cfg.matchMax ?? ""}
                 onChange={(e) => {
                   const v = e.target.value;
-                  sf("matchMax", v === "" ? "" : isNaN(Number(v)) ? v : Number(v));
+                  setFeature("matchMax", v === "" ? "" : isNaN(Number(v)) ? v : Number(v));
                 }}
                 style={{ ...S.inputSm, width: 40 }}
               />
               <select
-                value={f.matchRound || "none"}
-                onChange={(e) => sf("matchRound", e.target.value)}
+                value={cfg.matchRound || "none"}
+                onChange={(e) => setFeature("matchRound", e.target.value)}
                 style={S.select}
               >
                 <option value="none">BYE</option>
@@ -3386,10 +3381,10 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
                 <input
                   type="text"
                   inputMode="numeric"
-                  value={f[k] ?? ""}
+                  value={cfg[k] ?? ""}
                   onChange={(e) => {
                     const v = e.target.value;
-                    sf(k, v === "" ? "" : isNaN(Number(v)) ? v : Number(v));
+                    setFeature(k, v === "" ? "" : isNaN(Number(v)) ? v : Number(v));
                   }}
                   style={S.inputXs}
                 />
@@ -3400,11 +3395,11 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
               <input
                 type="text"
                 inputMode="numeric"
-                value={f.startScore ?? ""}
+                value={cfg.startScore ?? ""}
                 disabled={!isLP}
                 onChange={(e) => {
                   const v = e.target.value;
-                  sf("startScore", v === "" ? "" : isNaN(Number(v)) ? v : Number(v));
+                  setFeature("startScore", v === "" ? "" : isNaN(Number(v)) ? v : Number(v));
                 }}
                 style={{ ...S.inputXs, opacity: isLP ? 1 : 0.5 }}
               />
@@ -3431,7 +3426,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
             )}
             <input
               type="checkbox"
-              checked={!!f.cumulativeDrawPenalty}
+              checked={!!cfg.cumulativeDrawPenalty}
               onChange={() => dispatch({ type: "TOGGLE_FEATURE", key: "cumulativeDrawPenalty" })}
               onClick={(e) => e.stopPropagation()}
               style={{ width: 15, height: 15, accentColor: C.accent, cursor: "pointer", margin: 0 }}
@@ -3461,9 +3456,9 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
                 <input
                   type="text"
                   inputMode="numeric"
-                  value={f[k] !== undefined && f[k] !== "" ? f[k] : def}
+                  value={cfg[k] !== undefined && cfg[k] !== "" ? cfg[k] : def}
                   disabled={!isPoints}
-                  onChange={(e) => sf(k, e.target.value === "" ? "" : Number(e.target.value))}
+                  onChange={(e) => setFeature(k, e.target.value === "" ? "" : Number(e.target.value))}
                   style={{ ...S.inputXs, opacity: isPoints ? 1 : 0.5 }}
                 />
               </div>
@@ -3487,18 +3482,18 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
           >
             <input
               type="checkbox"
-              checked={!!f.timeout}
+              checked={!!cfg.timeout}
               onChange={() => dispatch({ type: "TOGGLE_FEATURE", key: "timeout" })}
               style={{ width: 15, height: 15, accentColor: C.accent, cursor: "pointer", margin: 0 }}
             />
             <span style={{ flex: 1, fontSize: 13 }}>Timeout warning</span>
             <input
               type="text"
-              value={f.timeoutTime || ""}
+              value={cfg.timeoutTime || ""}
               placeholder="HH:MM"
               onChange={(e) => {
                 const v = e.target.value.replace(/[^0-9:]/g, "");
-                sf("timeoutTime", v);
+                setFeature("timeoutTime", v);
               }}
               style={{ ...S.inputSm, width: 64, fontVariantNumeric: "tabular-nums" }}
             />
@@ -3511,22 +3506,22 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
           <div style={S.fieldRow}>
             <input
               type="checkbox"
-              checked={!!f.grandPrix}
+              checked={!!cfg.grandPrix}
               onChange={() => dispatch({ type: "TOGGLE_FEATURE", key: "grandPrix" })}
               onClick={(e) => e.stopPropagation()}
               style={{ width: 15, height: 15, accentColor: C.accent, cursor: "pointer", margin: 0 }}
             />
             <span style={{ flex: 1, fontSize: 13 }}>Grand Prix mode</span>
             {[["gpBestOfLast", "Best of", 4], ["gpDropWorst", "Drop", 1]].map(([k, lbl, def]) => (
-              <div key={k} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, opacity: f.grandPrix ? 1 : 0.35 }}>
+              <div key={k} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, opacity: cfg.grandPrix ? 1 : 0.35 }}>
                 <span style={{ fontSize: 10, color: C.muted }}>{lbl}</span>
                 <input
                   type="text"
                   inputMode="numeric"
-                  value={f[k] !== undefined && f[k] !== "" ? f[k] : def}
-                  disabled={!f.grandPrix}
-                  onChange={(e) => { const v = e.target.value; sf(k, v === "" ? "" : isNaN(Number(v)) ? v : Number(v)); }}
-                  style={{ ...S.inputXs, opacity: f.grandPrix ? 1 : 0.5 }}
+                  value={cfg[k] !== undefined && cfg[k] !== "" ? cfg[k] : def}
+                  disabled={!cfg.grandPrix}
+                  onChange={(e) => { const v = e.target.value; setFeature(k, v === "" ? "" : isNaN(Number(v)) ? v : Number(v)); }}
+                  style={{ ...S.inputXs, opacity: cfg.grandPrix ? 1 : 0.5 }}
                 />
               </div>
             ))}
@@ -3552,10 +3547,10 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
                 <input
                   type="text"
                   inputMode="numeric"
-                  value={f[k] ?? ""}
+                  value={cfg[k] ?? ""}
                   onChange={(e) => {
                     const v = e.target.value;
-                    sf(k, v === "" ? "" : isNaN(Number(v)) ? v : Number(v));
+                    setFeature(k, v === "" ? "" : isNaN(Number(v)) ? v : Number(v));
                   }}
                   style={S.inputSm}
                 />
@@ -3576,8 +3571,8 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
           >
             <span style={{ flex: 1, fontSize: 13 }}>ELO column</span>
             <select
-              value={f.eloDB ?? ""}
-              onChange={(e) => sf("eloDB", e.target.value)}
+              value={cfg.eloDB ?? ""}
+              onChange={(e) => setFeature("eloDB", e.target.value)}
               style={S.select}
             >
               <option value="">— select —</option>
@@ -3601,7 +3596,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
           </div>
         </Card>
       </div>
-      {f.prizes && (
+      {cfg.prizes && (
         <>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
             <Card style={{ flex: 1, minWidth: 260 }}>
@@ -3621,8 +3616,8 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
                     const pool = state.entryCost * state.players.length;
                     const ppct = state.prizePct || 50;
                     const rawAc = (state.players.length * ppct) / 100;
-                    const ac = state.prizePctRoundUp ? Math.ceil(rawAc) : Math.floor(rawAc);
-                    const inact = state.players.length > 0 && i >= ac;
+                    const allocated = state.prizePctRoundUp ? Math.ceil(rawAc) : Math.floor(rawAc);
+                    const inact = state.players.length > 0 && i >= allocated;
                     return (
                       <tr key={i} style={{ opacity: inact ? 0.35 : 1 }}>
                         <td
@@ -4031,16 +4026,14 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
   );
 }
 
-// Top-level tournament layout. Handles:
-// Shell — layout, tabs, banners, timeout, auto-push, backup
-//   - Tab bar (conditional tabs gated by test/experimental/advanced checkboxes)
+// Shell — layout, tab bar, banners, timeout, auto-push ELO, backup
 function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
   const rawConfig = state.tournaments?.[state.tournamentId];
   if (!rawConfig) return null;
   const config = { ...rawConfig, features: { ...rawConfig.features, ...state.featureOverrides } };
-  const c = config.features,
-    ac = state.players.filter((p) => !p.eliminated),
-    go = state.tournamentStarted && c.scoring === "lifepoints" && ac.length <= 1;
+  const cfg = config.features,
+    activePlayers = state.players.filter((p) => !p.eliminated),
+    go = state.tournamentStarted && cfg.scoring === "lifepoints" && activePlayers.length <= 1;
   const [el, setEl] = useState("");
   const [timedOut, setTimedOut] = useState(false);
   const [syncStatus, setSyncStatus] = useState("");
@@ -4057,10 +4050,10 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
   }, [state.startedAt, state.tournamentStarted]);
   const timeoutFired = useRef(false);
   useEffect(() => {
-    if (!state.tournamentStarted || !c.timeout || !c.timeoutTime || timedOut) return;
+    if (!state.tournamentStarted || !cfg.timeout || !cfg.timeoutTime || timedOut) return;
     const check = () => {
       if (timeoutFired.current) return;
-      const [h, m] = (c.timeoutTime || "").split(":").map(Number);
+      const [h, m] = (cfg.timeoutTime || "").split(":").map(Number);
       if (isNaN(h) || isNaN(m)) return;
       const n = new Date(),
         target = new Date(n);
@@ -4075,17 +4068,17 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
         dispatch({
           type: "LOG_EVENT",
           eventType: "tournament-timeout",
-          label: `Timeout reached — ${c.timeoutTime}`,
+          label: `Timeout reached — ${cfg.timeoutTime}`,
         });
       }
     };
     check();
     const i = setInterval(check, 30000);
     return () => clearInterval(i);
-  }, [state.tournamentStarted, c.timeout, c.timeoutTime, timedOut, dispatch, state.startedAt]);
+  }, [state.tournamentStarted, cfg.timeout, cfg.timeoutTime, timedOut, dispatch, state.startedAt]);
   useEffect(() => {
     if (!state.players.length) return;
-    sLS(BK, {
+    saveLS(BK, {
       state: {
         players: state.players,
         currentRound: state.currentRound,
@@ -4148,10 +4141,9 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
     return () => window.removeEventListener("beforeunload", h);
   }, [state.tournamentStarted]);
   const tabs = [
-    c.rules && { id: "rules", label: "Rules" },
+    cfg.rules && { id: "rules", label: "Rules" },
     { id: "players", label: "Players" },
     { id: "matches", label: "Matches", disabled: !state.tournamentStarted },
-    { id: "standings", label: "Standings", disabled: !state.tournamentStarted },
     { id: "settings", label: "Settings" },
     state.testMode && { id: "test", label: "🧪 Test", color: C.red },
     state.experimental && { id: "spinner", label: "🎲 Spinner", color: C.purple },
@@ -4189,7 +4181,7 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
           fontWeight: 500,
         }}
       >
-        🏆 Over{ac[0] ? ` — ${ac[0].name} wins!` : "."}
+        🏆 Over{activePlayers[0] ? ` — ${activePlayers[0].name} wins!` : "."}
       </div>
     );
   else
@@ -4211,8 +4203,8 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
         }}
       >
         <span>
-          🟢 R{state.currentRound} · {state.phase === "roundrobin" ? "RR" : "Swiss"} · {ac.length}p
-          · {c.scoring}
+          🟢 R{state.currentRound} · {state.phase === "roundrobin" ? "RR" : "Swiss"} · {activePlayers.length}p
+          · {cfg.scoring}
         </span>
         <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {syncStatus === "syncing" && (
@@ -4242,7 +4234,7 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
         alignItems: "center",
       }}
     >
-      <span>⏰ Tournament timeout — {c.timeoutTime} has passed</span>
+      <span>⏰ Tournament timeout — {cfg.timeoutTime} has passed</span>
       <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.7 }}>Finish the current round</span>
     </div>
   ) : null;
@@ -4260,15 +4252,12 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
         active={state.activeTab}
         onSelect={(id) => dispatch({ type: "SET_TAB", tab: id })}
       />
-      {state.activeTab === "rules" && c.rules && <RulesTab state={state} />}
+      {state.activeTab === "rules" && cfg.rules && <RulesTab state={state} />}
       {state.activeTab === "players" && (
         <PlayersTab state={state} dispatch={dispatch} config={config} eloLoadedCols={eloLoadedCols} />
       )}
       {state.activeTab === "matches" && (
-        <MatchesTab state={state} dispatch={dispatch} config={config} />
-      )}
-      {state.activeTab === "standings" && (
-        <StandingsTab state={state} dispatch={dispatch} config={config} eloLoadedCols={eloLoadedCols} />
+        <MatchesTab state={state} dispatch={dispatch} config={config} eloLoadedCols={eloLoadedCols} />
       )}
       {state.activeTab === "settings" && (
         <SettingsTab state={state} dispatch={dispatch} config={config} />
@@ -4286,9 +4275,7 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
   );
 }
 
-// Root component. On mount:
-// App root — reducer, auto-sync ELO, auto-restore backup
-//   1. Auto-syncs ELO database from Google Sheets (silent)
+// App root — reducer, auto-sync ELO from Sheets on mount, auto-restore backup
 function App() {
   const [state, dispatch] = useReducer(reducer, init);
   const [loading, setLoading] = useState(true);
@@ -4296,7 +4283,7 @@ function App() {
   const [eloLoadedCols, setEloLoadedCols] = useState({});
   const [eloColOptions, setEloColOptions] = useState([]);
   const fetchTournaments = (url) => {
-    const u = url || gSU();
+    const u = url || getSheetsUrl();
     if (!u) { setLoading(false); return; }
     setLoading(true);
     setFetchError(null);
@@ -4346,7 +4333,7 @@ function App() {
     const col = state.featureOverrides?.eloDB;
     if (!col || col === prevEloCol.current || state.eloDb?.[col]) return;
     prevEloCol.current = col;
-    const u = gSU();
+    const u = getSheetsUrl();
     if (!u) return;
     fetch(u + "?action=load&col=" + encodeURIComponent(col))
       .then((r) => r.json())

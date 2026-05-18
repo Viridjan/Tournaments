@@ -212,11 +212,12 @@ function ML({ state }) {
   );
 }
 
-function MatchesTab({ state, dispatch, config }) {
+function MatchesTab({ state, dispatch, config, eloLoadedCols }) {
   const cfg = config.features,
     st = [
       cfg.draft && { id: "draft", label: "Draft" },
       { id: "pairings", label: "Pairings" },
+      { id: "standings", label: "Standings" },
       { id: "log", label: "Log" },
       { id: "session", label: "Session" },
     ].filter(Boolean);
@@ -290,6 +291,9 @@ function MatchesTab({ state, dispatch, config }) {
             <MatchCard key={i} match={m} index={i} dispatch={dispatch} scoring={cfg.scoring} eloDb={state.eloDb[cfg.eloDB || "ELO"] || {}} />
           ))}
         </div>
+      )}
+      {state.matchSubTab === "standings" && (
+        <StandingsTab state={state} dispatch={dispatch} config={config} eloLoadedCols={eloLoadedCols} />
       )}
       {state.matchSubTab === "log" && <ML state={state} />}
       {state.matchSubTab === "session" && (

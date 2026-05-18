@@ -61,10 +61,6 @@ function SettingsTab({ state, dispatch, config }) {
             style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}
           >
             <div style={S.metric}>
-              <div style={S.metricLabel}>Scoring</div>
-              <div style={{ fontSize: 14, fontWeight: 500 }}>{f.scoring}</div>
-            </div>
-            <div style={S.metric}>
               <div style={S.metricLabel}>Timer</div>
               <div style={{ fontSize: 14, fontWeight: 500 }}>{f.timerMinutes}m</div>
             </div>
@@ -74,17 +70,15 @@ function SettingsTab({ state, dispatch, config }) {
                 {f.timeout && f.timeoutTime ? f.timeoutTime : "OFF"}
               </div>
             </div>
+            <div style={S.metric}>
+              <div style={S.metricLabel}>Scoring</div>
+              <div style={{ fontSize: 14, fontWeight: 500 }}>{f.scoring}</div>
+            </div>
             {f.matchMax > 2 && (
-              <>
-                <div style={S.metric}>
-                  <div style={S.metricLabel}>Min</div>
-                  <div style={{ fontSize: 14, fontWeight: 500 }}>{f.matchMin}</div>
-                </div>
-                <div style={S.metric}>
-                  <div style={S.metricLabel}>Max</div>
-                  <div style={{ fontSize: 14, fontWeight: 500 }}>{f.matchMax}</div>
-                </div>
-              </>
+              <div style={S.metric}>
+                <div style={S.metricLabel}>Players/match</div>
+                <div style={{ fontSize: 14, fontWeight: 500 }}>{f.matchMax}</div>
+              </div>
             )}
           </div>
           <div style={{ ...S.sectionLabel, marginTop: 8, marginBottom: 4 }}>Feature flags</div>
