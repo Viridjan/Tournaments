@@ -1,6 +1,4 @@
-// Fetches rules from Google Sheet's 'Rules' tab
-// Rules tab — fetches from Google Sheet, caches locally
-// Filtered by tournament name. Cached in localStorage
+// Rules tab — fetches from Sheets by tournament name, caches in localStorage
 function RulesTab({ state }) {
   const [rows, setRows] = useState(null),
     [status, setStatus] = useState("");
@@ -9,9 +7,9 @@ function RulesTab({ state }) {
     const ck = "rules_" + tn;
     if (!f)
       try {
-        const c = localStorage.getItem(ck);
-        if (c) {
-          setRows(JSON.parse(c));
+        const cached = localStorage.getItem(ck);
+        if (cached) {
+          setRows(JSON.parse(cached));
           setStatus("Cached");
         }
       } catch {}

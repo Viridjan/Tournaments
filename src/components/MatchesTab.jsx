@@ -24,7 +24,7 @@ function MatchCard({ match, index, dispatch, scoring, eloDb }) {
             style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: `0.5px solid ${C.bL}` }}
           >
             <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{n}</span>
-            <span style={{ fontSize: 11, color: C.faint }}>{gE(eloDb, n)}</span>
+            <span style={{ fontSize: 11, color: C.faint }}>{getElo(eloDb, n)}</span>
             <input
               type="text"
               inputMode="numeric"
@@ -109,7 +109,7 @@ function MatchCard({ match, index, dispatch, scoring, eloDb }) {
             }}
           >
             <span style={{ flex: 1 }}>{n}</span>
-            <span style={{ fontSize: 11, color: C.faint }}>{gE(eloDb, n)}</span>
+            <span style={{ fontSize: 11, color: C.faint }}>{getElo(eloDb, n)}</span>
             {isWinner && <span style={{ fontSize: 11 }}>Win</span>}
             {isDraw && <span style={{ fontSize: 11 }}>Draw</span>}
           </button>
@@ -213,18 +213,18 @@ function ML({ state }) {
 }
 
 function MatchesTab({ state, dispatch, config }) {
-  const c = config.features,
+  const cfg = config.features,
     st = [
-      c.draft && { id: "draft", label: "Draft" },
+      cfg.draft && { id: "draft", label: "Draft" },
       { id: "pairings", label: "Pairings" },
       { id: "log", label: "Log" },
       { id: "session", label: "Session" },
     ].filter(Boolean);
-  const isRR = state.phase === "roundrobin" && c.rrRounds > 0,
-    scoringLabel = { points: "Points", lifepoints: "Lifepoints", swiss: "Swiss" }[c.scoring] || "Swiss",
+  const isRR = state.phase === "roundrobin" && cfg.rrRounds > 0,
+    scoringLabel = { points: "Points", lifepoints: "Lifepoints", swiss: "Swiss" }[cfg.scoring] || "Swiss",
     rl = isRR
-      ? `Round Robin — R${state.currentRound}/${c.rrRounds}`
-      : `${scoringLabel} — R${state.currentRound - (isRR ? 0 : c.rrRounds)}`;
+      ? `Round Robin — R${state.currentRound}/${cfg.rrRounds}`
+      : `${scoringLabel} — R${state.currentRound - (isRR ? 0 : cfg.rrRounds)}`;
   return (
     <div>
       <TabBar
@@ -250,7 +250,7 @@ function MatchesTab({ state, dispatch, config }) {
             <div>
               <div style={{ fontSize: 16, fontWeight: 500 }}>{rl}</div>
               <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
-                {isRR ? "By ELO" : c.scoring === "points" ? "By points" : "By win rate"}
+                {isRR ? "By ELO" : cfg.scoring === "points" ? "By points" : "By win rate"}
               </div>
             </div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -265,8 +265,8 @@ function MatchesTab({ state, dispatch, config }) {
               </Btn>
             </div>
           </div>
-          {c.timerMinutes > 0 && <Timer minutes={c.timerMinutes} key={state.currentRound} />}
-          {c.firstPlayer && state.pairings.some((m) => !m.isBye && m.players.length === 2) && (
+          {cfg.timerMinutes > 0 && <Timer minutes={cfg.timerMinutes} key={state.currentRound} />}
+          {cfg.firstPlayer && state.pairings.some((m) => !m.isBye && m.players.length === 2) && (
             <div
               style={{
                 display: "grid",
@@ -287,14 +287,14 @@ function MatchesTab({ state, dispatch, config }) {
             <div style={{ textAlign: "center", padding: 32, color: C.faint }}>No pairings.</div>
           )}
           {state.pairings.map((m, i) => (
-            <MatchCard key={i} match={m} index={i} dispatch={dispatch} scoring={c.scoring} eloDb={state.eloDb[c.eloDB || "ELO"] || {}} />
+            <MatchCard key={i} match={m} index={i} dispatch={dispatch} scoring={cfg.scoring} eloDb={state.eloDb[cfg.eloDB || "ELO"] || {}} />
           ))}
         </div>
       )}
       {state.matchSubTab === "log" && <ML state={state} />}
       {state.matchSubTab === "session" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {c.grandPrix && (
+          {cfg.grandPrix && (
             <Card>
               <h3 style={S.cardTitle}>New session ＋</h3>
               <div style={{ fontSize: 13, color: C.muted, marginBottom: 16 }}>

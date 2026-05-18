@@ -1,6 +1,4 @@
-// Countdown timer with start/pause/reset
-// Timer — countdown with audio alarm
-// Plays 6-tone audio alarm when it hits zero
+// Timer — countdown with start/pause/reset, plays 6-tone audio alarm at zero
 function Timer({ minutes }) {
   const total = minutes * 60;
   const [left, setLeft] = useState(total);
@@ -10,15 +8,15 @@ function Timer({ minutes }) {
   const alarm = useCallback(() => {
     try {
       if (!ar.current) ar.current = new (window.AudioContext || window.webkitAudioContext)();
-      const c = ar.current;
+      const ctx = ar.current;
       [880, 660, 880, 660, 880, 1100].forEach((f, i) => {
-        const o = c.createOscillator(),
-          g = c.createGain();
+        const o = ctx.createOscillator(),
+          g = ctx.createGain();
         o.connect(g);
-        g.connect(c.destination);
+        g.connect(ctx.destination);
         o.type = "sine";
         o.frequency.value = f;
-        const t = c.currentTime + i * 0.38;
+        const t = ctx.currentTime + i * 0.38;
         g.gain.setValueAtTime(0, t);
         g.gain.linearRampToValueAtTime(0.45, t + 0.05);
         g.gain.linearRampToValueAtTime(0, t + 0.33);

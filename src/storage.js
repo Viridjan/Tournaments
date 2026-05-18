@@ -7,13 +7,13 @@ function now() {
     second: "2-digit",
   });
 }
-function mkId() {
+function makeId() {
   const c = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
   let i = "";
   for (let x = 0; x < 6; x++) i += c[Math.floor(Math.random() * c.length)];
   return i;
 }
-function lLS(k, f) {
+function loadLS(k, f) {
   try {
     const v = localStorage.getItem(k);
     return v ? JSON.parse(v) : f;
@@ -21,12 +21,12 @@ function lLS(k, f) {
     return f;
   }
 }
-function sLS(k, v) {
+function saveLS(k, v) {
   try {
     localStorage.setItem(k, JSON.stringify(v));
   } catch {}
 }
-function gSU() {
+function getSheetsUrl() {
   try {
     return localStorage.getItem(SK) || DU;
   } catch {
@@ -65,10 +65,10 @@ function buildSnap(state) {
   };
 }
 function autoSeedSave(state) {
-  const url = gSU();
+  const url = getSheetsUrl();
   if (!url || !state.tournamentStarted || !state.players.length || state.testMode) return;
   const t = state.tournaments?.[state.tournamentId];
-  const id = mkId();
+  const id = makeId();
   const label = `${t?.icon || ""} ${t?.name || ""} · ${state.players.length}p · R${state.currentRound} [auto]`;
   try {
     fetch(url, {
@@ -79,9 +79,9 @@ function autoSeedSave(state) {
     }).catch(() => {});
   } catch {}
 }
-function mkP(st, pl, h, ph) {
-  const c = { ...st.tournaments?.[st.tournamentId]?.features, ...st.featureOverrides };
-  if (!c) return [];
-  const activeElo = st.eloDb?.[c.eloDB || "ELO"] || {};
-  return genPairings(pl, h, ph, c, activeElo);
+function makePairings(st, pl, h, ph) {
+  const cfg = { ...st.tournaments?.[st.tournamentId]?.features, ...st.featureOverrides };
+  if (!cfg) return [];
+  const activeElo = st.eloDb?.[cfg.eloDB || "ELO"] || {};
+  return genPairings(pl, h, ph, cfg, activeElo);
 }

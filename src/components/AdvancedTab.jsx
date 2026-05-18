@@ -3,8 +3,8 @@
 // Left: Identity (id/name/icon) + Rounds & Matches (min/max, timer, RR)
 function AdvancedTab({ state, dispatch, config, eloColOptions }) {
   const [dbOpen, setDbOpen] = React.useState(false);
-  const f = config.features;
-  const sf = (k, v) => dispatch({ type: "SET_FEATURE", key: k, value: v });
+  const cfg = config.features;
+  const setFeature = (k, v) => dispatch({ type: "SET_FEATURE", key: k, value: v });
   const NumF = ({ label, k, desc, suffix }) => (
     <div style={S.fieldRow}>
       <span style={{ flex: 1, fontSize: 13 }}>
@@ -14,10 +14,10 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
       <input
         type="text"
         inputMode="numeric"
-        value={f[k] ?? ""}
+        value={cfg[k] ?? ""}
         onChange={(e) => {
           const v = e.target.value;
-          sf(k, v === "" ? "" : isNaN(Number(v)) ? v : Number(v));
+          setFeature(k, v === "" ? "" : isNaN(Number(v)) ? v : Number(v));
         }}
         style={S.inputSm}
       />
@@ -35,7 +35,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
     <div style={{ ...S.fieldRow, cursor: "pointer" }} onClick={() => dispatch({ type: "TOGGLE_FEATURE", key: k })}>
       <input
         type="checkbox"
-        checked={!!f[k]}
+        checked={!!cfg[k]}
         onChange={() => dispatch({ type: "TOGGLE_FEATURE", key: k })}
         onClick={(e) => e.stopPropagation()}
         style={{ width: 15, height: 15, accentColor: C.accent, cursor: "pointer", margin: 0 }}
@@ -54,8 +54,8 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
     <div style={S.fieldRow}>
       <span style={{ flex: 1, fontSize: 13 }}>{label}</span>
       <select
-        value={f[k] || ""}
-        onChange={(e) => sf(k, e.target.value)}
+        value={cfg[k] || ""}
+        onChange={(e) => setFeature(k, e.target.value)}
         style={S.select}
       >
         {options.map((o) => (
@@ -73,8 +73,8 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
       )}
     </div>
   );
-  const isLP = f.scoring === "lifepoints";
-  const isPoints = f.scoring === "points";
+  const isLP = cfg.scoring === "lifepoints";
+  const isPoints = cfg.scoring === "points";
   return (
     <div>
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
@@ -147,16 +147,16 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
               <input
                 type="text"
                 inputMode="numeric"
-                value={f.matchMax ?? ""}
+                value={cfg.matchMax ?? ""}
                 onChange={(e) => {
                   const v = e.target.value;
-                  sf("matchMax", v === "" ? "" : isNaN(Number(v)) ? v : Number(v));
+                  setFeature("matchMax", v === "" ? "" : isNaN(Number(v)) ? v : Number(v));
                 }}
                 style={{ ...S.inputSm, width: 40 }}
               />
               <select
-                value={f.matchRound || "none"}
-                onChange={(e) => sf("matchRound", e.target.value)}
+                value={cfg.matchRound || "none"}
+                onChange={(e) => setFeature("matchRound", e.target.value)}
                 style={S.select}
               >
                 <option value="none">BYE</option>
@@ -185,10 +185,10 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
                 <input
                   type="text"
                   inputMode="numeric"
-                  value={f[k] ?? ""}
+                  value={cfg[k] ?? ""}
                   onChange={(e) => {
                     const v = e.target.value;
-                    sf(k, v === "" ? "" : isNaN(Number(v)) ? v : Number(v));
+                    setFeature(k, v === "" ? "" : isNaN(Number(v)) ? v : Number(v));
                   }}
                   style={S.inputXs}
                 />
@@ -199,11 +199,11 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
               <input
                 type="text"
                 inputMode="numeric"
-                value={f.startScore ?? ""}
+                value={cfg.startScore ?? ""}
                 disabled={!isLP}
                 onChange={(e) => {
                   const v = e.target.value;
-                  sf("startScore", v === "" ? "" : isNaN(Number(v)) ? v : Number(v));
+                  setFeature("startScore", v === "" ? "" : isNaN(Number(v)) ? v : Number(v));
                 }}
                 style={{ ...S.inputXs, opacity: isLP ? 1 : 0.5 }}
               />
@@ -230,7 +230,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
             )}
             <input
               type="checkbox"
-              checked={!!f.cumulativeDrawPenalty}
+              checked={!!cfg.cumulativeDrawPenalty}
               onChange={() => dispatch({ type: "TOGGLE_FEATURE", key: "cumulativeDrawPenalty" })}
               onClick={(e) => e.stopPropagation()}
               style={{ width: 15, height: 15, accentColor: C.accent, cursor: "pointer", margin: 0 }}
@@ -260,9 +260,9 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
                 <input
                   type="text"
                   inputMode="numeric"
-                  value={f[k] !== undefined && f[k] !== "" ? f[k] : def}
+                  value={cfg[k] !== undefined && cfg[k] !== "" ? cfg[k] : def}
                   disabled={!isPoints}
-                  onChange={(e) => sf(k, e.target.value === "" ? "" : Number(e.target.value))}
+                  onChange={(e) => setFeature(k, e.target.value === "" ? "" : Number(e.target.value))}
                   style={{ ...S.inputXs, opacity: isPoints ? 1 : 0.5 }}
                 />
               </div>
@@ -286,18 +286,18 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
           >
             <input
               type="checkbox"
-              checked={!!f.timeout}
+              checked={!!cfg.timeout}
               onChange={() => dispatch({ type: "TOGGLE_FEATURE", key: "timeout" })}
               style={{ width: 15, height: 15, accentColor: C.accent, cursor: "pointer", margin: 0 }}
             />
             <span style={{ flex: 1, fontSize: 13 }}>Timeout warning</span>
             <input
               type="text"
-              value={f.timeoutTime || ""}
+              value={cfg.timeoutTime || ""}
               placeholder="HH:MM"
               onChange={(e) => {
                 const v = e.target.value.replace(/[^0-9:]/g, "");
-                sf("timeoutTime", v);
+                setFeature("timeoutTime", v);
               }}
               style={{ ...S.inputSm, width: 64, fontVariantNumeric: "tabular-nums" }}
             />
@@ -310,22 +310,22 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
           <div style={S.fieldRow}>
             <input
               type="checkbox"
-              checked={!!f.grandPrix}
+              checked={!!cfg.grandPrix}
               onChange={() => dispatch({ type: "TOGGLE_FEATURE", key: "grandPrix" })}
               onClick={(e) => e.stopPropagation()}
               style={{ width: 15, height: 15, accentColor: C.accent, cursor: "pointer", margin: 0 }}
             />
             <span style={{ flex: 1, fontSize: 13 }}>Grand Prix mode</span>
             {[["gpBestOfLast", "Best of", 4], ["gpDropWorst", "Drop", 1]].map(([k, lbl, def]) => (
-              <div key={k} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, opacity: f.grandPrix ? 1 : 0.35 }}>
+              <div key={k} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, opacity: cfg.grandPrix ? 1 : 0.35 }}>
                 <span style={{ fontSize: 10, color: C.muted }}>{lbl}</span>
                 <input
                   type="text"
                   inputMode="numeric"
-                  value={f[k] !== undefined && f[k] !== "" ? f[k] : def}
-                  disabled={!f.grandPrix}
-                  onChange={(e) => { const v = e.target.value; sf(k, v === "" ? "" : isNaN(Number(v)) ? v : Number(v)); }}
-                  style={{ ...S.inputXs, opacity: f.grandPrix ? 1 : 0.5 }}
+                  value={cfg[k] !== undefined && cfg[k] !== "" ? cfg[k] : def}
+                  disabled={!cfg.grandPrix}
+                  onChange={(e) => { const v = e.target.value; setFeature(k, v === "" ? "" : isNaN(Number(v)) ? v : Number(v)); }}
+                  style={{ ...S.inputXs, opacity: cfg.grandPrix ? 1 : 0.5 }}
                 />
               </div>
             ))}
@@ -351,10 +351,10 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
                 <input
                   type="text"
                   inputMode="numeric"
-                  value={f[k] ?? ""}
+                  value={cfg[k] ?? ""}
                   onChange={(e) => {
                     const v = e.target.value;
-                    sf(k, v === "" ? "" : isNaN(Number(v)) ? v : Number(v));
+                    setFeature(k, v === "" ? "" : isNaN(Number(v)) ? v : Number(v));
                   }}
                   style={S.inputSm}
                 />
@@ -375,8 +375,8 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
           >
             <span style={{ flex: 1, fontSize: 13 }}>ELO column</span>
             <select
-              value={f.eloDB ?? ""}
-              onChange={(e) => sf("eloDB", e.target.value)}
+              value={cfg.eloDB ?? ""}
+              onChange={(e) => setFeature("eloDB", e.target.value)}
               style={S.select}
             >
               <option value="">— select —</option>
@@ -400,7 +400,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
           </div>
         </Card>
       </div>
-      {f.prizes && (
+      {cfg.prizes && (
         <>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
             <Card style={{ flex: 1, minWidth: 260 }}>
@@ -420,8 +420,8 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
                     const pool = state.entryCost * state.players.length;
                     const ppct = state.prizePct || 50;
                     const rawAc = (state.players.length * ppct) / 100;
-                    const ac = state.prizePctRoundUp ? Math.ceil(rawAc) : Math.floor(rawAc);
-                    const inact = state.players.length > 0 && i >= ac;
+                    const allocated = state.prizePctRoundUp ? Math.ceil(rawAc) : Math.floor(rawAc);
+                    const inact = state.players.length > 0 && i >= allocated;
                     return (
                       <tr key={i} style={{ opacity: inact ? 0.35 : 1 }}>
                         <td

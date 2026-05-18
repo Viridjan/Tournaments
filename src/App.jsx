@@ -1,6 +1,4 @@
-// Root component. On mount:
-// App root — reducer, auto-sync ELO, auto-restore backup
-//   1. Auto-syncs ELO database from Google Sheets (silent)
+// App root — reducer, auto-sync ELO from Sheets on mount, auto-restore backup
 function App() {
   const [state, dispatch] = useReducer(reducer, init);
   const [loading, setLoading] = useState(true);
@@ -8,7 +6,7 @@ function App() {
   const [eloLoadedCols, setEloLoadedCols] = useState({});
   const [eloColOptions, setEloColOptions] = useState([]);
   const fetchTournaments = (url) => {
-    const u = url || gSU();
+    const u = url || getSheetsUrl();
     if (!u) { setLoading(false); return; }
     setLoading(true);
     setFetchError(null);
@@ -58,7 +56,7 @@ function App() {
     const col = state.featureOverrides?.eloDB;
     if (!col || col === prevEloCol.current || state.eloDb?.[col]) return;
     prevEloCol.current = col;
-    const u = gSU();
+    const u = getSheetsUrl();
     if (!u) return;
     fetch(u + "?action=load&col=" + encodeURIComponent(col))
       .then((r) => r.json())

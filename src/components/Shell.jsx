@@ -1,13 +1,11 @@
-// Top-level tournament layout. Handles:
-// Shell — layout, tabs, banners, timeout, auto-push, backup
-//   - Tab bar (conditional tabs gated by test/experimental/advanced checkboxes)
+// Shell — layout, tab bar, banners, timeout, auto-push ELO, backup
 function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
   const rawConfig = state.tournaments?.[state.tournamentId];
   if (!rawConfig) return null;
   const config = { ...rawConfig, features: { ...rawConfig.features, ...state.featureOverrides } };
-  const c = config.features,
-    ac = state.players.filter((p) => !p.eliminated),
-    go = state.tournamentStarted && c.scoring === "lifepoints" && ac.length <= 1;
+  const cfg = config.features,
+    activePlayers = state.players.filter((p) => !p.eliminated),
+    go = state.tournamentStarted && cfg.scoring === "lifepoints" && activePlayers.length <= 1;
   const [el, setEl] = useState("");
   const [timedOut, setTimedOut] = useState(false);
   const [syncStatus, setSyncStatus] = useState("");
@@ -24,10 +22,10 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
   }, [state.startedAt, state.tournamentStarted]);
   const timeoutFired = useRef(false);
   useEffect(() => {
-    if (!state.tournamentStarted || !c.timeout || !c.timeoutTime || timedOut) return;
+    if (!state.tournamentStarted || !cfg.timeout || !cfg.timeoutTime || timedOut) return;
     const check = () => {
       if (timeoutFired.current) return;
-      const [h, m] = (c.timeoutTime || "").split(":").map(Number);
+      const [h, m] = (cfg.timeoutTime || "").split(":").map(Number);
       if (isNaN(h) || isNaN(m)) return;
       const n = new Date(),
         target = new Date(n);
@@ -42,17 +40,17 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
         dispatch({
           type: "LOG_EVENT",
           eventType: "tournament-timeout",
-          label: `Timeout reached — ${c.timeoutTime}`,
+          label: `Timeout reached — ${cfg.timeoutTime}`,
         });
       }
     };
     check();
     const i = setInterval(check, 30000);
     return () => clearInterval(i);
-  }, [state.tournamentStarted, c.timeout, c.timeoutTime, timedOut, dispatch, state.startedAt]);
+  }, [state.tournamentStarted, cfg.timeout, cfg.timeoutTime, timedOut, dispatch, state.startedAt]);
   useEffect(() => {
     if (!state.players.length) return;
-    sLS(BK, {
+    saveLS(BK, {
       state: {
         players: state.players,
         currentRound: state.currentRound,
@@ -115,7 +113,7 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
     return () => window.removeEventListener("beforeunload", h);
   }, [state.tournamentStarted]);
   const tabs = [
-    c.rules && { id: "rules", label: "Rules" },
+    cfg.rules && { id: "rules", label: "Rules" },
     { id: "players", label: "Players" },
     { id: "matches", label: "Matches", disabled: !state.tournamentStarted },
     { id: "standings", label: "Standings", disabled: !state.tournamentStarted },
@@ -156,7 +154,7 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
           fontWeight: 500,
         }}
       >
-        🏆 Over{ac[0] ? ` — ${ac[0].name} wins!` : "."}
+        🏆 Over{activePlayers[0] ? ` — ${activePlayers[0].name} wins!` : "."}
       </div>
     );
   else
@@ -178,8 +176,8 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
         }}
       >
         <span>
-          🟢 R{state.currentRound} · {state.phase === "roundrobin" ? "RR" : "Swiss"} · {ac.length}p
-          · {c.scoring}
+          🟢 R{state.currentRound} · {state.phase === "roundrobin" ? "RR" : "Swiss"} · {activePlayers.length}p
+          · {cfg.scoring}
         </span>
         <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {syncStatus === "syncing" && (
@@ -209,7 +207,7 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
         alignItems: "center",
       }}
     >
-      <span>⏰ Tournament timeout — {c.timeoutTime} has passed</span>
+      <span>⏰ Tournament timeout — {cfg.timeoutTime} has passed</span>
       <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.7 }}>Finish the current round</span>
     </div>
   ) : null;
@@ -227,7 +225,7 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
         active={state.activeTab}
         onSelect={(id) => dispatch({ type: "SET_TAB", tab: id })}
       />
-      {state.activeTab === "rules" && c.rules && <RulesTab state={state} />}
+      {state.activeTab === "rules" && cfg.rules && <RulesTab state={state} />}
       {state.activeTab === "players" && (
         <PlayersTab state={state} dispatch={dispatch} config={config} eloLoadedCols={eloLoadedCols} />
       )}

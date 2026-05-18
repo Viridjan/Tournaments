@@ -15,7 +15,7 @@ const init = {
   tournamentStarted: false,
   startedAt: null,
   eloDb: (() => {
-    const raw = lLS(EK, {});
+    const raw = loadLS(EK, {});
     const vals = Object.values(raw);
     if (vals.length > 0 && vals.some((v) => v && typeof v === "object" && "elo" in v)) {
       const db = {};
@@ -60,17 +60,23 @@ const init = {
   testMode: false,
   experimental: false,
   advancedSetup: false,
-  sheetsUrl: gSU(),
+  sheetsUrl: getSheetsUrl(),
 };
+
+function featureBase(st) {
+  return st.tournaments[st.tournamentId]?.features || {};
+}
 
 function reducer(st, a) {
   switch (a.type) {
+    // ── Navigation ──
     case "OPEN_TOURNAMENT":
       return { ...st, screen: "tournament", tournamentId: a.id, activeTab: "players", featureOverrides: {} };
     case "SET_TAB":
       return { ...st, activeTab: a.tab };
     case "SET_MATCH_SUBTAB":
       return { ...st, matchSubTab: a.tab };
+    // ── Player management ──
     case "ADD_PLAYER": {
       const n = a.name.trim();
       if (!n || st.players.some((p) => p.name.toLowerCase() === n.toLowerCase())) return st;
@@ -109,11 +115,12 @@ function reducer(st, a) {
         matchLog: [...st.matchLog, { type: "abandon", label: `${ab.name} abandoned`, ts: now() }],
       };
     }
+    // ── Tournament flow ──
     case "START_TOURNAMENT": {
-      const c = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
-      if (!c) return st;
-      const ss = c.startScore ?? 0;
-      const activeElo = st.eloDb[c.eloDB || "ELO"] || {};
+      const cfg = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
+      if (!cfg) return st;
+      const ss = cfg.startScore ?? 0;
+      const activeElo = st.eloDb[cfg.eloDB || "ELO"] || {};
       const pl = st.players.map((p) => ({
         ...p,
         score: ss,
@@ -127,9 +134,9 @@ function reducer(st, a) {
         pLast: 0,
         eliminated: false,
         firstCount: 0,
-        eloStart: gE(activeElo, p.name),
+        eloStart: getElo(activeElo, p.name),
       }));
-      const ph = c.rrRounds > 0 ? "roundrobin" : "swiss";
+      const ph = cfg.rrRounds > 0 ? "roundrobin" : "swiss";
       const ns = {
         ...st,
         players: pl,
@@ -142,9 +149,9 @@ function reducer(st, a) {
           { type: "start", label: `Tournament started — ${pl.length} players`, ts: now() },
         ],
         activeTab: "matches",
-        matchSubTab: c.draft ? "draft" : "pairings",
+        matchSubTab: cfg.draft ? "draft" : "pairings",
       };
-      return { ...ns, pairings: mkP(ns, pl, [], ph) };
+      return { ...ns, pairings: makePairings(ns, pl, [], ph) };
     }
     case "SET_MATCH_RESULT":
       return {
@@ -166,48 +173,47 @@ function reducer(st, a) {
         }),
       };
     case "NEXT_ROUND": {
-      const c = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
-      if (!c) return st;
-      const eloNs = c.eloDB || "ELO";
+      const cfg = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
+      if (!cfg) return st;
+      const eloNs = cfg.eloDB || "ELO";
       let pl = st.players.map((p) => ({ ...p })),
         db = { ...(st.eloDb[eloNs] || {}) };
-      const sc = c.scoring,
+      const sc = cfg.scoring,
         rp = st.pairings.map((m) => ({ ...m }));
       rp.forEach((m) => {
         if (m.isBye || m.result !== "done") return;
         const fl = m.players.filter((n) => String(m.scores[n]).trim() !== "");
         if (!fl.length) return;
-        const so = [...fl].sort((a, b) => parseFloat(m.scores[b] || 0) - parseFloat(m.scores[a] || 0));
-        const topScore = parseFloat(m.scores[so[0]] || 0);
+        const sorted = [...fl].sort((a, b) => parseFloat(m.scores[b] || 0) - parseFloat(m.scores[a] || 0));
+        const topScore = parseFloat(m.scores[sorted[0]] || 0);
 
         if (sc === "points") {
           const ptMap = [
-            c.pts1 !== "" && c.pts1 !== undefined ? Number(c.pts1) : 3,
-            c.pts2 !== "" && c.pts2 !== undefined ? Number(c.pts2) : 2,
-            c.pts3 !== "" && c.pts3 !== undefined ? Number(c.pts3) : 1,
+            cfg.pts1 !== "" && cfg.pts1 !== undefined ? Number(cfg.pts1) : 3,
+            cfg.pts2 !== "" && cfg.pts2 !== undefined ? Number(cfg.pts2) : 2,
+            cfg.pts3 !== "" && cfg.pts3 !== undefined ? Number(cfg.pts3) : 1,
           ];
-          const ptsLast = c.ptsLast !== "" && c.ptsLast !== undefined ? Number(c.ptsLast) : 0;
+          const ptsLast = cfg.ptsLast !== "" && cfg.ptsLast !== undefined ? Number(cfg.ptsLast) : 0;
           const groups = [];
           let gi = 0;
-          while (gi < so.length) {
-            const gs = parseFloat(m.scores[so[gi]] || 0);
+          while (gi < sorted.length) {
+            const gs = parseFloat(m.scores[sorted[gi]] || 0);
             let gj = gi;
-            while (gj < so.length && parseFloat(m.scores[so[gj]] || 0) === gs) gj++;
-            groups.push({ players: so.slice(gi, gj), score: gs });
+            while (gj < sorted.length && parseFloat(m.scores[sorted[gj]] || 0) === gs) gj++;
+            groups.push({ players: sorted.slice(gi, gj), score: gs });
             gi = gj;
           }
-          const multiGroup = groups.length > 1;
           let rank = 1;
           groups.forEach((g, idx) => {
-            const isLast = multiGroup && idx === groups.length - 1;
+            const isLast = groups.length > 1 && idx === groups.length - 1;
             const pts = isLast || g.score === 0 ? ptsLast : (ptMap[rank - 1] ?? ptsLast);
             g.players.forEach((n) => {
               const p = pl.find((x) => x.name === n);
               if (!p) return;
-              if (c.grandPrix) {
+              if (cfg.grandPrix) {
                 if (!p.gpScores) p.gpScores = [];
                 p.gpScores.push(pts);
-                p.score = gpBestOf(p.gpScores, c.gpBestOfLast, c.gpDropWorst);
+                p.score = gpBestOf(p.gpScores, cfg.gpBestOfLast, cfg.gpDropWorst);
               } else {
                 p.score += pts;
               }
@@ -220,33 +226,33 @@ function reducer(st, a) {
             rank += g.players.length;
           });
         } else if (sc === "swiss") {
-          const tied = so.filter(n => parseFloat(m.scores[n] || 0) === topScore);
+          const tied = sorted.filter(n => parseFloat(m.scores[n] || 0) === topScore);
           const multi = tied.length > 1;
-          so.forEach(n => {
+          sorted.forEach(n => {
             const p = pl.find(x => x.name === n);
             if (!p) return;
             const isTop = parseFloat(m.scores[n] || 0) === topScore;
             let pts;
-            if (isTop && multi) { p.d++; pts = c.drawPoints ?? 1; }
-            else if (isTop)     { p.w++; pts = c.winPoints ?? 3; }
-            else                { p.l++; pts = c.lossPoints ?? 0; }
-            if (c.grandPrix) {
+            if (isTop && multi) { p.d++; pts = cfg.drawPoints ?? 1; }
+            else if (isTop)     { p.w++; pts = cfg.winPoints ?? 3; }
+            else                { p.l++; pts = cfg.lossPoints ?? 0; }
+            if (cfg.grandPrix) {
               if (!p.gpScores) p.gpScores = [];
               p.gpScores.push(pts);
-              p.score = gpBestOf(p.gpScores, c.gpBestOfLast, c.gpDropWorst);
+              p.score = gpBestOf(p.gpScores, cfg.gpBestOfLast, cfg.gpDropWorst);
             } else {
               p.score += pts;
             }
           });
         } else if (sc === "lifepoints") {
-          const draw = so.every(n => parseFloat(m.scores[n] || 0) === topScore);
-          so.forEach(n => {
+          const draw = sorted.every(n => parseFloat(m.scores[n] || 0) === topScore);
+          sorted.forEach(n => {
             const p = pl.find(x => x.name === n);
             if (!p) return;
             const isTop = parseFloat(m.scores[n] || 0) === topScore;
             if (draw) {
               p.d++;
-              const dp = c.cumulativeDrawPenalty ? 0.5 * p.d : 0.5;
+              const dp = cfg.cumulativeDrawPenalty ? 0.5 * p.d : 0.5;
               p.score = Math.max(0, p.score - dp);
               if (p.score <= 0) p.eliminated = true;
             } else if (isTop) {
@@ -259,16 +265,16 @@ function reducer(st, a) {
           });
         }
 
-        if (c.elo && !m.noElo) {
+        if (cfg.elo && !m.noElo) {
           const n = m.players.length,
-            K = (c.eloKMax || 50) / n,
+            K = (cfg.eloKMax || 50) / n,
             dl = Object.fromEntries(m.players.map((p) => [p, 0]));
           for (let i = 0; i < n; i++)
             for (let j = i + 1; j < n; j++) {
               const pA = m.players[i], pB = m.players[j],
                 sA = parseFloat(m.scores[pA] || 0), sB = parseFloat(m.scores[pB] || 0),
-                rA = gE(db, pA), rB = gE(db, pB),
-                eA = eExp(rA, rB, c.eloScale),
+                rA = getElo(db, pA), rB = getElo(db, pB),
+                eA = eloExpected(rA, rB, cfg.eloScale),
                 scA = sA > sB ? 1 : sA < sB ? 0 : 0.5;
               dl[pA] += K * (scA - eA);
               dl[pB] += K * ((1 - scA) - (1 - eA));
@@ -277,16 +283,16 @@ function reducer(st, a) {
           m.players.forEach((p) => {
             const d = Math.round(dl[p]);
             m.eloDeltas[p] = d;
-            db = sE(db, p, gE(db, p) + d, db[p.toLowerCase()]?.test);
+            db = setElo(db, p, getElo(db, p) + d, db[p.toLowerCase()]?.test);
           });
         }
       });
       const h = [...st.history, rp],
         nr = st.currentRound + 1;
       let ph = st.phase;
-      if (ph === "roundrobin" && nr > c.rrRounds) ph = "swiss";
-      const ac = pl.filter((p) => !p.eliminated),
-        go = c.scoring === "lifepoints" && ac.length <= 1;
+      if (ph === "roundrobin" && nr > cfg.rrRounds) ph = "swiss";
+      const activePlayers = pl.filter((p) => !p.eliminated),
+        go = cfg.scoring === "lifepoints" && activePlayers.length <= 1;
       const newEloDb = { ...st.eloDb, [eloNs]: db };
       const ns = {
         ...st,
@@ -301,27 +307,28 @@ function reducer(st, a) {
         ],
         activeTab: go ? "standings" : st.activeTab,
       };
-      sLS(EK, newEloDb);
-      return { ...ns, pairings: go ? [] : mkP(ns, pl, h, ph) };
+      saveLS(EK, newEloDb);
+      return { ...ns, pairings: go ? [] : makePairings(ns, pl, h, ph) };
     }
     case "END_TOURNAMENT": {
       try {
         localStorage.removeItem(BK);
       } catch {}
-      const so = [...st.players].sort((a, b) => b.score - a.score || b.w - a.w);
+      const sorted = [...st.players].sort((a, b) => b.score - a.score || b.w - a.w);
       return {
         ...st,
-        players: st.players.map((p) => (p.name === so[0]?.name ? p : { ...p, eliminated: true })),
+        players: st.players.map((p) => (p.name === sorted[0]?.name ? p : { ...p, eliminated: true })),
         activeTab: "standings",
       };
     }
     case "NEW_GP_SESSION": {
-      const c = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
-      if (!c) return st;
-      const ph = c.rrRounds > 0 ? "roundrobin" : "swiss";
+      const cfg = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
+      if (!cfg) return st;
+      const ph = cfg.rrRounds > 0 ? "roundrobin" : "swiss";
       const ns = { ...st, currentRound: 1, phase: ph, pairings: [] };
-      return { ...ns, pairings: mkP(ns, st.players, st.history, ph) };
+      return { ...ns, pairings: makePairings(ns, st.players, st.history, ph) };
     }
+    // ── Remote data ──
     case "SET_TOURNAMENTS": {
       const tournaments = {};
       a.tournaments.forEach((t) => { if (t.id) tournaments[t.id] = t; });
@@ -334,10 +341,11 @@ function reducer(st, a) {
         if (e?.name) db[e.name.toLowerCase()] = e;
       });
       const newEloDb = { ...st.eloDb, [sheet]: db };
-      sLS(EK, newEloDb);
+      saveLS(EK, newEloDb);
       return { ...st, eloDb: newEloDb };
     }
 
+    // ── Prizes ──
     case "ADD_PRIZE":
       return {
         ...st,
@@ -379,6 +387,7 @@ function reducer(st, a) {
           i === a.index ? { ...o, weight: Math.max(1, parseInt(a.value) || 1) } : o,
         ),
       };
+    // ── Dev / test ──
     case "INJECT_TEST_PLAYERS": {
       const ns = [
         "Alice",
@@ -425,7 +434,7 @@ function reducer(st, a) {
       const pl = [];
       for (let i = 0; i < a.count; i++) {
         const n = ns[i] || `Player ${i + 1}`;
-        db = sE(db, n, 800 + Math.floor(Math.random() * 800), true);
+        db = setElo(db, n, 800 + Math.floor(Math.random() * 800), true);
         pl.push({
           name: n,
           score: 0,
@@ -456,6 +465,7 @@ function reducer(st, a) {
         }),
       };
     }
+    // ── Session / settings ──
     case "FULL_RESET":
       try {
         localStorage.removeItem(BK);
@@ -481,14 +491,14 @@ function reducer(st, a) {
       };
     case "TOGGLE_FEATURE": {
       const ov = { ...st.featureOverrides };
-      const base = st.tournaments[st.tournamentId]?.features || {};
+      const base = featureBase(st);
       if (ov[a.key] !== undefined) delete ov[a.key];
       else ov[a.key] = !base[a.key];
       return { ...st, featureOverrides: ov };
     }
     case "SET_FEATURE": {
       const ov = { ...st.featureOverrides };
-      const base = st.tournaments[st.tournamentId]?.features || {};
+      const base = featureBase(st);
       if (a.value === base[a.key]) delete ov[a.key];
       else ov[a.key] = a.value;
       return { ...st, featureOverrides: ov };

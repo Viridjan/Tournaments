@@ -1,17 +1,14 @@
-// Rankings table with inline prize allocations in Status column
-// Standings — rankings with inline prizes, ELO deltas
-// Prizes show as green tags (e.g. '1x Pauper', '2x Booster')
+// Standings — rankings, ELO deltas, inline prize tags
 function StandingsTab({ state, dispatch, config }) {
-  const c = config.features,
-    ac = state.players.filter((p) => !p.eliminated),
-    gp = c.grandPrix,
-    gs = (p) => p.score,
-    activeElo = state.eloDb[c.eloDB || "ELO"] || {};
-  const so = [...state.players].sort(
-      (a, b) => gs(b) - gs(a) || b.w - a.w || gE(activeElo, a.name) - gE(activeElo, b.name),
+  const cfg = config.features,
+    activePlayers = state.players.filter((p) => !p.eliminated),
+    gp = cfg.grandPrix,
+    activeElo = state.eloDb[cfg.eloDB || "ELO"] || {};
+  const sorted = [...state.players].sort(
+      (a, b) => b.score - a.score || b.w - a.w || getElo(activeElo, a.name) - getElo(activeElo, b.name),
     ),
-    w = ac.length === 1 ? ac[0] : null;
-  const al = c.prizes
+    winner = activePlayers.length === 1 ? activePlayers[0] : null;
+  const prizeCalc = cfg.prizes
     ? calcAlloc(
         state.players,
         state.prizes,
@@ -23,13 +20,9 @@ function StandingsTab({ state, dispatch, config }) {
         state.roundUpPctRoundUp,
       )
     : null;
-  const prizeFor = (i) => {
-    if (!al?.allocs?.[i]) return null;
-    return al.allocs[i];
-  };
   return (
     <div>
-      {w && (
+      {winner && (
         <div
           style={{
             background: C.gBg,
@@ -42,7 +35,7 @@ function StandingsTab({ state, dispatch, config }) {
             marginBottom: 16,
           }}
         >
-          🏆 Winner: {w.name}
+          🏆 Winner: {winner.name}
         </div>
       )}
       <div
@@ -60,7 +53,7 @@ function StandingsTab({ state, dispatch, config }) {
         </div>
         <div style={S.metric}>
           <div style={S.metricLabel}>Active</div>
-          <div style={{ fontSize: 22, fontWeight: 500 }}>{ac.length || "—"}</div>
+          <div style={{ fontSize: 22, fontWeight: 500 }}>{activePlayers.length || "—"}</div>
         </div>
       </div>
       <Card>
@@ -72,8 +65,8 @@ function StandingsTab({ state, dispatch, config }) {
                   "#",
                   "Player",
                   "ELO",
-                  c.scoring === "lifepoints" ? "LP" : "Pts",
-                  c.scoring === "points" ? "1/2/3/L" : "W/D/L",
+                  cfg.scoring === "lifepoints" ? "LP" : "Pts",
+                  cfg.scoring === "points" ? "1/2/3/L" : "W/D/L",
                   "Status",
                 ].map((h, hi) => (
                   <th
@@ -90,11 +83,11 @@ function StandingsTab({ state, dispatch, config }) {
               </tr>
             </thead>
             <tbody>
-              {so.map((p, i) => {
-                const ds = gs(p);
-                const pr = prizeFor(i);
-                const elo = gE(activeElo, p.name);
-                const eloDelta = c.elo && p.eloStart != null ? elo - p.eloStart : null;
+              {sorted.map((p, i) => {
+                const ds = p.score;
+                const pr = prizeCalc?.allocs?.[i] || null;
+                const elo = getElo(activeElo, p.name);
+                const eloDelta = cfg.elo && p.eloStart != null ? elo - p.eloStart : null;
                 return (
                   <tr key={p.name}>
                     <td
@@ -124,9 +117,9 @@ function StandingsTab({ state, dispatch, config }) {
                       )}
                     </td>
                     <td style={{ padding: "7px 8px", borderBottom: `0.5px solid ${C.bL}` }}>
-                      {c.scoring === "lifepoints" ? (
+                      {cfg.scoring === "lifepoints" ? (
                         <>
-                          <Hearts score={p.score} max={c.startScore} />{" "}
+                          <Hearts score={p.score} max={cfg.startScore} />{" "}
                           <span style={{ fontSize: 11, color: C.faint }}>({p.score})</span>
                         </>
                       ) : (
@@ -143,7 +136,7 @@ function StandingsTab({ state, dispatch, config }) {
                         color: C.muted,
                       }}
                     >
-                      {c.scoring === "points"
+                      {cfg.scoring === "points"
                         ? `${p.p1||0}/${p.p2||0}/${p.p3||0}/${p.pLast||0}`
                         : `${p.w}/${p.d}/${p.l}`}
                     </td>
@@ -181,9 +174,9 @@ function StandingsTab({ state, dispatch, config }) {
               })}
             </tbody>
           </table>
-          {al && (
+          {prizeCalc && (
             <div style={{ fontSize: 11, color: C.muted, marginTop: 8, textAlign: "right" }}>
-              Prize pool: €{al.totalPool.toFixed(2)} · Allocated: €{al.grandTotal.toFixed(2)}
+              Prize pool: €{prizeCalc.totalPool.toFixed(2)} · Allocated: €{prizeCalc.grandTotal.toFixed(2)}
             </div>
           )}
       </Card>

@@ -3,24 +3,23 @@
 function gpBestOf(scores, last, drop) {
   const l = Math.max(2, Number(last) || 4);
   const d = Math.max(0, Number(drop) || 1);
-  const keep = l - d;
-  if (scores.length <= keep) return scores.reduce((a, b) => a + b, 0);
-  const window = scores.slice(-l);
-  const sorted = [...window].sort((a, b) => a - b);
+  if (scores.length <= l - d) return scores.reduce((a, b) => a + b, 0);
+  const recent = scores.slice(-l);
+  const sorted = [...recent].sort((a, b) => a - b);
   return sorted.slice(d).reduce((a, b) => a + b, 0);
 }
-function eExp(a, b, scale) {
+function eloExpected(a, b, scale) {
   return 1 / (1 + Math.pow(10, (b - a) / (scale || ES)));
 }
-function gE(d, n) {
+function getElo(d, n) {
   return d[n.toLowerCase()]?.elo ?? ED;
 }
-function sE(d, n, e, t) {
+function setElo(d, n, e, t) {
   return { ...d, [n.toLowerCase()]: { elo: e, name: n, test: !!t } };
 }
 function eCalc(a, b, s, kMax, scale) {
   const k = kMax || EM;
-  const e = eExp(a, b, scale),
+  const e = eloExpected(a, b, scale),
     r = k * (s - e),
     d = Math.round(Math.max(-k, Math.min(k, r)));
   return { dA: d, dB: -d };
@@ -67,12 +66,12 @@ function getPrev(h, a) {
   return m;
 }
 function getByes(h, a) {
-  const c = {};
-  a.forEach(p => (c[p.name] = 0));
+  const counts = {};
+  a.forEach(p => (counts[p.name] = 0));
   h.forEach(r => r.forEach(m => {
-    if (m.isBye && c[m.players[0]] !== undefined) c[m.players[0]]++;
+    if (m.isBye && counts[m.players[0]] !== undefined) counts[m.players[0]]++;
   }));
-  return c;
+  return counts;
 }
 function splitGroups(n, max, round) {
   if (n <= 0) return [];
@@ -86,27 +85,27 @@ function splitGroups(n, max, round) {
   const base = Math.floor(n / g), extra = n % g;
   return Array.from({ length: g }, (_, i) => (i < extra ? base + 1 : base));
 }
-function genPairings(pl, h, ph, c, db) {
-  const groupSize = Math.max(2, Number(c.matchMax) || 2);
-  const matchRound = c.matchRound || "none";
-  const ac = pl.filter(p => !p.eliminated);
-  const so = [...ac].sort((a, b) =>
+function genPairings(pl, h, ph, cfg, db) {
+  const groupSize = Math.max(2, Number(cfg.matchMax) || 2);
+  const matchRound = cfg.matchRound || "none";
+  const activePlayers = pl.filter(p => !p.eliminated);
+  const sorted = [...activePlayers].sort((a, b) =>
     ph === "roundrobin"
-      ? gE(db, b.name) - gE(db, a.name)
+      ? getElo(db, b.name) - getElo(db, a.name)
       : b.w / (b.w + b.d + b.l || 1) - a.w / (a.w + a.d + a.l || 1) || b.score - a.score
   );
-  const pr = getPrev(h, ac);
+  const pr = getPrev(h, activePlayers);
   const pa = [];
-  let tp = so;
+  let tp = sorted;
 
-  if (groupSize <= 2 && so.length % 2 === 1) {
-    const bc = getByes(h, ac);
+  if (groupSize <= 2 && sorted.length % 2 === 1) {
+    const bc = getByes(h, activePlayers);
     const mb = Math.min(...Object.values(bc));
     let byeName = null;
-    for (let i = so.length - 1; i >= 0; i--)
-      if (bc[so[i].name] <= mb) { byeName = so[i].name; break; }
-    if (!byeName) byeName = so[so.length - 1].name;
-    tp = so.filter(p => p.name !== byeName);
+    for (let i = sorted.length - 1; i >= 0; i--)
+      if (bc[sorted[i].name] <= mb) { byeName = sorted[i].name; break; }
+    if (!byeName) byeName = sorted[sorted.length - 1].name;
+    tp = sorted.filter(p => p.name !== byeName);
     pa.push({ players: [byeName], scores: {}, result: "done", isBye: true, rematch: false, eloDeltas: {}, noElo: false });
   }
 
@@ -171,12 +170,12 @@ function calcAlloc(pl, pr, rk, ec, prizePct, prizePctUp, ruPct, ruPctUp) {
   if (!tp || !rk.length || !pr.length) return null;
   const ppct = prizePct || 50;
   const rawAc = (pl.length * ppct) / 100;
-  const ac = prizePctUp ? Math.ceil(rawAc) : Math.floor(rawAc);
-  if (ac < 1) return null;
+  const allocated = prizePctUp ? Math.ceil(rawAc) : Math.floor(rawAc);
+  if (allocated < 1) return null;
   const rupct = ruPct || 50;
-  const rawRu = (ac * rupct) / 100;
+  const rawRu = (allocated * rupct) / 100;
   const ruCount = ruPctUp ? Math.ceil(rawRu) : Math.floor(rawRu);
-  const ar = rk.slice(0, ac),
+  const ar = rk.slice(0, allocated),
     inv = pr.map((p) => ({ ...p }));
   const gbr = {};
   const avoidMap = {};
@@ -256,10 +255,10 @@ function calcAlloc(pl, pr, rk, ec, prizePct, prizePctUp, ruPct, ruPctUp) {
         });
     }
     if (!ch.length) {
-      const c = inv.filter((p) => p.maxQty > 0 && p.value > 0).sort((a, b) => a.value - b.value)[0];
-      if (c) {
-        ch.push({ name: c.name, value: c.value, qty: 1, total: c.value });
-        c.maxQty--;
+      const cheapest = inv.filter((p) => p.maxQty > 0 && p.value > 0).sort((a, b) => a.value - b.value)[0];
+      if (cheapest) {
+        ch.push({ name: cheapest.name, value: cheapest.value, qty: 1, total: cheapest.value });
+        cheapest.maxQty--;
       }
     }
     const av = ch.reduce((s, c) => s + c.total, 0);

@@ -15,7 +15,7 @@ function SeedsManager({ state, dispatch }) {
       setStatus("⚠ No players");
       return;
     }
-    const id = mkId();
+    const id = makeId();
     const snap = buildSnap(state);
     const data = JSON.stringify(snap);
     const t = state.tournaments?.[state.tournamentId];

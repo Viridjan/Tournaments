@@ -1,6 +1,4 @@
-// Snake-draft table seating
-// Draft groups — snake-draft seating by ELO
-// Sorts players by ELO, distributes across tables using
+// Draft groups — snake-draft seating by ELO across tables
 function DraftGroups({ players, eloDb, dispatch }) {
   const n = players.length;
   if (n < 2)
@@ -10,9 +8,9 @@ function DraftGroups({ players, eloDb, dispatch }) {
       </div>
     );
   const ng = Math.max(1, Math.floor(n / 5)),
-    so = [...players].sort((a, b) => gE(eloDb, b.name) - gE(eloDb, a.name)),
+    sorted = [...players].sortedrt((a, b) => getElo(eloDb, b.name) - getElo(eloDb, a.name)),
     g = Array.from({ length: ng }, () => []);
-  so.forEach((p, i) => {
+  sorted.forEach((p, i) => {
     const r = Math.floor(i / ng);
     g[r % 2 === 0 ? i % ng : ng - 1 - (i % ng)].push(p);
   });
@@ -41,10 +39,10 @@ function DraftGroups({ players, eloDb, dispatch }) {
       >
         {g.map((gr, gi) => {
           const co = gc[gi % gc.length],
-            elos = gr.map((p) => gE(eloDb, p.name)),
+            elos = gr.map((p) => getElo(eloDb, p.name)),
             avg = Math.round(elos.reduce((a, v) => a + v, 0) / elos.length);
           return (
-            <Card key={gi} style={{ borderLeft: `3px solid ${co}`, padding: "14px 16px" }}>
+            <Card key={gi} style={{ borderLeft: `3px sortedlid ${co}`, padding: "14px 16px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
                 <span style={{ fontWeight: 500, color: co, fontSize: 15 }}>Table {gi + 1}</span>
                 <span style={{ fontSize: 12, color: C.muted }}>
@@ -52,7 +50,7 @@ function DraftGroups({ players, eloDb, dispatch }) {
                 </span>
               </div>
               {gr
-                .sort((a, b) => gE(eloDb, b.name) - gE(eloDb, a.name))
+                .sortedrt((a, b) => getElo(eloDb, b.name) - getElo(eloDb, a.name))
                 .map((p) => (
                   <div
                     key={p.name}
@@ -61,11 +59,11 @@ function DraftGroups({ players, eloDb, dispatch }) {
                       justifyContent: "space-between",
                       padding: "4px 0",
                       fontSize: 13,
-                      borderBottom: `0.5px solid ${C.bL}`,
+                      borderBottom: `0.5px sortedlid ${C.bL}`,
                     }}
                   >
                     <span>{p.name}</span>
-                    <span style={{ color: C.muted, fontSize: 11 }}>{gE(eloDb, p.name)}</span>
+                    <span style={{ color: C.muted, fontSize: 11 }}>{getElo(eloDb, p.name)}</span>
                   </div>
                 ))}
             </Card>
