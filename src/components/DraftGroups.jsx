@@ -8,7 +8,7 @@ function DraftGroups({ players, eloDb, dispatch }) {
       </div>
     );
   const ng = Math.max(1, Math.floor(n / 5)),
-    sorted = [...players].sortedrt((a, b) => getElo(eloDb, b.name) - getElo(eloDb, a.name)),
+    sorted = [...players].sort((a, b) => getElo(eloDb, b.name) - getElo(eloDb, a.name)),
     g = Array.from({ length: ng }, () => []);
   sorted.forEach((p, i) => {
     const r = Math.floor(i / ng);
@@ -42,7 +42,7 @@ function DraftGroups({ players, eloDb, dispatch }) {
             elos = gr.map((p) => getElo(eloDb, p.name)),
             avg = Math.round(elos.reduce((a, v) => a + v, 0) / elos.length);
           return (
-            <Card key={gi} style={{ borderLeft: `3px sortedlid ${co}`, padding: "14px 16px" }}>
+            <Card key={gi} style={{ borderLeft: `3px solid ${co}`, padding: "14px 16px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
                 <span style={{ fontWeight: 500, color: co, fontSize: 15 }}>Table {gi + 1}</span>
                 <span style={{ fontSize: 12, color: C.muted }}>
@@ -50,7 +50,7 @@ function DraftGroups({ players, eloDb, dispatch }) {
                 </span>
               </div>
               {gr
-                .sortedrt((a, b) => getElo(eloDb, b.name) - getElo(eloDb, a.name))
+                .sort((a, b) => getElo(eloDb, b.name) - getElo(eloDb, a.name))
                 .map((p) => (
                   <div
                     key={p.name}
@@ -59,7 +59,7 @@ function DraftGroups({ players, eloDb, dispatch }) {
                       justifyContent: "space-between",
                       padding: "4px 0",
                       fontSize: 13,
-                      borderBottom: `0.5px sortedlid ${C.bL}`,
+                      borderBottom: `0.5px solid ${C.bL}`,
                     }}
                   >
                     <span>{p.name}</span>
