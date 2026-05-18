@@ -627,9 +627,17 @@ function reducer(st, a) {
             const p = pl.find(x => x.name === n);
             if (!p) return;
             const isTop = parseFloat(m.scores[n] || 0) === topScore;
-            if (isTop && multi) { p.d++; p.score += c.drawPoints ?? 1; }
-            else if (isTop)     { p.w++; p.score += c.winPoints ?? 3; }
-            else                { p.l++; p.score += c.lossPoints ?? 0; }
+            let pts;
+            if (isTop && multi) { p.d++; pts = c.drawPoints ?? 1; }
+            else if (isTop)     { p.w++; pts = c.winPoints ?? 3; }
+            else                { p.l++; pts = c.lossPoints ?? 0; }
+            if (c.grandPrix) {
+              if (!p.gpScores) p.gpScores = [];
+              p.gpScores.push(pts);
+              p.score = gpBestOf(p.gpScores, c.gpBestOfLast, c.gpDropWorst);
+            } else {
+              p.score += pts;
+            }
           });
         } else if (sc === "lifepoints") {
           const draw = so.every(n => parseFloat(m.scores[n] || 0) === topScore);
