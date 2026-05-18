@@ -121,6 +121,10 @@ function reducer(st, a) {
         w: 0,
         d: 0,
         l: 0,
+        p1: 0,
+        p2: 0,
+        p3: 0,
+        pLast: 0,
         eliminated: false,
         firstCount: 0,
         eloStart: gE(activeElo, p.name),
@@ -207,7 +211,11 @@ function reducer(st, a) {
               } else {
                 p.score += pts;
               }
-              pts > 0 ? p.w++ : p.l++;
+              if (isLast || g.score === 0) p.pLast = (p.pLast || 0) + 1;
+              else if (rank === 1)         p.p1 = (p.p1 || 0) + 1;
+              else if (rank === 2)         p.p2 = (p.p2 || 0) + 1;
+              else if (rank === 3)         p.p3 = (p.p3 || 0) + 1;
+              else                         p.pLast = (p.pLast || 0) + 1;
             });
             rank += g.players.length;
           });

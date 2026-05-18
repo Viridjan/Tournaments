@@ -72,7 +72,7 @@ function StandingsTab({ state, dispatch, config }) {
                   "Player",
                   "ELO",
                   c.scoring === "lifepoints" ? "LP" : "Pts",
-                  "W/D/L",
+                  c.scoring === "points" ? "1/2/3/L" : "W/D/L",
                   "Status",
                 ].map((h, hi) => (
                   <th
@@ -142,7 +142,9 @@ function StandingsTab({ state, dispatch, config }) {
                         color: C.muted,
                       }}
                     >
-                      {p.w}/{p.d}/{p.l}
+                      {c.scoring === "points"
+                        ? `${p.p1||0}/${p.p2||0}/${p.p3||0}/${p.pLast||0}`
+                        : `${p.w}/${p.d}/${p.l}`}
                     </td>
                     <td style={{ padding: "7px 8px", borderBottom: `0.5px solid ${C.bL}` }}>
                       {p.eliminated ? (
