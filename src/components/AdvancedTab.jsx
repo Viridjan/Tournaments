@@ -5,7 +5,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
   const [dbOpen, setDbOpen] = React.useState(false);
   const f = config.features;
   const sf = (k, v) => dispatch({ type: "SET_FEATURE", key: k, value: v });
-  const NumF = ({ label, k, desc }) => (
+  const NumF = ({ label, k, desc, suffix }) => (
     <div style={S.fieldRow}>
       <span style={{ flex: 1, fontSize: 13 }}>
         {label}
@@ -21,6 +21,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
         }}
         style={S.inputSm}
       />
+      {suffix && <span style={{ fontSize: 12, color: C.muted }}>{suffix}</span>}
       {state.featureOverrides[k] !== undefined && (
         <span
           style={S.modTag}
@@ -164,8 +165,8 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
               </select>
             </div>
           </div>
-          <NumF label="Timer (minutes)" k="timerMinutes" />
-          <NumF label="Round-robin rounds" k="rrRounds" />
+          <NumF label="Match timer" k="timerMinutes" suffix="min" />
+          <NumF label="Round-robin" k="rrRounds" suffix="rounds" />
           <div style={S.sectionLabel}>Scoring</div>
           <SelF label="Scoring mode" k="scoring" options={["lifepoints", "swiss", "points"]} />
           <div
@@ -177,7 +178,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
               borderBottom: `0.5px solid ${C.bL}`,
             }}
           >
-            <span style={{ flex: 1, fontSize: 13 }}>Points</span>
+            <span style={{ flex: 1, fontSize: 13 }}>Win / Draw / Loss</span>
             {[["winPoints", "Win"], ["drawPoints", "Draw"], ["lossPoints", "Loss"]].map(([k, lbl]) => (
               <div key={k} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
                 <span style={{ fontSize: 10, color: C.muted }}>{lbl}</span>
@@ -314,8 +315,8 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
               onClick={(e) => e.stopPropagation()}
               style={{ width: 15, height: 15, accentColor: C.accent, cursor: "pointer", margin: 0 }}
             />
-            <span style={{ flex: 1, fontSize: 13 }}>GP enabled</span>
-            {[["gpBestOfLast", "Last", 4], ["gpDropWorst", "Drop", 1]].map(([k, lbl, def]) => (
+            <span style={{ flex: 1, fontSize: 13 }}>Grand Prix mode</span>
+            {[["gpBestOfLast", "Best of", 4], ["gpDropWorst", "Drop", 1]].map(([k, lbl, def]) => (
               <div key={k} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, opacity: f.grandPrix ? 1 : 0.35 }}>
                 <span style={{ fontSize: 10, color: C.muted }}>{lbl}</span>
                 <input
