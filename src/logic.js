@@ -269,13 +269,13 @@ function calcAlloc(pl, pr, rk, ec, prizePct, prizePctUp, ruPct, ruPctUp) {
   if (tiebreaker)
     for (let h = 0; h < allocs.length - 1; h++)
       for (let l = h + 1; l < allocs.length; l++)
-        while (al[h].actualValue < al[l].actualValue && tiebreaker.maxQty > 0) {
-          const ex = al[h].chosen.find((c) => c.name === tiebreaker.name);
+        while (allocs[h].actualValue < allocs[l].actualValue && tiebreaker.maxQty > 0) {
+          const ex = allocs[h].chosen.find((c) => c.name === tiebreaker.name);
           if (ex) {
             ex.qty++;
             ex.total += tiebreaker.value;
-          } else al[h].chosen.push({ name: tiebreaker.name, value: tiebreaker.value, qty: 1, total: tiebreaker.value });
-          al[h].actualValue += tiebreaker.value;
+          } else allocs[h].chosen.push({ name: tiebreaker.name, value: tiebreaker.value, qty: 1, total: tiebreaker.value });
+          allocs[h].actualValue += tiebreaker.value;
           gt += tiebreaker.value;
           tiebreaker.maxQty--;
         }
