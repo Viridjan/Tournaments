@@ -73,6 +73,14 @@ const S = {
     color: C.purple,
     fontWeight: 500,
   },
+  fieldRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "5px 0",
+    borderBottom: `0.5px solid ${C.bL}`,
+  },
+  matchLabel: { fontSize: 11, fontWeight: 500, color: C.purple, marginBottom: 8 },
 };
 S.inputSm = { ...S.input, width: 56, fontSize: 13, padding: "4px 6px", textAlign: "center" };
 S.inputXs = { ...S.input, width: 36, fontSize: 13, padding: "4px 6px", textAlign: "center" };

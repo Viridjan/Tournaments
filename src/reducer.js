@@ -2,7 +2,7 @@
 // Initial state and reducer — all state transitions
 // All app state lives in this reducer. Key groups:
 
-//   Navigation: OPEN_TOURNAMENT, GO_HOME, SET_TAB
+//   Navigation: OPEN_TOURNAMENT, SET_TAB
 const init = {
   screen: "landing",
   tournamentId: null,
@@ -34,7 +34,6 @@ const init = {
   })(),
   activeTab: "players",
   matchSubTab: "pairings",
-  standingsSubTab: "rankings",
   prizes: [
     { name: "Pauper", value: 7, maxQty: 1, maxQtyPerPlayer: 1, guaranteed: "1", avoid: "" },
     { name: "Tournament", value: 5, maxQty: 1, maxQtyPerPlayer: 1, guaranteed: "2", avoid: "" },
@@ -68,14 +67,10 @@ function reducer(st, a) {
   switch (a.type) {
     case "OPEN_TOURNAMENT":
       return { ...st, screen: "tournament", tournamentId: a.id, activeTab: "players", featureOverrides: {} };
-    case "GO_HOME":
-      return { ...st, screen: "landing" };
     case "SET_TAB":
       return { ...st, activeTab: a.tab };
     case "SET_MATCH_SUBTAB":
       return { ...st, matchSubTab: a.tab };
-    case "SET_STANDINGS_SUBTAB":
-      return { ...st, standingsSubTab: a.tab };
     case "ADD_PLAYER": {
       const n = a.name.trim();
       if (!n || st.players.some((p) => p.name.toLowerCase() === n.toLowerCase())) return st;

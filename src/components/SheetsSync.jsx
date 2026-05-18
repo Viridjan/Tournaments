@@ -106,9 +106,9 @@ function SheetsSync({ state, dispatch, config }) {
   };
   return (
     <Card>
-      <h3 style={{ fontSize: 15, fontWeight: 500, marginBottom: 12 }}>Database</h3>
+      <h3 style={S.cardTitle}>Database</h3>
       <label
-        style={{ fontSize: 13, color: "#444", fontWeight: 500, marginBottom: 6, display: "block" }}
+        style={{ fontSize: 13, color: C.text, fontWeight: 500, marginBottom: 6, display: "block" }}
       >
         Google Sheet URL
       </label>

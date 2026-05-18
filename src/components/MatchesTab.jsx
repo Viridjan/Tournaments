@@ -14,7 +14,7 @@ function MatchCard({ match, index, dispatch, scoring, eloDb }) {
   if (scoring === "points") {
     return (
       <Card variant="compact">
-        <div style={{ fontSize: 11, fontWeight: 500, color: C.purple, marginBottom: 8 }}>
+        <div style={S.matchLabel}>
           Match {index + 1} · {match.players.length}p
           {match.rematch && <> <Tag variant="amber">re</Tag></>}
         </div>
@@ -89,7 +89,7 @@ function MatchCard({ match, index, dispatch, scoring, eloDb }) {
   };
   return (
     <Card style={{ padding: "10px 14px" }}>
-      <div style={{ fontSize: 11, fontWeight: 500, color: C.purple, marginBottom: 8 }}>
+      <div style={S.matchLabel}>
         Match {index + 1} · {match.players.length}p
         {match.rematch && <> <Tag variant="amber">re</Tag></>}
       </div>
@@ -181,7 +181,7 @@ function ML({ state }) {
                 return (
                   <div key={mi} style={{ fontSize: 13, padding: "4px 0", display: "flex", gap: 12, borderBottom: `0.5px solid ${C.bL}`, alignItems: "center" }}>
                     <span style={{ fontWeight: 500, color: isDraw ? C.text : C.green }}>{w || p1}</span>
-                    <span style={{ color: "#555" }}>{l || p2}</span>
+                    <span style={{ color: C.muted }}>{l || p2}</span>
                     {wd != null && (
                       <span style={{ fontSize: 11, fontWeight: 500, color: wd > 0 ? C.green : wd < 0 ? C.red : C.muted }}>
                         {wd > 0 ? "+" : ""}{wd}

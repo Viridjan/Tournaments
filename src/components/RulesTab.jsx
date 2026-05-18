@@ -48,7 +48,7 @@ function RulesTab({ state }) {
           gap: 8,
         }}
       >
-        <h3 style={{ margin: 0 }}>Rules — {tn}</h3>
+        <h3 style={{ ...S.cardTitle, marginBottom: 0 }}>Rules — {tn}</h3>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <span style={{ fontSize: 11, color: C.muted }}>{status}</span>
           <Btn onClick={() => load(true)} style={{ fontSize: 11, padding: "3px 8px" }}>
@@ -60,7 +60,7 @@ function RulesTab({ state }) {
         <div
           style={{
             padding: 16,
-            background: "#fafaf7",
+            background: C.subtle,
             borderRadius: 8,
             color: C.muted,
             fontStyle: "italic",

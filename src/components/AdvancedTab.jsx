@@ -6,15 +6,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
   const f = config.features;
   const sf = (k, v) => dispatch({ type: "SET_FEATURE", key: k, value: v });
   const NumF = ({ label, k, desc }) => (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        padding: "5px 0",
-        borderBottom: `0.5px solid ${C.bL}`,
-      }}
-    >
+    <div style={S.fieldRow}>
       <span style={{ flex: 1, fontSize: 13 }}>
         {label}
         {desc && <span style={{ fontSize: 10, color: C.faint, marginLeft: 4 }}>{desc}</span>}
@@ -39,17 +31,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
     </div>
   );
   const BoolF = ({ label, k }) => (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        padding: "5px 0",
-        borderBottom: `0.5px solid ${C.bL}`,
-        cursor: "pointer",
-      }}
-      onClick={() => dispatch({ type: "TOGGLE_FEATURE", key: k })}
-    >
+    <div style={{ ...S.fieldRow, cursor: "pointer" }} onClick={() => dispatch({ type: "TOGGLE_FEATURE", key: k })}>
       <input
         type="checkbox"
         checked={!!f[k]}
@@ -68,15 +50,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
     </div>
   );
   const SelF = ({ label, k, options }) => (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        padding: "5px 0",
-        borderBottom: `0.5px solid ${C.bL}`,
-      }}
-    >
+    <div style={S.fieldRow}>
       <span style={{ flex: 1, fontSize: 13 }}>{label}</span>
       <select
         value={f[k] || ""}
@@ -192,7 +166,6 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
           </div>
           <NumF label="Timer (minutes)" k="timerMinutes" />
           <NumF label="Round-robin rounds" k="rrRounds" />
-          <SelF label="Pairing mode" k="pairing" options={["1v1", "multi"]} />
           <div style={S.sectionLabel}>Scoring</div>
           <SelF label="Scoring mode" k="scoring" options={["lifepoints", "swiss", "points"]} />
           <div
@@ -350,35 +323,6 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
           <BoolF label="Spinner" k="spinner" />
           <div style={S.sectionLabel}>Grand Prix</div>
           <BoolF label="GP enabled" k="grandPrix" />
-          <div
-            style={{
-              display: "flex",
-              alignItems: "flex-end",
-              gap: 8,
-              padding: "5px 0",
-              borderBottom: `0.5px solid ${C.bL}`,
-            }}
-          >
-            <span style={{ flex: 1, fontSize: 13 }}>Sessions</span>
-            {[["gpBestOfLast", "Best of"], ["gpDropWorst", "Drop"]].map(([k, lbl]) => (
-              <div key={k} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                <span style={{ fontSize: 10, color: C.muted }}>{lbl}</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={f[k] ?? ""}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    sf(k, v === "" ? "" : isNaN(Number(v)) ? v : Number(v));
-                  }}
-                  style={S.inputSm}
-                />
-              </div>
-            ))}
-            {["gpBestOfLast", "gpDropWorst"].some((k) => state.featureOverrides[k] !== undefined) && (
-              <span style={S.modTag}>mod</span>
-            )}
-          </div>
           <div style={S.sectionLabel}>ELO</div>
           <BoolF label="ELO tracking" k="elo" />
           <div
@@ -456,44 +400,9 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
                   <tr>
-                    <th
-                      style={{
-                        fontSize: 11,
-                        color: C.muted,
-                        fontWeight: 500,
-                        textAlign: "left",
-                        padding: "4px 8px 4px 0",
-                        borderBottom: `0.5px solid ${C.border}`,
-                      }}
-                    >
-                      Rank
-                    </th>
-                    <th
-                      style={{
-                        fontSize: 11,
-                        color: C.muted,
-                        fontWeight: 500,
-                        textAlign: "center",
-                        padding: "4px 6px",
-                        borderBottom: `0.5px solid ${C.border}`,
-                        width: 70,
-                      }}
-                    >
-                      %
-                    </th>
-                    <th
-                      style={{
-                        fontSize: 11,
-                        color: C.muted,
-                        fontWeight: 500,
-                        textAlign: "center",
-                        padding: "4px 6px",
-                        borderBottom: `0.5px solid ${C.border}`,
-                        width: 80,
-                      }}
-                    >
-                      Payout
-                    </th>
+                    <th style={{ ...S.tableHeader, padding: "4px 8px 4px 0", borderBottom: `0.5px solid ${C.border}` }}>Rank</th>
+                    <th style={{ ...S.tableHeader, textAlign: "center", padding: "4px 6px", borderBottom: `0.5px solid ${C.border}`, width: 70 }}>%</th>
+                    <th style={{ ...S.tableHeader, textAlign: "center", padding: "4px 6px", borderBottom: `0.5px solid ${C.border}`, width: 80 }}>Payout</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -883,7 +792,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
               style={{
                 margin: 0,
                 fontSize: 13,
-                color: "#444",
+                color: C.text,
                 fontWeight: 500,
                 whiteSpace: "nowrap",
               }}

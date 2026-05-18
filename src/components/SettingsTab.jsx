@@ -61,27 +61,27 @@ function SettingsTab({ state, dispatch, config }) {
             style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}
           >
             <div style={S.metric}>
-              <div style={{ fontSize: 11, color: C.muted }}>Scoring</div>
+              <div style={S.metricLabel}>Scoring</div>
               <div style={{ fontSize: 14, fontWeight: 500 }}>{f.scoring}</div>
             </div>
             <div style={S.metric}>
-              <div style={{ fontSize: 11, color: C.muted }}>Timer</div>
+              <div style={S.metricLabel}>Timer</div>
               <div style={{ fontSize: 14, fontWeight: 500 }}>{f.timerMinutes}m</div>
             </div>
             <div style={S.metric}>
-              <div style={{ fontSize: 11, color: C.muted }}>Timeout</div>
+              <div style={S.metricLabel}>Timeout</div>
               <div style={{ fontSize: 14, fontWeight: 500, color: f.timeout ? C.green : C.faint }}>
                 {f.timeout && f.timeoutTime ? f.timeoutTime : "OFF"}
               </div>
             </div>
-            {f.pairing === "multi" && (
+            {f.matchMax > 2 && (
               <>
                 <div style={S.metric}>
-                  <div style={{ fontSize: 11, color: C.muted }}>Min</div>
+                  <div style={S.metricLabel}>Min</div>
                   <div style={{ fontSize: 14, fontWeight: 500 }}>{f.matchMin}</div>
                 </div>
                 <div style={S.metric}>
-                  <div style={{ fontSize: 11, color: C.muted }}>Max</div>
+                  <div style={S.metricLabel}>Max</div>
                   <div style={{ fontSize: 14, fontWeight: 500 }}>{f.matchMax}</div>
                 </div>
               </>

@@ -7,7 +7,7 @@ function TestTab({ state, dispatch }) {
   return (
     <div>
       <Card style={{ borderColor: "#fcc" }}>
-        <h3 style={{ color: C.red, marginBottom: 4 }}>🧪 Test mode</h3>
+        <h3 style={{ ...S.cardTitle, color: C.red, marginBottom: 4 }}>🧪 Test mode</h3>
         <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>
           Populate with dummy players for quick testing. ELO from test runs persists unless you
           reset.

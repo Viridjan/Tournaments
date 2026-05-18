@@ -129,7 +129,7 @@ function SeedsManager({ state, dispatch }) {
   }, []);
   return (
     <Card>
-      <h3 style={{ fontSize: 15, fontWeight: 500, marginBottom: 12 }}>Seeds</h3>
+      <h3 style={S.cardTitle}>Seeds</h3>
       <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
         <Btn onClick={save} style={{ fontSize: 12 }}>
           💾 Save snapshot

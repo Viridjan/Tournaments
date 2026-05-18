@@ -151,7 +151,7 @@ function PlayersTab({ state, dispatch, config, eloLoadedCols }) {
                       alignItems: "center",
                       gap: 4,
                       padding: "7px 6px",
-                      borderBottom: "0.5px solid #eee",
+                      borderBottom: `0.5px solid ${C.bL}`,
                     }}
                   >
                     <span

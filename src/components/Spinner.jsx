@@ -95,7 +95,7 @@ function SpinnerTab({ state, dispatch }) {
   return (
     <div>
       <Card>
-        <h3 style={{ color: C.purple, marginBottom: 4 }}>🎲 Mode Spinner</h3>
+        <h3 style={{ ...S.cardTitle, color: C.purple, marginBottom: 4 }}>🎲 Mode Spinner</h3>
         <p style={{ fontSize: 13, color: C.muted, marginBottom: 24 }}>
           Spin to randomly pick a game mode.
         </p>
@@ -148,7 +148,7 @@ function SpinnerTab({ state, dispatch }) {
       </Card>
       <Card>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
-          <h3 style={{ margin: 0 }}>Options</h3>
+          <h3 style={{ ...S.cardTitle, marginBottom: 0 }}>Options</h3>
           <Btn
             onClick={() => {
               const n = prompt("New mode name:");
