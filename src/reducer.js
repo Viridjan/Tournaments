@@ -189,15 +189,17 @@ function reducer(st, a) {
       };
     case "ADD_EXTRA_POINTS": {
       const delta = a.delta || 1;
+      const currentEp = st.pairings[a.index]?.extraPoints?.[a.player] || 0;
+      const isOn = currentEp > 0;
+      const diff = isOn ? -currentEp : delta;
       return {
         ...st,
         players: st.players.map((p) =>
-          p.name !== a.player ? p : { ...p, score: p.score + delta, extraScore: (p.extraScore || 0) + delta }
+          p.name !== a.player ? p : { ...p, score: p.score + diff, extraScore: (p.extraScore || 0) + diff }
         ),
         pairings: st.pairings.map((m, i) => {
           if (i !== a.index) return m;
-          const ep = { ...(m.extraPoints || {}), [a.player]: ((m.extraPoints || {})[a.player] || 0) + delta };
-          return { ...m, extraPoints: ep };
+          return { ...m, extraPoints: { ...(m.extraPoints || {}), [a.player]: isOn ? 0 : delta } };
         }),
       };
     }

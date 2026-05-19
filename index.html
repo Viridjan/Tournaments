@@ -588,15 +588,17 @@ function reducer(st, a) {
       };
     case "ADD_EXTRA_POINTS": {
       const delta = a.delta || 1;
+      const currentEp = st.pairings[a.index]?.extraPoints?.[a.player] || 0;
+      const isOn = currentEp > 0;
+      const diff = isOn ? -currentEp : delta;
       return {
         ...st,
         players: st.players.map((p) =>
-          p.name !== a.player ? p : { ...p, score: p.score + delta, extraScore: (p.extraScore || 0) + delta }
+          p.name !== a.player ? p : { ...p, score: p.score + diff, extraScore: (p.extraScore || 0) + diff }
         ),
         pairings: st.pairings.map((m, i) => {
           if (i !== a.index) return m;
-          const ep = { ...(m.extraPoints || {}), [a.player]: ((m.extraPoints || {})[a.player] || 0) + delta };
-          return { ...m, extraPoints: ep };
+          return { ...m, extraPoints: { ...(m.extraPoints || {}), [a.player]: isOn ? 0 : delta } };
         }),
       };
     }
@@ -3137,7 +3139,7 @@ function MatchCard({ match, index, dispatch, scoring, eloDb, extraPoints, extraP
                   onClick={() => dispatch({ type: "ADD_EXTRA_POINTS", index, player: n, delta: extraPointsValue || 1 })}
                   style={{ fontSize: 11, padding: "3px 8px", background: epC ? C.aBg : "transparent", border: `0.5px solid ${epC ? C.aBd : "#ddd"}`, borderRadius: 5, cursor: "pointer", color: epC ? C.amber : C.muted, fontFamily: "inherit", flexShrink: 0 }}
                 >
-                  +EP{epC ? ` (${epC})` : ""}
+                  {epC ? "EP" : "+EP"}
                 </button>
               )}
             </div>
@@ -3179,7 +3181,7 @@ function MatchCard({ match, index, dispatch, scoring, eloDb, extraPoints, extraP
           onClick={() => dispatch({ type: "ADD_EXTRA_POINTS", index, player: n, delta: extraPointsValue || 1 })}
           style={{ fontSize: 11, padding: "3px 8px", background: epC ? C.aBg : "transparent", border: `0.5px solid ${epC ? C.aBd : "#ddd"}`, borderRadius: 5, cursor: "pointer", color: epC ? C.amber : C.muted, fontFamily: "inherit", flexShrink: 0, alignSelf: "stretch", display: "flex", alignItems: "center" }}
         >
-          {epC ? epC : "+EP"}
+          {epC ? "EP" : "+EP"}
         </button>
       );
     };
@@ -3240,7 +3242,7 @@ function MatchCard({ match, index, dispatch, scoring, eloDb, extraPoints, extraP
                 onClick={() => dispatch({ type: "ADD_EXTRA_POINTS", index, player: n, delta: extraPointsValue || 1 })}
                 style={{ fontSize: 11, padding: "0 8px", background: epC ? C.aBg : "transparent", border: `0.5px solid ${epC ? C.aBd : "#ddd"}`, borderRadius: 5, cursor: "pointer", color: epC ? C.amber : C.muted, fontFamily: "inherit", flexShrink: 0 }}
               >
-                +EP{epC ? ` (${epC})` : ""}
+                {epC ? "EP" : "+EP"}
               </button>
             )}
           </div>

@@ -40,7 +40,7 @@ function MatchCard({ match, index, dispatch, scoring, eloDb, extraPoints, extraP
                   onClick={() => dispatch({ type: "ADD_EXTRA_POINTS", index, player: n, delta: extraPointsValue || 1 })}
                   style={{ fontSize: 11, padding: "3px 8px", background: epC ? C.aBg : "transparent", border: `0.5px solid ${epC ? C.aBd : "#ddd"}`, borderRadius: 5, cursor: "pointer", color: epC ? C.amber : C.muted, fontFamily: "inherit", flexShrink: 0 }}
                 >
-                  +EP{epC ? ` (${epC})` : ""}
+                  {epC ? "EP" : "+EP"}
                 </button>
               )}
             </div>
@@ -82,7 +82,7 @@ function MatchCard({ match, index, dispatch, scoring, eloDb, extraPoints, extraP
           onClick={() => dispatch({ type: "ADD_EXTRA_POINTS", index, player: n, delta: extraPointsValue || 1 })}
           style={{ fontSize: 11, padding: "3px 8px", background: epC ? C.aBg : "transparent", border: `0.5px solid ${epC ? C.aBd : "#ddd"}`, borderRadius: 5, cursor: "pointer", color: epC ? C.amber : C.muted, fontFamily: "inherit", flexShrink: 0, alignSelf: "stretch", display: "flex", alignItems: "center" }}
         >
-          {epC ? epC : "+EP"}
+          {epC ? "EP" : "+EP"}
         </button>
       );
     };
@@ -143,7 +143,7 @@ function MatchCard({ match, index, dispatch, scoring, eloDb, extraPoints, extraP
                 onClick={() => dispatch({ type: "ADD_EXTRA_POINTS", index, player: n, delta: extraPointsValue || 1 })}
                 style={{ fontSize: 11, padding: "0 8px", background: epC ? C.aBg : "transparent", border: `0.5px solid ${epC ? C.aBd : "#ddd"}`, borderRadius: 5, cursor: "pointer", color: epC ? C.amber : C.muted, fontFamily: "inherit", flexShrink: 0 }}
               >
-                +EP{epC ? ` (${epC})` : ""}
+                {epC ? "EP" : "+EP"}
               </button>
             )}
           </div>
