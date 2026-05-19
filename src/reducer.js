@@ -195,7 +195,7 @@ function reducer(st, a) {
       return {
         ...st,
         players: st.players.map((p) =>
-          p.name !== a.player ? p : { ...p, score: p.score + diff, extraScore: (p.extraScore || 0) + diff }
+          p.name !== a.player ? p : { ...p, score: p.score + diff }
         ),
         pairings: st.pairings.map((m, i) => {
           if (i !== a.index) return m;
@@ -244,7 +244,7 @@ function reducer(st, a) {
               if (cfg.grandPrix) {
                 if (!p.gpScores) p.gpScores = [];
                 p.gpScores.push(pts);
-                p.score = gpBestOf(p.gpScores, cfg.gpBestOfLast, cfg.gpDropWorst) + (p.extraScore || 0);
+                p.score = gpBestOf(p.gpScores, cfg.gpBestOfLast, cfg.gpDropWorst);
               } else {
                 p.score += pts;
               }
@@ -270,7 +270,7 @@ function reducer(st, a) {
             if (cfg.grandPrix) {
               if (!p.gpScores) p.gpScores = [];
               p.gpScores.push(pts);
-              p.score = gpBestOf(p.gpScores, cfg.gpBestOfLast, cfg.gpDropWorst) + (p.extraScore || 0);
+              p.score = gpBestOf(p.gpScores, cfg.gpBestOfLast, cfg.gpDropWorst);
             } else {
               p.score += pts;
             }
