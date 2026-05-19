@@ -3279,6 +3279,9 @@ function ML({ state }) {
                         <span style={{ fontWeight: 500 }}>{n}</span>
                         <span style={{ color: C.muted }}>
                           {m.scores[n] != null && m.scores[n] !== "" ? `${m.scores[n]}pt` : "—"}
+                          {(m.extraPoints?.[n] || 0) > 0 && (
+                            <span style={{ color: C.amber, fontWeight: 500, fontSize: 11, marginLeft: 4 }}>+EP</span>
+                          )}
                           {m.eloDeltas?.[n] != null && (
                             <span style={{ color: m.eloDeltas[n] > 0 ? C.green : m.eloDeltas[n] < 0 ? C.red : C.muted, fontWeight: 500, fontSize: 11, marginLeft: 4 }}>
                               {m.eloDeltas[n] > 0 ? "+" : ""}{m.eloDeltas[n]}
@@ -3321,6 +3324,11 @@ function ML({ state }) {
                       </span>
                     )}
                     {isDraw && <span style={{ color: C.amber, fontWeight: 500, fontSize: 11 }}>Draw</span>}
+                    {m.players.some(n => (m.extraPoints?.[n] || 0) > 0) && (
+                      <span style={{ color: C.amber, fontWeight: 500, fontSize: 11 }}>
+                        EP: {m.players.filter(n => (m.extraPoints?.[n] || 0) > 0).join(", ")}
+                      </span>
+                    )}
                     {m.rematch && <Tag variant="amber">re</Tag>}
                     {m.forfeit && <Tag variant="amber">forfeit</Tag>}
                   </div>
