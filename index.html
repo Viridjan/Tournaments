@@ -3137,7 +3137,7 @@ function MatchCard({ match, index, dispatch, scoring, eloDb, extraPoints, extraP
               {extraPoints && (
                 <button
                   onClick={() => dispatch({ type: "ADD_EXTRA_POINTS", index, player: n, delta: extraPointsValue || 1 })}
-                  style={{ fontSize: 11, padding: "3px 8px", background: epC ? C.aBg : "transparent", border: `0.5px solid ${epC ? C.aBd : "#ddd"}`, borderRadius: 5, cursor: "pointer", color: epC ? C.amber : C.muted, fontFamily: "inherit", flexShrink: 0 }}
+                  style={{ fontSize: 11, padding: "3px 0", width: 36, textAlign: "center", background: epC ? C.aBg : "transparent", border: `0.5px solid ${epC ? C.aBd : "#ddd"}`, borderRadius: 5, cursor: "pointer", color: epC ? C.amber : C.muted, fontFamily: "inherit", flexShrink: 0 }}
                 >
                   {epC ? "EP" : "+EP"}
                 </button>
@@ -3179,7 +3179,7 @@ function MatchCard({ match, index, dispatch, scoring, eloDb, extraPoints, extraP
       return (
         <button
           onClick={() => dispatch({ type: "ADD_EXTRA_POINTS", index, player: n, delta: extraPointsValue || 1 })}
-          style={{ fontSize: 11, padding: "3px 8px", background: epC ? C.aBg : "transparent", border: `0.5px solid ${epC ? C.aBd : "#ddd"}`, borderRadius: 5, cursor: "pointer", color: epC ? C.amber : C.muted, fontFamily: "inherit", flexShrink: 0, alignSelf: "stretch", display: "flex", alignItems: "center" }}
+          style={{ fontSize: 11, width: 36, textAlign: "center", background: epC ? C.aBg : "transparent", border: `0.5px solid ${epC ? C.aBd : "#ddd"}`, borderRadius: 5, cursor: "pointer", color: epC ? C.amber : C.muted, fontFamily: "inherit", flexShrink: 0, alignSelf: "stretch", display: "flex", alignItems: "center", justifyContent: "center" }}
         >
           {epC ? "EP" : "+EP"}
         </button>
@@ -3240,7 +3240,7 @@ function MatchCard({ match, index, dispatch, scoring, eloDb, extraPoints, extraP
             {extraPoints && (
               <button
                 onClick={() => dispatch({ type: "ADD_EXTRA_POINTS", index, player: n, delta: extraPointsValue || 1 })}
-                style={{ fontSize: 11, padding: "0 8px", background: epC ? C.aBg : "transparent", border: `0.5px solid ${epC ? C.aBd : "#ddd"}`, borderRadius: 5, cursor: "pointer", color: epC ? C.amber : C.muted, fontFamily: "inherit", flexShrink: 0 }}
+                style={{ fontSize: 11, padding: "0", width: 36, textAlign: "center", background: epC ? C.aBg : "transparent", border: `0.5px solid ${epC ? C.aBd : "#ddd"}`, borderRadius: 5, cursor: "pointer", color: epC ? C.amber : C.muted, fontFamily: "inherit", flexShrink: 0 }}
               >
                 {epC ? "EP" : "+EP"}
               </button>
