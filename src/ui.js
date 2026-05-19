@@ -141,8 +141,10 @@ function TabBar({ tabs, active, onSelect }) {
           onClick={() => !t.disabled && onSelect(t.id)}
           style={{
             ...S.btn,
+            flex: 1,
             fontSize: 13,
-            padding: "6px 14px",
+            padding: "6px 4px",
+            textAlign: "center",
             color: t.disabled ? "#ccc" : active === t.id ? C.text : C.muted,
             background: active === t.id ? C.subtle : "transparent",
             fontWeight: active === t.id ? 500 : 400,

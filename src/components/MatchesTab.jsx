@@ -157,7 +157,7 @@ function ML({ state }) {
   if (!state.matchLog.length)
     return <div style={{ textAlign: "center", padding: 32, color: C.faint }}>No activity.</div>;
   return (
-    <div>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, alignItems: "start" }}>
       {state.matchLog.map((ev, ei) => {
         if (ev.type === "round") {
           const rd = state.history[ri++];
@@ -165,7 +165,7 @@ function ML({ state }) {
           const isMulti = rd.some((m) => !m.isBye && m.players.length > 2);
           if (isMulti) {
             return (
-              <div key={ei} style={{ marginBottom: 12 }}>
+              <div key={ei}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, padding: "0 4px" }}>
                   <h3 style={{ ...S.cardTitle, marginBottom: 0 }}>{ev.label}</h3>
                   <span style={{ fontSize: 11, color: C.faint }}>{ev.ts}</span>
@@ -181,7 +181,7 @@ function ML({ state }) {
                         <span style={{ color: C.muted }}>
                           {m.scores[n] != null && m.scores[n] !== "" ? `${m.scores[n]}pt` : "—"}
                           {(m.extraPoints?.[n] || 0) > 0 && (
-                            <span style={{ color: C.amber, fontWeight: 500, fontSize: 11, marginLeft: 4 }}>+EP</span>
+                            <span style={{ color: C.green, fontWeight: 500, fontSize: 11, marginLeft: 4 }}>+EP</span>
                           )}
                           {m.eloDeltas?.[n] != null && (
                             <span style={{ color: m.eloDeltas[n] > 0 ? C.green : m.eloDeltas[n] < 0 ? C.red : C.muted, fontWeight: 500, fontSize: 11, marginLeft: 4 }}>
@@ -197,7 +197,7 @@ function ML({ state }) {
             );
           }
           return (
-            <Card key={ei} style={{ marginBottom: 12 }}>
+            <Card key={ei}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
                 <h3 style={{ fontSize: 15, fontWeight: 500 }}>{ev.label}</h3>
                 <span style={{ fontSize: 11, color: C.faint }}>{ev.ts}</span>
@@ -226,7 +226,7 @@ function ML({ state }) {
                     )}
                     {isDraw && <span style={{ color: C.amber, fontWeight: 500, fontSize: 11 }}>Draw</span>}
                     {m.players.some(n => (m.extraPoints?.[n] || 0) > 0) && (
-                      <span style={{ color: C.amber, fontWeight: 500, fontSize: 11 }}>
+                      <span style={{ color: C.green, fontWeight: 500, fontSize: 11 }}>
                         EP: {m.players.filter(n => (m.extraPoints?.[n] || 0) > 0).join(", ")}
                       </span>
                     )}
@@ -242,7 +242,7 @@ function ML({ state }) {
           bg = { start: C.gBg, abandon: C.aBg, "draft-end": C.bBg, "tournament-timeout": C.rBg },
           colors = { start: C.green, abandon: C.amber, "draft-end": C.blue, "tournament-timeout": C.red };
         return (
-          <div key={ei} style={{ background: bg[ev.type] || C.subtle, borderRadius: 8, padding: "8px 12px", marginBottom: 12, display: "flex", justifyContent: "space-between" }}>
+          <div key={ei} style={{ background: bg[ev.type] || C.subtle, borderRadius: 8, padding: "8px 12px", display: "flex", justifyContent: "space-between" }}>
             <span style={{ fontSize: 13, fontWeight: 500, color: colors[ev.type] || C.text }}>
               {icons[ev.type] || "•"} {ev.label}
             </span>
