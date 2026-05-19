@@ -243,7 +243,7 @@ function reducer(st, a) {
               if (!p) return;
               if (cfg.grandPrix) {
                 if (!p.gpScores) p.gpScores = [];
-                p.gpScores.push(pts);
+                p.gpScores.push(pts + (m.extraPoints?.[n] || 0));
                 p.score = gpBestOf(p.gpScores, cfg.gpBestOfLast, cfg.gpDropWorst);
               } else {
                 p.score += pts;
@@ -269,7 +269,7 @@ function reducer(st, a) {
             else                { p.l++; pts = cfg.lossPoints ?? 0; }
             if (cfg.grandPrix) {
               if (!p.gpScores) p.gpScores = [];
-              p.gpScores.push(pts);
+              p.gpScores.push(pts + (m.extraPoints?.[n] || 0));
               p.score = gpBestOf(p.gpScores, cfg.gpBestOfLast, cfg.gpDropWorst);
             } else {
               p.score += pts;
