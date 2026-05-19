@@ -187,6 +187,15 @@ function reducer(st, a) {
           return { ...m, scores, result: done ? "done" : null };
         }),
       };
+    case "ADD_EXTRA_POINTS":
+      return {
+        ...st,
+        pairings: st.pairings.map((m, i) => {
+          if (i !== a.index) return m;
+          const ep = { ...(m.extraPoints || {}), [a.player]: ((m.extraPoints || {})[a.player] || 0) + (a.delta || 1) };
+          return { ...m, extraPoints: ep };
+        }),
+      };
     case "NEXT_ROUND": {
       const cfg = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
       if (!cfg) return st;
@@ -302,6 +311,23 @@ function reducer(st, a) {
           });
         }
       });
+      if (cfg.extraPoints) {
+        rp.forEach((m) => {
+          if (m.isBye || !m.extraPoints) return;
+          m.players.forEach((n) => {
+            const ep = m.extraPoints[n] || 0;
+            if (!ep) return;
+            const p = pl.find((x) => x.name === n);
+            if (!p) return;
+            p.extraScore = (p.extraScore || 0) + ep;
+            if (cfg.grandPrix) {
+              p.score = gpBestOf(p.gpScores, cfg.gpBestOfLast, cfg.gpDropWorst) + p.extraScore;
+            } else {
+              p.score += ep;
+            }
+          });
+        });
+      }
       const h = [...st.history, rp],
         nr = st.currentRound + 1;
       let ph = st.phase;

@@ -305,6 +305,30 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
           <BoolF label="Decide first player" k="firstPlayer" />
           <BoolF label="Prizes" k="prizes" />
           <BoolF label="Rules tab" k="rules" />
+          <div style={S.fieldRow}>
+            <input
+              type="checkbox"
+              checked={!!cfg.extraPoints}
+              onChange={() => dispatch({ type: "TOGGLE_FEATURE", key: "extraPoints" })}
+              onClick={(e) => e.stopPropagation()}
+              style={{ width: 15, height: 15, accentColor: C.accent, cursor: "pointer", margin: 0 }}
+            />
+            <span style={{ flex: 1, fontSize: 13 }}>Extra points</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={cfg.extraPointsValue ?? 1}
+              disabled={!cfg.extraPoints}
+              onChange={(e) => {
+                const v = e.target.value;
+                setFeature("extraPointsValue", v === "" ? "" : isNaN(Number(v)) ? v : Number(v));
+              }}
+              style={{ ...S.inputXs, opacity: cfg.extraPoints ? 1 : 0.5 }}
+            />
+            {["extraPoints", "extraPointsValue"].some((k) => state.featureOverrides[k] !== undefined) && (
+              <span style={S.modTag}>mod</span>
+            )}
+          </div>
 
           <div style={S.sectionLabel}>Grand Prix</div>
           <div style={S.fieldRow}>

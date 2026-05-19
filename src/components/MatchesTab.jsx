@@ -1,6 +1,6 @@
 // Sub-tabs: Draft (groups) | Pairings (cards) | Log (history)
 // Matches tab — pairing cards, match log, timer, draft sub-tabs
-function MatchCard({ match, index, dispatch, scoring, eloDb }) {
+function MatchCard({ match, index, dispatch, scoring, eloDb, extraPoints, extraPointsValue }) {
   if (match.isBye)
     return (
       <Card variant="bye">
@@ -18,23 +18,34 @@ function MatchCard({ match, index, dispatch, scoring, eloDb }) {
           Match {index + 1} · {match.players.length}p
           {match.rematch && <> <Tag variant="amber">re</Tag></>}
         </div>
-        {match.players.map((n) => (
-          <div
-            key={n}
-            style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: `0.5px solid ${C.bL}` }}
-          >
-            <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{n}</span>
-            <span style={{ fontSize: 11, color: C.faint }}>{getElo(eloDb, n)}</span>
-            <input
-              type="text"
-              inputMode="numeric"
-              placeholder="—"
-              value={match.scores[n] ?? ""}
-              onChange={(e) => dispatch({ type: "SET_MATCH_SCORE", index, player: n, value: e.target.value })}
-              style={S.inputSm}
-            />
-          </div>
-        ))}
+        {match.players.map((n) => {
+          const epC = match.extraPoints?.[n] || 0;
+          return (
+            <div
+              key={n}
+              style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: `0.5px solid ${C.bL}` }}
+            >
+              <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{n}</span>
+              <span style={{ fontSize: 11, color: C.faint }}>{getElo(eloDb, n)}</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                placeholder="—"
+                value={match.scores[n] ?? ""}
+                onChange={(e) => dispatch({ type: "SET_MATCH_SCORE", index, player: n, value: e.target.value })}
+                style={S.inputSm}
+              />
+              {extraPoints && (
+                <button
+                  onClick={() => dispatch({ type: "ADD_EXTRA_POINTS", index, player: n, delta: extraPointsValue || 1 })}
+                  style={{ fontSize: 11, padding: "3px 8px", background: epC ? C.aBg : "transparent", border: `0.5px solid ${epC ? C.aBd : "#ddd"}`, borderRadius: 5, cursor: "pointer", color: epC ? C.amber : C.muted, fontFamily: "inherit", flexShrink: 0 }}
+                >
+                  +EP{epC ? ` (${epC})` : ""}
+                </button>
+              )}
+            </div>
+          );
+        })}
       </Card>
     );
   }
@@ -75,6 +86,22 @@ function MatchCard({ match, index, dispatch, scoring, eloDb }) {
             <span>{p2}</span>
           </button>
         </div>
+        {extraPoints && (
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+            {[p1, p2].map((n) => {
+              const epC = match.extraPoints?.[n] || 0;
+              return (
+                <button
+                  key={n}
+                  onClick={() => dispatch({ type: "ADD_EXTRA_POINTS", index, player: n, delta: extraPointsValue || 1 })}
+                  style={{ fontSize: 11, padding: "3px 10px", background: epC ? C.aBg : "transparent", border: `0.5px solid ${epC ? C.aBd : "#ddd"}`, borderRadius: 5, cursor: "pointer", color: epC ? C.amber : C.muted, fontFamily: "inherit" }}
+                >
+                  +EP{epC ? ` (${epC})` : ""}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </Card>
     );
   }
@@ -95,24 +122,34 @@ function MatchCard({ match, index, dispatch, scoring, eloDb }) {
       </div>
       {match.players.map((n) => {
         const isWinner = sc[n] === 1, isDraw = sc[n] === 0.5;
+        const epC = match.extraPoints?.[n] || 0;
         return (
-          <button
-            key={n}
-            onClick={() => toggle(n)}
-            style={{
-              display: "flex", alignItems: "center", width: "100%", gap: 8, padding: "7px 8px",
-              borderRadius: 5, cursor: "pointer", fontFamily: "inherit", textAlign: "left",
-              border: `0.5px solid ${isWinner ? C.gBd : isDraw ? C.aBd : "#ddd"}`,
-              background: isWinner ? C.gBg : isDraw ? C.aBg : "transparent",
-              color: isWinner ? C.green : isDraw ? C.amber : C.text,
-              fontWeight: isWinner || isDraw ? 600 : 400, fontSize: 13, marginBottom: 4,
-            }}
-          >
-            <span style={{ flex: 1 }}>{n}</span>
-            <span style={{ fontSize: 11, color: C.faint }}>{getElo(eloDb, n)}</span>
-            {isWinner && <span style={{ fontSize: 11 }}>Win</span>}
-            {isDraw && <span style={{ fontSize: 11 }}>Draw</span>}
-          </button>
+          <div key={n} style={{ display: "flex", gap: 4, marginBottom: 4 }}>
+            <button
+              onClick={() => toggle(n)}
+              style={{
+                display: "flex", alignItems: "center", flex: 1, gap: 8, padding: "7px 8px",
+                borderRadius: 5, cursor: "pointer", fontFamily: "inherit", textAlign: "left",
+                border: `0.5px solid ${isWinner ? C.gBd : isDraw ? C.aBd : "#ddd"}`,
+                background: isWinner ? C.gBg : isDraw ? C.aBg : "transparent",
+                color: isWinner ? C.green : isDraw ? C.amber : C.text,
+                fontWeight: isWinner || isDraw ? 600 : 400, fontSize: 13,
+              }}
+            >
+              <span style={{ flex: 1 }}>{n}</span>
+              <span style={{ fontSize: 11, color: C.faint }}>{getElo(eloDb, n)}</span>
+              {isWinner && <span style={{ fontSize: 11 }}>Win</span>}
+              {isDraw && <span style={{ fontSize: 11 }}>Draw</span>}
+            </button>
+            {extraPoints && (
+              <button
+                onClick={() => dispatch({ type: "ADD_EXTRA_POINTS", index, player: n, delta: extraPointsValue || 1 })}
+                style={{ fontSize: 11, padding: "0 8px", background: epC ? C.aBg : "transparent", border: `0.5px solid ${epC ? C.aBd : "#ddd"}`, borderRadius: 5, cursor: "pointer", color: epC ? C.amber : C.muted, fontFamily: "inherit", flexShrink: 0 }}
+              >
+                +EP{epC ? ` (${epC})` : ""}
+              </button>
+            )}
+          </div>
         );
       })}
     </Card>
@@ -288,7 +325,7 @@ function MatchesTab({ state, dispatch, config, eloLoadedCols }) {
             <div style={{ textAlign: "center", padding: 32, color: C.faint }}>No pairings.</div>
           )}
           {state.pairings.map((m, i) => (
-            <MatchCard key={i} match={m} index={i} dispatch={dispatch} scoring={cfg.scoring} eloDb={state.eloDb[cfg.eloDB || "ELO"] || {}} />
+            <MatchCard key={i} match={m} index={i} dispatch={dispatch} scoring={cfg.scoring} eloDb={state.eloDb[cfg.eloDB || "ELO"] || {}} extraPoints={cfg.extraPoints} extraPointsValue={cfg.extraPointsValue || 1} />
           ))}
         </div>
       )}

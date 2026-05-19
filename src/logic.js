@@ -114,7 +114,7 @@ function genPairings(pl, h, ph, cfg, db) {
     const hasRematch = playerNames.some((p1, i) =>
       playerNames.some((p2, j) => j > i && (pr[p1] || new Set()).has(p2))
     );
-    return { players: playerNames, scores: Object.fromEntries(playerNames.map(n => [n, ""])), result: null, isBye: false, rematch: hasRematch, eloDeltas: {}, noElo: false };
+    return { players: playerNames, scores: Object.fromEntries(playerNames.map(n => [n, ""])), result: null, isBye: false, rematch: hasRematch, eloDeltas: {}, noElo: false, extraPoints: {} };
   };
 
   let grouped = false;

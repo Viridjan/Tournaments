@@ -284,7 +284,7 @@ var TOURNAMENT_FEATURE_KEYS = [
   "cumulativeDrawPenalty", "rrRounds", "timerMinutes", "draft", "elo", "eloKMax",
   "eloScale", "eloDB", "firstPlayer", "grandPrix", "prizes",
   "timeout", "timeoutTime", "rules", "matchRound", "matchMax",
-  "gpBestOfLast", "gpDropWorst"
+  "gpBestOfLast", "gpDropWorst", "extraPoints", "extraPointsValue"
 ];
 
 function loadTournaments() {
