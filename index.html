@@ -586,15 +586,20 @@ function reducer(st, a) {
           return { ...m, scores, result: done ? "done" : null };
         }),
       };
-    case "ADD_EXTRA_POINTS":
+    case "ADD_EXTRA_POINTS": {
+      const delta = a.delta || 1;
       return {
         ...st,
+        players: st.players.map((p) =>
+          p.name !== a.player ? p : { ...p, score: p.score + delta, extraScore: (p.extraScore || 0) + delta }
+        ),
         pairings: st.pairings.map((m, i) => {
           if (i !== a.index) return m;
-          const ep = { ...(m.extraPoints || {}), [a.player]: ((m.extraPoints || {})[a.player] || 0) + (a.delta || 1) };
+          const ep = { ...(m.extraPoints || {}), [a.player]: ((m.extraPoints || {})[a.player] || 0) + delta };
           return { ...m, extraPoints: ep };
         }),
       };
+    }
     case "NEXT_ROUND": {
       const cfg = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
       if (!cfg) return st;
@@ -636,7 +641,7 @@ function reducer(st, a) {
               if (cfg.grandPrix) {
                 if (!p.gpScores) p.gpScores = [];
                 p.gpScores.push(pts);
-                p.score = gpBestOf(p.gpScores, cfg.gpBestOfLast, cfg.gpDropWorst);
+                p.score = gpBestOf(p.gpScores, cfg.gpBestOfLast, cfg.gpDropWorst) + (p.extraScore || 0);
               } else {
                 p.score += pts;
               }
@@ -662,7 +667,7 @@ function reducer(st, a) {
             if (cfg.grandPrix) {
               if (!p.gpScores) p.gpScores = [];
               p.gpScores.push(pts);
-              p.score = gpBestOf(p.gpScores, cfg.gpBestOfLast, cfg.gpDropWorst);
+              p.score = gpBestOf(p.gpScores, cfg.gpBestOfLast, cfg.gpDropWorst) + (p.extraScore || 0);
             } else {
               p.score += pts;
             }
@@ -710,23 +715,6 @@ function reducer(st, a) {
           });
         }
       });
-      if (cfg.extraPoints) {
-        rp.forEach((m) => {
-          if (m.isBye || !m.extraPoints) return;
-          m.players.forEach((n) => {
-            const ep = m.extraPoints[n] || 0;
-            if (!ep) return;
-            const p = pl.find((x) => x.name === n);
-            if (!p) return;
-            p.extraScore = (p.extraScore || 0) + ep;
-            if (cfg.grandPrix) {
-              p.score = gpBestOf(p.gpScores, cfg.gpBestOfLast, cfg.gpDropWorst) + p.extraScore;
-            } else {
-              p.score += ep;
-            }
-          });
-        });
-      }
       const h = [...st.history, rp],
         nr = st.currentRound + 1;
       let ph = st.phase;
@@ -3184,33 +3172,30 @@ function MatchCard({ match, index, dispatch, scoring, eloDb, extraPoints, extraP
       const scores = result === "p1" ? { [p1]: 1, [p2]: 0 } : result === "p2" ? { [p1]: 0, [p2]: 1 } : { [p1]: 0.5, [p2]: 0.5 };
       dispatch({ type: "SET_MATCH_RESULT", index, scores });
     };
+    const mkEpBtn = (n) => {
+      const epC = match.extraPoints?.[n] || 0;
+      return (
+        <button
+          onClick={() => dispatch({ type: "ADD_EXTRA_POINTS", index, player: n, delta: extraPointsValue || 1 })}
+          style={{ fontSize: 11, padding: "3px 8px", background: epC ? C.aBg : "transparent", border: `0.5px solid ${epC ? C.aBd : "#ddd"}`, borderRadius: 5, cursor: "pointer", color: epC ? C.amber : C.muted, fontFamily: "inherit", flexShrink: 0, alignSelf: "stretch", display: "flex", alignItems: "center" }}
+        >
+          {epC ? epC : "+EP"}
+        </button>
+      );
+    };
     return (
       <Card variant="compact">
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 2fr", gap: 4, alignItems: "stretch" }}>
-          <button style={btnStyle(sel === "p1", "l")} onClick={() => pick("p1")}>
+        <div style={{ display: "flex", gap: 4, alignItems: "stretch" }}>
+          {extraPoints && mkEpBtn(p1)}
+          <button style={{ ...btnStyle(sel === "p1", "l"), flex: 2 }} onClick={() => pick("p1")}>
             <span>{p1}{match.rematch && <> <Tag variant="amber">re</Tag></>}</span>
           </button>
-          <button style={btnStyle(sel === "draw", "d")} onClick={() => pick("draw")}>draw</button>
-          <button style={btnStyle(sel === "p2", "r")} onClick={() => pick("p2")}>
+          <button style={{ ...btnStyle(sel === "draw", "d"), flex: 1 }} onClick={() => pick("draw")}>draw</button>
+          <button style={{ ...btnStyle(sel === "p2", "r"), flex: 2 }} onClick={() => pick("p2")}>
             <span>{p2}</span>
           </button>
+          {extraPoints && mkEpBtn(p2)}
         </div>
-        {extraPoints && (
-          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-            {[p1, p2].map((n) => {
-              const epC = match.extraPoints?.[n] || 0;
-              return (
-                <button
-                  key={n}
-                  onClick={() => dispatch({ type: "ADD_EXTRA_POINTS", index, player: n, delta: extraPointsValue || 1 })}
-                  style={{ fontSize: 11, padding: "3px 10px", background: epC ? C.aBg : "transparent", border: `0.5px solid ${epC ? C.aBd : "#ddd"}`, borderRadius: 5, cursor: "pointer", color: epC ? C.amber : C.muted, fontFamily: "inherit" }}
-                >
-                  +EP{epC ? ` (${epC})` : ""}
-                </button>
-              );
-            })}
-          </div>
-        )}
       </Card>
     );
   }
@@ -3851,6 +3836,30 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
           <NumF label="Match timer" k="timerMinutes" suffix="min" />
           <NumF label="Round-robin" k="rrRounds" suffix="rounds" />
           <div style={S.sectionLabel}>Scoring</div>
+          <div style={S.fieldRow}>
+            <input
+              type="checkbox"
+              checked={!!cfg.extraPoints}
+              onChange={() => dispatch({ type: "TOGGLE_FEATURE", key: "extraPoints" })}
+              onClick={(e) => e.stopPropagation()}
+              style={{ width: 15, height: 15, accentColor: C.accent, cursor: "pointer", margin: 0 }}
+            />
+            <span style={{ flex: 1, fontSize: 13 }}>Extra points</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={cfg.extraPointsValue ?? 1}
+              disabled={!cfg.extraPoints}
+              onChange={(e) => {
+                const v = e.target.value;
+                setFeature("extraPointsValue", v === "" ? "" : isNaN(Number(v)) ? v : Number(v));
+              }}
+              style={{ ...S.inputXs, opacity: cfg.extraPoints ? 1 : 0.5 }}
+            />
+            {["extraPoints", "extraPointsValue"].some((k) => state.featureOverrides[k] !== undefined) && (
+              <span style={S.modTag}>mod</span>
+            )}
+          </div>
           <SelF label="Scoring mode" k="scoring" options={["lifepoints", "swiss", "points"]} />
           <div
             style={{
@@ -3988,30 +3997,6 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
           <BoolF label="Decide first player" k="firstPlayer" />
           <BoolF label="Prizes" k="prizes" />
           <BoolF label="Rules tab" k="rules" />
-          <div style={S.fieldRow}>
-            <input
-              type="checkbox"
-              checked={!!cfg.extraPoints}
-              onChange={() => dispatch({ type: "TOGGLE_FEATURE", key: "extraPoints" })}
-              onClick={(e) => e.stopPropagation()}
-              style={{ width: 15, height: 15, accentColor: C.accent, cursor: "pointer", margin: 0 }}
-            />
-            <span style={{ flex: 1, fontSize: 13 }}>Extra points</span>
-            <input
-              type="text"
-              inputMode="numeric"
-              value={cfg.extraPointsValue ?? 1}
-              disabled={!cfg.extraPoints}
-              onChange={(e) => {
-                const v = e.target.value;
-                setFeature("extraPointsValue", v === "" ? "" : isNaN(Number(v)) ? v : Number(v));
-              }}
-              style={{ ...S.inputXs, opacity: cfg.extraPoints ? 1 : 0.5 }}
-            />
-            {["extraPoints", "extraPointsValue"].some((k) => state.featureOverrides[k] !== undefined) && (
-              <span style={S.modTag}>mod</span>
-            )}
-          </div>
 
           <div style={S.sectionLabel}>Grand Prix</div>
           <div style={S.fieldRow}>

@@ -75,33 +75,30 @@ function MatchCard({ match, index, dispatch, scoring, eloDb, extraPoints, extraP
       const scores = result === "p1" ? { [p1]: 1, [p2]: 0 } : result === "p2" ? { [p1]: 0, [p2]: 1 } : { [p1]: 0.5, [p2]: 0.5 };
       dispatch({ type: "SET_MATCH_RESULT", index, scores });
     };
+    const mkEpBtn = (n) => {
+      const epC = match.extraPoints?.[n] || 0;
+      return (
+        <button
+          onClick={() => dispatch({ type: "ADD_EXTRA_POINTS", index, player: n, delta: extraPointsValue || 1 })}
+          style={{ fontSize: 11, padding: "3px 8px", background: epC ? C.aBg : "transparent", border: `0.5px solid ${epC ? C.aBd : "#ddd"}`, borderRadius: 5, cursor: "pointer", color: epC ? C.amber : C.muted, fontFamily: "inherit", flexShrink: 0, alignSelf: "stretch", display: "flex", alignItems: "center" }}
+        >
+          {epC ? epC : "+EP"}
+        </button>
+      );
+    };
     return (
       <Card variant="compact">
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 2fr", gap: 4, alignItems: "stretch" }}>
-          <button style={btnStyle(sel === "p1", "l")} onClick={() => pick("p1")}>
+        <div style={{ display: "flex", gap: 4, alignItems: "stretch" }}>
+          {extraPoints && mkEpBtn(p1)}
+          <button style={{ ...btnStyle(sel === "p1", "l"), flex: 2 }} onClick={() => pick("p1")}>
             <span>{p1}{match.rematch && <> <Tag variant="amber">re</Tag></>}</span>
           </button>
-          <button style={btnStyle(sel === "draw", "d")} onClick={() => pick("draw")}>draw</button>
-          <button style={btnStyle(sel === "p2", "r")} onClick={() => pick("p2")}>
+          <button style={{ ...btnStyle(sel === "draw", "d"), flex: 1 }} onClick={() => pick("draw")}>draw</button>
+          <button style={{ ...btnStyle(sel === "p2", "r"), flex: 2 }} onClick={() => pick("p2")}>
             <span>{p2}</span>
           </button>
+          {extraPoints && mkEpBtn(p2)}
         </div>
-        {extraPoints && (
-          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-            {[p1, p2].map((n) => {
-              const epC = match.extraPoints?.[n] || 0;
-              return (
-                <button
-                  key={n}
-                  onClick={() => dispatch({ type: "ADD_EXTRA_POINTS", index, player: n, delta: extraPointsValue || 1 })}
-                  style={{ fontSize: 11, padding: "3px 10px", background: epC ? C.aBg : "transparent", border: `0.5px solid ${epC ? C.aBd : "#ddd"}`, borderRadius: 5, cursor: "pointer", color: epC ? C.amber : C.muted, fontFamily: "inherit" }}
-                >
-                  +EP{epC ? ` (${epC})` : ""}
-                </button>
-              );
-            })}
-          </div>
-        )}
       </Card>
     );
   }
