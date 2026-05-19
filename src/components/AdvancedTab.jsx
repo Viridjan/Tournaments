@@ -58,11 +58,11 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
         onChange={(e) => setFeature(k, e.target.value)}
         style={S.select}
       >
-        {options.map((o) => (
-          <option key={o} value={o}>
-            {o}
-          </option>
-        ))}
+        {options.map((o) => {
+          const val = typeof o === "string" ? o : o.value;
+          const lbl = typeof o === "string" ? o : o.label;
+          return <option key={val} value={val}>{lbl}</option>;
+        })}
       </select>
       {state.featureOverrides[k] !== undefined && (
         <span
@@ -192,7 +192,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
               <span style={S.modTag}>mod</span>
             )}
           </div>
-          <SelF label="Scoring mode" k="scoring" options={["lifepoints", "swiss", "points"]} />
+          <SelF label="Scoring mode" k="scoring" options={["lifepoints", "swiss", { value: "points", label: "score ranks" }]} />
           <div
             style={{
               display: "flex",

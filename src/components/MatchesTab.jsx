@@ -264,7 +264,7 @@ function MatchesTab({ state, dispatch, config, eloLoadedCols }) {
       { id: "session", label: "Session" },
     ].filter(Boolean);
   const isRR = state.phase === "roundrobin" && cfg.rrRounds > 0,
-    scoringLabel = { points: "Points", lifepoints: "Lifepoints", swiss: "Swiss" }[cfg.scoring] || "Swiss",
+    scoringLabel = { points: "Score ranks", lifepoints: "Lifepoints", swiss: "Swiss" }[cfg.scoring] || "Swiss",
     rl = isRR
       ? `Round Robin — R${state.currentRound}/${cfg.rrRounds}`
       : `${scoringLabel} — R${state.currentRound - (isRR ? 0 : cfg.rrRounds)}`;
