@@ -156,8 +156,14 @@ function ML({ state }) {
   let ri = 0;
   if (!state.matchLog.length)
     return <div style={{ textAlign: "center", padding: 32, color: C.faint }}>No activity.</div>;
+  const roundHeader = (label, ts) => (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 4px 8px", marginBottom: 4 }}>
+      <h3 style={{ fontSize: 15, fontWeight: 500, margin: 0 }}>{label}</h3>
+      <span style={{ fontSize: 11, color: C.faint }}>{ts}</span>
+    </div>
+  );
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, alignItems: "start" }}>
+    <div>
       {state.matchLog.map((ev, ei) => {
         if (ev.type === "round") {
           const rd = state.history[ri++];
@@ -165,84 +171,84 @@ function ML({ state }) {
           const isMulti = rd.some((m) => !m.isBye && m.players.length > 2);
           if (isMulti) {
             return (
-              <div key={ei}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, padding: "0 4px" }}>
-                  <h3 style={{ ...S.cardTitle, marginBottom: 0 }}>{ev.label}</h3>
-                  <span style={{ fontSize: 11, color: C.faint }}>{ev.ts}</span>
-                </div>
-                {rd.map((m, mi) => (
-                  <Card key={mi} style={{ marginBottom: 8 }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: C.purple, marginBottom: 6 }}>
-                      Table {mi + 1} · {m.players.length}p
-                    </div>
-                    {m.players.map((n) => (
-                      <div key={n} style={{ fontSize: 13, padding: "4px 0", display: "flex", justifyContent: "space-between", borderBottom: `0.5px solid ${C.bL}` }}>
-                        <span style={{ fontWeight: 500 }}>{n}</span>
-                        <span style={{ color: C.muted }}>
-                          {m.scores[n] != null && m.scores[n] !== "" ? `${m.scores[n]}pt` : "—"}
-                          {(m.extraPoints?.[n] || 0) > 0 && (
-                            <span style={{ color: C.green, fontWeight: 500, fontSize: 11, marginLeft: 4 }}>+EP</span>
-                          )}
-                          {m.eloDeltas?.[n] != null && (
-                            <span style={{ color: m.eloDeltas[n] > 0 ? C.green : m.eloDeltas[n] < 0 ? C.red : C.muted, fontWeight: 500, fontSize: 11, marginLeft: 4 }}>
-                              {m.eloDeltas[n] > 0 ? "+" : ""}{m.eloDeltas[n]}
-                            </span>
-                          )}
-                        </span>
+              <div key={ei} style={{ marginBottom: 16 }}>
+                {roundHeader(ev.label, ev.ts)}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  {rd.map((m, mi) => (
+                    <Card key={mi} style={{ marginBottom: 0 }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: C.purple, marginBottom: 6 }}>
+                        Table {mi + 1} · {m.players.length}p
                       </div>
-                    ))}
-                  </Card>
-                ))}
+                      {m.players.map((n) => (
+                        <div key={n} style={{ fontSize: 13, padding: "4px 0", display: "flex", justifyContent: "space-between", borderBottom: `0.5px solid ${C.bL}` }}>
+                          <span style={{ fontWeight: 500 }}>{n}</span>
+                          <span style={{ color: C.muted }}>
+                            {m.scores[n] != null && m.scores[n] !== "" ? `${m.scores[n]}pt` : "—"}
+                            {(m.extraPoints?.[n] || 0) > 0 && (
+                              <span style={{ color: C.green, fontWeight: 500, fontSize: 11, marginLeft: 4 }}>+EP</span>
+                            )}
+                            {m.eloDeltas?.[n] != null && (
+                              <span style={{ color: m.eloDeltas[n] > 0 ? C.green : m.eloDeltas[n] < 0 ? C.red : C.muted, fontWeight: 500, fontSize: 11, marginLeft: 4 }}>
+                                {m.eloDeltas[n] > 0 ? "+" : ""}{m.eloDeltas[n]}
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                      ))}
+                    </Card>
+                  ))}
+                </div>
               </div>
             );
           }
           return (
-            <Card key={ei}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                <h3 style={{ fontSize: 15, fontWeight: 500 }}>{ev.label}</h3>
-                <span style={{ fontSize: 11, color: C.faint }}>{ev.ts}</span>
-              </div>
-              {rd.map((m, mi) => {
-                if (m.isBye)
+            <div key={ei} style={{ marginBottom: 16 }}>
+              {roundHeader(ev.label, ev.ts)}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                {rd.map((m, mi) => {
+                  if (m.isBye)
+                    return (
+                      <Card key={mi} style={{ marginBottom: 0, fontSize: 13 }}>
+                        {m.players[0]} — <Tag variant="grey">BYE</Tag>
+                      </Card>
+                    );
+                  const [p1, p2] = m.players;
+                  const s1 = parseFloat(m.scores[p1] || 0), s2 = parseFloat(m.scores[p2] || 0);
+                  const isDraw = s1 === s2 && m.result === "done";
+                  const w = !isDraw ? (s1 > s2 ? p1 : p2) : null;
+                  const l = !isDraw ? (s1 > s2 ? p2 : p1) : null;
+                  const winnerDelta = w && m.eloDeltas?.[w];
                   return (
-                    <div key={mi} style={{ fontSize: 13, padding: "4px 0", borderBottom: `0.5px solid ${C.bL}` }}>
-                      {m.players[0]} — <Tag variant="grey">BYE</Tag>
-                    </div>
+                    <Card key={mi} style={{ marginBottom: 0 }}>
+                      <div style={{ fontSize: 13, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                        <span style={{ fontWeight: 500, color: isDraw ? C.text : C.green }}>{w || p1}</span>
+                        <span style={{ color: C.muted }}>{l || p2}</span>
+                        {winnerDelta != null && (
+                          <span style={{ fontSize: 11, fontWeight: 500, color: winnerDelta > 0 ? C.green : winnerDelta < 0 ? C.red : C.muted }}>
+                            {winnerDelta > 0 ? "+" : ""}{winnerDelta}
+                          </span>
+                        )}
+                        {isDraw && <span style={{ color: C.amber, fontWeight: 500, fontSize: 11 }}>Draw</span>}
+                        {m.players.some(n => (m.extraPoints?.[n] || 0) > 0) && (
+                          <span style={{ color: C.green, fontWeight: 500, fontSize: 11 }}>
+                            EP: {m.players.filter(n => (m.extraPoints?.[n] || 0) > 0).join(", ")}
+                          </span>
+                        )}
+                        {m.rematch && <Tag variant="amber">re</Tag>}
+                        {m.forfeit && <Tag variant="amber">forfeit</Tag>}
+                      </div>
+                    </Card>
                   );
-                const [p1, p2] = m.players;
-                const s1 = parseFloat(m.scores[p1] || 0), s2 = parseFloat(m.scores[p2] || 0);
-                const isDraw = s1 === s2 && m.result === "done";
-                const w = !isDraw ? (s1 > s2 ? p1 : p2) : null;
-                const l = !isDraw ? (s1 > s2 ? p2 : p1) : null;
-                const winnerDelta = w && m.eloDeltas?.[w];
-                return (
-                  <div key={mi} style={{ fontSize: 13, padding: "4px 0", display: "flex", gap: 12, borderBottom: `0.5px solid ${C.bL}`, alignItems: "center" }}>
-                    <span style={{ fontWeight: 500, color: isDraw ? C.text : C.green }}>{w || p1}</span>
-                    <span style={{ color: C.muted }}>{l || p2}</span>
-                    {winnerDelta != null && (
-                      <span style={{ fontSize: 11, fontWeight: 500, color: winnerDelta > 0 ? C.green : winnerDelta < 0 ? C.red : C.muted }}>
-                        {winnerDelta > 0 ? "+" : ""}{winnerDelta}
-                      </span>
-                    )}
-                    {isDraw && <span style={{ color: C.amber, fontWeight: 500, fontSize: 11 }}>Draw</span>}
-                    {m.players.some(n => (m.extraPoints?.[n] || 0) > 0) && (
-                      <span style={{ color: C.green, fontWeight: 500, fontSize: 11 }}>
-                        EP: {m.players.filter(n => (m.extraPoints?.[n] || 0) > 0).join(", ")}
-                      </span>
-                    )}
-                    {m.rematch && <Tag variant="amber">re</Tag>}
-                    {m.forfeit && <Tag variant="amber">forfeit</Tag>}
-                  </div>
-                );
-              })}
-            </Card>
+                })}
+              </div>
+            </div>
           );
         }
         const icons = { start: "🏁", abandon: "⚑", "draft-end": "📋", "tournament-timeout": "⏰" },
           bg = { start: C.gBg, abandon: C.aBg, "draft-end": C.bBg, "tournament-timeout": C.rBg },
           colors = { start: C.green, abandon: C.amber, "draft-end": C.blue, "tournament-timeout": C.red };
         return (
-          <div key={ei} style={{ background: bg[ev.type] || C.subtle, borderRadius: 8, padding: "8px 12px", display: "flex", justifyContent: "space-between" }}>
+          <div key={ei} style={{ background: bg[ev.type] || C.subtle, borderRadius: 8, padding: "8px 12px", marginBottom: 12, display: "flex", justifyContent: "space-between" }}>
             <span style={{ fontSize: 13, fontWeight: 500, color: colors[ev.type] || C.text }}>
               {icons[ev.type] || "•"} {ev.label}
             </span>
