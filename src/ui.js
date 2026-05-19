@@ -85,6 +85,7 @@ const S = {
 S.inputSm = { ...S.input, width: 56, fontSize: 13, padding: "4px 6px", textAlign: "center" };
 S.inputXs = { ...S.input, width: 36, fontSize: 13, padding: "4px 6px", textAlign: "center" };
 S.select = { ...S.input, width: "auto", fontSize: 12, padding: "4px 8px", cursor: "pointer" };
+S.tabBtn = { ...S.btn, width: 80, fontSize: 13, padding: "6px 4px", textAlign: "center" };
 const cardVariants = {
   default: S.card,
   compact: { ...S.card, padding: "10px 14px" },
@@ -140,11 +141,7 @@ function TabBar({ tabs, active, onSelect }) {
           key={t.id}
           onClick={() => !t.disabled && onSelect(t.id)}
           style={{
-            ...S.btn,
-            flex: 1,
-            fontSize: 13,
-            padding: "6px 4px",
-            textAlign: "center",
+            ...S.tabBtn,
             color: t.disabled ? "#ccc" : active === t.id ? C.text : C.muted,
             background: active === t.id ? C.subtle : "transparent",
             fontWeight: active === t.id ? 500 : 400,
