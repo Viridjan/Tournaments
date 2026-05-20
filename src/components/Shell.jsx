@@ -87,6 +87,7 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
     if (!url) return;
     setSyncStatus("syncing");
     const eloEntries = Object.values(state.eloDb)
+      .flatMap((sheet) => Object.values(sheet || {}))
       .filter((v) => v?.name)
       .map((v) => ({ name: v.name, elo: v.elo, test: !!v.test }));
     fetch(url, {
