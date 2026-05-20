@@ -15,7 +15,8 @@ const APPS_SCRIPT = `// ══════════════════�
 //    id | name | icon | desc | scoring | startScore | pts1 | pts2 | pts3 | ptsLast |
 //    winPoints | drawPoints | lossPoints | cumulativeDrawPenalty | rrRounds |
 //    timerMinutes | draft | elo | eloKMax | eloScale | eloDB | firstPlayer | grandPrix |
-//    prizes | timeout | timeoutTime | spinner | rules | matchRound | matchMax
+//    prizes | timeout | timeoutTime | rules | matchRound | matchMax |
+//    gpBestOfLast | gpDropWorst | extraPoints | extraPointsValue
 //    Then add one row per tournament type.
 // 7. Go to Extensions > Apps Script
 // 8. Paste this entire script, replacing any existing code
