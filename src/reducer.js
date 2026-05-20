@@ -283,14 +283,16 @@ function reducer(st, a) {
             const isTop = parseFloat(m.scores[n] || 0) === topScore;
             if (draw) {
               p.d++;
-              const dp = cfg.cumulativeDrawPenalty ? 0.5 * p.d : 0.5;
+              const basePenalty = Math.abs(cfg.drawPoints);
+              const dp = cfg.cumulativeDrawPenalty ? basePenalty * p.d : basePenalty;
               p.score = Math.max(0, p.score - dp);
               if (p.score <= 0) p.eliminated = true;
             } else if (isTop) {
               p.w++;
+              p.score = Math.max(0, p.score + cfg.winPoints);
             } else {
               p.l++;
-              p.score = Math.max(0, p.score - 1);
+              p.score = Math.max(0, p.score + cfg.lossPoints);
               if (p.score <= 0) p.eliminated = true;
             }
           });
