@@ -27,13 +27,18 @@ const DU =
 
 // ═══════════════════════════════════════════════════════
 // Pure functions: ELO, pairing, scoring, prizes (no DOM, no state)
-function gpBestOf(scores, last, drop) {
-  const l = Math.max(2, Number(last) || 4);
-  const d = Math.max(0, Number(drop) || 1);
-  if (scores.length <= l - d) return scores.reduce((a, b) => a + b, 0);
-  const recent = scores.slice(-l);
+function gpBestOf(scores, last, drop, ghost) {
+  const lastN = Math.max(2, Number(last) || 4);
+  const dropCount = Math.max(0, Number(drop) || 1);
+  let padded = scores;
+  if (ghost && padded.length > 0 && padded.length < lastN) {
+    const worst = Math.min(...padded);
+    while (padded.length < lastN) padded = [worst, ...padded];
+  }
+  if (padded.length <= lastN - dropCount) return padded.reduce((a, b) => a + b, 0);
+  const recent = padded.slice(-lastN);
   const sorted = [...recent].sort((a, b) => a - b);
-  return sorted.slice(d).reduce((a, b) => a + b, 0);
+  return sorted.slice(dropCount).reduce((a, b) => a + b, 0);
 }
 function eloExpected(a, b, scale) {
   return 1 / (1 + Math.pow(10, (b - a) / (scale || ES)));
@@ -41,8 +46,8 @@ function eloExpected(a, b, scale) {
 function getElo(d, n) {
   return d[n.toLowerCase()]?.elo ?? ED;
 }
-function setElo(d, n, e, t) {
-  return { ...d, [n.toLowerCase()]: { elo: e, name: n, test: !!t } };
+function setElo(d, n, e, isTest) {
+  return { ...d, [n.toLowerCase()]: { elo: e, name: n, test: !!isTest } };
 }
 function eCalc(a, b, s, kMax, scale) {
   const k = kMax || EM;
@@ -56,14 +61,14 @@ function findGroups(names, prev, groupSize, allow) {
   if (!n) return [];
   if (n % groupSize !== 0) return null;
   const used = new Array(n).fill(false), groups = [];
-  function bt() {
+  function backtrack() {
     const i = used.indexOf(false);
     if (i === -1) return true;
     used[i] = true;
     function pick(group, start) {
       if (group.length === groupSize) {
         groups.push([...group]);
-        if (bt()) return true;
+        if (backtrack()) return true;
         groups.pop();
         return false;
       }
@@ -79,18 +84,18 @@ function findGroups(names, prev, groupSize, allow) {
     if (!pick([i], i + 1)) { used[i] = false; return false; }
     return true;
   }
-  return bt() ? groups : null;
+  return backtrack() ? groups : null;
 }
-function getPrev(h, a) {
-  const s = new Set(a.map(p => p.name)), m = {};
-  h.forEach(r => r.forEach(x => {
+function getPrev(history, activePlayers) {
+  const activeSet = new Set(activePlayers.map(p => p.name)), prev = {};
+  history.forEach(r => r.forEach(x => {
     if (x.isBye) return;
-    const inv = x.players.filter(n => s.has(n));
-    inv.forEach((n1, i) => inv.forEach((n2, j) => {
-      if (i !== j) (m[n1] = m[n1] || new Set()).add(n2);
+    const active = x.players.filter(n => activeSet.has(n));
+    active.forEach((n1, i) => active.forEach((n2, j) => {
+      if (i !== j) (prev[n1] = prev[n1] || new Set()).add(n2);
     }));
   }));
-  return m;
+  return prev;
 }
 function getByes(h, a) {
   const counts = {};
@@ -121,16 +126,16 @@ function genPairings(pl, h, ph, cfg, db) {
       ? getElo(db, b.name) - getElo(db, a.name)
       : b.w / (b.w + b.d + b.l || 1) - a.w / (a.w + a.d + a.l || 1) || b.score - a.score
   );
-  const pr = getPrev(h, activePlayers);
+  const prev = getPrev(h, activePlayers);
   const pa = [];
   let tp = sorted;
 
   if (groupSize <= 2 && sorted.length % 2 === 1) {
-    const bc = getByes(h, activePlayers);
-    const mb = Math.min(...Object.values(bc));
+    const byeCounts = getByes(h, activePlayers);
+    const minByes = Math.min(...Object.values(byeCounts));
     let byeName = null;
     for (let i = sorted.length - 1; i >= 0; i--)
-      if (bc[sorted[i].name] <= mb) { byeName = sorted[i].name; break; }
+      if (byeCounts[sorted[i].name] <= minByes) { byeName = sorted[i].name; break; }
     if (!byeName) byeName = sorted[sorted.length - 1].name;
     tp = sorted.filter(p => p.name !== byeName);
     pa.push({ players: [byeName], scores: {}, result: "done", isBye: true, rematch: false, eloDeltas: {}, noElo: false });
@@ -139,15 +144,15 @@ function genPairings(pl, h, ph, cfg, db) {
   const ns = tp.map(p => p.name);
   const mkMatch = playerNames => {
     const hasRematch = playerNames.some((p1, i) =>
-      playerNames.some((p2, j) => j > i && (pr[p1] || new Set()).has(p2))
+      playerNames.some((p2, j) => j > i && (prev[p1] || new Set()).has(p2))
     );
     return { players: playerNames, scores: Object.fromEntries(playerNames.map(n => [n, ""])), result: null, isBye: false, rematch: hasRematch, eloDeltas: {}, noElo: false, extraPoints: {} };
   };
 
   let grouped = false;
   if (ns.length > 0 && ns.length % groupSize === 0) {
-    let groups = findGroups(ns, pr, groupSize, false);
-    if (!groups) groups = findGroups(ns, pr, groupSize, true);
+    let groups = findGroups(ns, prev, groupSize, false);
+    if (!groups) groups = findGroups(ns, prev, groupSize, true);
     if (groups) {
       for (const group of groups) pa.push(mkMatch(group.map(i => ns[i])));
       grouped = true;
@@ -166,12 +171,12 @@ function genPairings(pl, h, ph, cfg, db) {
   if (cfg.firstPlayer && groupSize === 2) {
     const firstCounts = {};
     pl.forEach(p => (firstCounts[p.name] = p.firstCount || 0));
-    pa.forEach(mm => {
-      if (mm.isBye || mm.players.length !== 2) return;
-      const [a, b] = mm.players;
+    pa.forEach(match => {
+      if (match.isBye || match.players.length !== 2) return;
+      const [a, b] = match.players;
       if ((firstCounts[a] || 0) > (firstCounts[b] || 0) || ((firstCounts[a] || 0) === (firstCounts[b] || 0) && Math.random() < 0.5))
-        [mm.players[0], mm.players[1]] = [b, a];
-      firstCounts[mm.players[0]] = (firstCounts[mm.players[0]] || 0) + 1;
+        [match.players[0], match.players[1]] = [b, a];
+      firstCounts[match.players[0]] = (firstCounts[match.players[0]] || 0) + 1;
     });
   }
 
@@ -179,41 +184,41 @@ function genPairings(pl, h, ph, cfg, db) {
 }
 function rkLbl(i) {
   if (i === 0) return "Winner";
-  const n = i + 1,
-    s = n % 100,
-    x = s >= 11 && s <= 13 ? "th" : { 1: "st", 2: "nd", 3: "rd" }[n % 10] || "th";
-  return `${n}${x}`;
+  const rank = i + 1,
+    mod100 = rank % 100,
+    suffix = mod100 >= 11 && mod100 <= 13 ? "th" : { 1: "st", 2: "nd", 3: "rd" }[rank % 10] || "th";
+  return `${rank}${suffix}`;
 }
 function defRanks() {
-  const t = [30, 15, 15, 10, 10, 10, 5, 5],
-    s = t.reduce((a, v) => a + v, 0),
-    o = t.map((v) => Math.round((v / s) * 1000) / 10);
-  o[o.length - 1] = Math.round((o[o.length - 1] + (100 - o.reduce((a, v) => a + v, 0))) * 10) / 10;
-  return o.map((p, i) => ({ label: rkLbl(i), pct: p }));
+  const rawPcts = [30, 15, 15, 10, 10, 10, 5, 5],
+    total = rawPcts.reduce((a, v) => a + v, 0),
+    pcts = rawPcts.map((v) => Math.round((v / total) * 1000) / 10);
+  pcts[pcts.length - 1] = Math.round((pcts[pcts.length - 1] + (100 - pcts.reduce((a, v) => a + v, 0))) * 10) / 10;
+  return pcts.map((p, i) => ({ label: rkLbl(i), pct: p }));
 }
 
-function calcAlloc(pl, pr, rk, ec, prizePct, prizePctUp, ruPct, ruPctUp) {
-  const tp = ec * pl.length;
-  if (!tp || !rk.length || !pr.length) return null;
-  const ppct = prizePct || 50;
-  const rawAc = (pl.length * ppct) / 100;
-  const allocated = prizePctUp ? Math.ceil(rawAc) : Math.floor(rawAc);
+function calcAlloc(players, prizes, ranks, entryCost, prizePct, prizePctUp, ruPct, ruPctUp) {
+  const totalPool = entryCost * players.length;
+  if (!totalPool || !ranks.length || !prizes.length) return null;
+  const prizePercent = prizePct || 50;
+  const rawAllocated = (players.length * prizePercent) / 100;
+  const allocated = prizePctUp ? Math.ceil(rawAllocated) : Math.floor(rawAllocated);
   if (allocated < 1) return null;
-  const rupct = ruPct || 50;
-  const rawRu = (allocated * rupct) / 100;
-  const ruCount = ruPctUp ? Math.ceil(rawRu) : Math.floor(rawRu);
-  const prizeRanks = rk.slice(0, allocated),
-    inv = pr.map((p) => ({ ...p }));
-  const gbr = {};
+  const runupPercent = ruPct || 50;
+  const rawRunup = (allocated * runupPercent) / 100;
+  const runupCount = ruPctUp ? Math.ceil(rawRunup) : Math.floor(rawRunup);
+  const prizeRanks = ranks.slice(0, allocated),
+    inventory = prizes.map((p) => ({ ...p }));
+  const guaranteedByRank = {};
   const avoidMap = {};
-  inv.forEach((p) => {
+  inventory.forEach((p) => {
     const gList = String(p.guaranteed || "")
       .split(",")
       .map((s) => parseInt(s.trim()))
       .filter((n) => n > 0 && n <= prizeRanks.length);
     gList.forEach((g) => {
       if (p.maxQty > 0) {
-        (gbr[g - 1] = gbr[g - 1] || []).push({
+        (guaranteedByRank[g - 1] = guaranteedByRank[g - 1] || []).push({
           name: p.name,
           value: p.value,
           qty: 1,
@@ -230,83 +235,83 @@ function calcAlloc(pl, pr, rk, ec, prizePct, prizePctUp, ruPct, ruPctUp) {
       (avoidMap[a - 1] = avoidMap[a - 1] || new Set()).add(p.name);
     });
   });
-  function fbc(tgt, rd, avoided) {
-    const av = inv.filter((p) => p.maxQty > 0 && p.value > 0 && !(avoided && avoided.has(p.name))),
-      mu = av.map((p) =>
+  function findBestCombo(target, roundDown, avoided) {
+    const available = inventory.filter((p) => p.maxQty > 0 && p.value > 0 && !(avoided && avoided.has(p.name))),
+      maxQtys = available.map((p) =>
         Math.max(
           0,
-          Math.min((p.maxQtyPerPlayer || 1) <= 1 ? 1 : p.maxQty, Math.ceil(tgt / p.value) + 1),
+          Math.min((p.maxQtyPerPlayer || 1) <= 1 ? 1 : p.maxQty, Math.ceil(target / p.value) + 1),
         ),
       );
     let best = null;
-    function con(c, v) {
-      if (rd ? v <= tgt : v >= tgt)
-        if (!best || (rd ? v > best.value : v < best.value)) best = { combo: c.slice(), value: v };
+    function consider(combo, val) {
+      if (roundDown ? val <= target : val >= target)
+        if (!best || (roundDown ? val > best.value : val < best.value)) best = { combo: combo.slice(), value: val };
     }
-    function dfs(i, c, v) {
-      if (i >= av.length) {
-        con(c, v);
+    function search(i, combo, val) {
+      if (i >= available.length) {
+        consider(combo, val);
         return;
       }
-      for (let q = 0; q <= mu[i]; q++) {
-        c.push({ prize: av[i], qty: q });
-        dfs(i + 1, c, v + q * av[i].value);
-        c.pop();
-        if (!rd && v + q * av[i].value > tgt + (best ? best.value - tgt : Infinity)) break;
+      for (let q = 0; q <= maxQtys[i]; q++) {
+        combo.push({ prize: available[i], qty: q });
+        search(i + 1, combo, val + q * available[i].value);
+        combo.pop();
+        if (!roundDown && val + q * available[i].value > target + (best ? best.value - target : Infinity)) break;
       }
     }
-    dfs(0, [], 0);
+    search(0, [], 0);
     return best;
   }
-  let gt = 0;
+  let grandTotal = 0;
   const allocs = prizeRanks.map((r, ri) => {
-    const rd = ri >= ruCount;
-    const tgt = (tp * r.pct) / 100;
-    const ch = (gbr[ri] || []).map((g) => ({ ...g }));
-    let f = ch.reduce((s, c) => s + c.total, 0);
-    const rem = tgt - f;
+    const roundDown = ri >= runupCount;
+    const target = (totalPool * r.pct) / 100;
+    const chosen = (guaranteedByRank[ri] || []).map((g) => ({ ...g }));
+    let filled = chosen.reduce((s, c) => s + c.total, 0);
+    const rem = target - filled;
     if (rem > 0.001) {
-      const res = fbc(rem, rd, avoidMap[ri]);
+      const res = findBestCombo(rem, roundDown, avoidMap[ri]);
       if (res)
         res.combo.forEach(({ prize, qty }) => {
           if (qty > 0) {
-            const ip = inv.find((x) => x.name === prize.name),
-              ex = ch.find((c) => c.name === prize.name);
+            const ip = inventory.find((x) => x.name === prize.name),
+              ex = chosen.find((c) => c.name === prize.name);
             if (ex) {
               ex.qty += qty;
               ex.total += qty * prize.value;
-            } else ch.push({ name: prize.name, value: prize.value, qty, total: qty * prize.value });
+            } else chosen.push({ name: prize.name, value: prize.value, qty, total: qty * prize.value });
             ip.maxQty -= qty;
-            f += qty * prize.value;
+            filled += qty * prize.value;
           }
         });
     }
-    if (!ch.length) {
-      const cheapest = inv.filter((p) => p.maxQty > 0 && p.value > 0).sort((a, b) => a.value - b.value)[0];
+    if (!chosen.length) {
+      const cheapest = inventory.filter((p) => p.maxQty > 0 && p.value > 0).sort((a, b) => a.value - b.value)[0];
       if (cheapest) {
-        ch.push({ name: cheapest.name, value: cheapest.value, qty: 1, total: cheapest.value });
+        chosen.push({ name: cheapest.name, value: cheapest.value, qty: 1, total: cheapest.value });
         cheapest.maxQty--;
       }
     }
-    const av = ch.reduce((s, c) => s + c.total, 0);
-    gt += av;
-    return { rank: r.label, target: tgt, chosen: ch, actualValue: av };
+    const actualValue = chosen.reduce((s, c) => s + c.total, 0);
+    grandTotal += actualValue;
+    return { rank: r.label, target, chosen, actualValue };
   });
-  const tiebreaker = inv.filter((p) => p.value > 0).sort((a, b) => a.value - b.value)[0];
+  const tiebreaker = inventory.filter((p) => p.value > 0).sort((a, b) => a.value - b.value)[0];
   if (tiebreaker)
-    for (let h = 0; h < allocs.length - 1; h++)
-      for (let l = h + 1; l < allocs.length; l++)
-        while (allocs[h].actualValue < allocs[l].actualValue && tiebreaker.maxQty > 0) {
-          const ex = allocs[h].chosen.find((c) => c.name === tiebreaker.name);
+    for (let hi = 0; hi < allocs.length - 1; hi++)
+      for (let li = hi + 1; li < allocs.length; li++)
+        while (allocs[hi].actualValue < allocs[li].actualValue && tiebreaker.maxQty > 0) {
+          const ex = allocs[hi].chosen.find((c) => c.name === tiebreaker.name);
           if (ex) {
             ex.qty++;
             ex.total += tiebreaker.value;
-          } else allocs[h].chosen.push({ name: tiebreaker.name, value: tiebreaker.value, qty: 1, total: tiebreaker.value });
-          allocs[h].actualValue += tiebreaker.value;
-          gt += tiebreaker.value;
+          } else allocs[hi].chosen.push({ name: tiebreaker.name, value: tiebreaker.value, qty: 1, total: tiebreaker.value });
+          allocs[hi].actualValue += tiebreaker.value;
+          grandTotal += tiebreaker.value;
           tiebreaker.maxQty--;
         }
-  return { allocs, totalPool: tp, grandTotal: gt };
+  return { allocs, totalPool, grandTotal };
 }
 
 // ═══════════════════════════════════════════════════════
@@ -492,13 +497,13 @@ function reducer(st, a) {
       return { ...st, matchSubTab: a.tab };
     // ── Player management ──
     case "ADD_PLAYER": {
-      const n = a.name.trim();
-      if (!n || st.players.some((p) => p.name.toLowerCase() === n.toLowerCase())) return st;
+      const name = a.name.trim();
+      if (!name || st.players.some((p) => p.name.toLowerCase() === name.toLowerCase())) return st;
       return {
         ...st,
         players: [
           ...st.players,
-          { name: n, score: 0, w: 0, d: 0, l: 0, eliminated: false, paid: false, firstCount: 0 },
+          { name, score: 0, w: 0, d: 0, l: 0, eliminated: false, paid: false, firstCount: 0 },
         ],
       };
     }
@@ -512,10 +517,10 @@ function reducer(st, a) {
     case "ABANDON_PLAYER": {
       const abandoned = st.players[a.index];
       if (!abandoned) return st;
-      const pl = st.players.map((p, i) =>
+      const players = st.players.map((p, i) =>
         i === a.index ? { ...p, eliminated: true, score: 0 } : p,
       );
-      const pa = st.pairings.map((m) => {
+      const pairings = st.pairings.map((m) => {
         if (m.result || m.isBye || m.players.length !== 2) return m;
         if (!m.players.includes(abandoned.name)) return m;
         const winner = m.players.find(n => n !== abandoned.name);
@@ -524,8 +529,8 @@ function reducer(st, a) {
       });
       return {
         ...st,
-        players: pl,
-        pairings: pa,
+        players,
+        pairings,
         matchLog: [...st.matchLog, { type: "abandon", label: `${abandoned.name} abandoned`, ts: now() }],
       };
     }
@@ -535,7 +540,7 @@ function reducer(st, a) {
       if (!cfg) return st;
       const ss = cfg.startScore ?? 0;
       const activeElo = st.eloDb[cfg.eloDB || "ELO"] || {};
-      const pl = st.players.map((p) => ({
+      const players = st.players.map((p) => ({
         ...p,
         score: ss,
         gpScores: [],
@@ -550,22 +555,22 @@ function reducer(st, a) {
         firstCount: 0,
         eloStart: getElo(activeElo, p.name),
       }));
-      const ph = cfg.rrRounds > 0 ? "roundrobin" : "swiss";
+      const phase = cfg.rrRounds > 0 ? "roundrobin" : "swiss";
       const ns = {
         ...st,
-        players: pl,
+        players,
         currentRound: 1,
-        phase: ph,
+        phase,
         history: [],
         tournamentStarted: true,
         startedAt: Date.now(),
         matchLog: [
-          { type: "start", label: `Tournament started — ${pl.length} players`, ts: now() },
+          { type: "start", label: `Tournament started — ${players.length} players`, ts: now() },
         ],
         activeTab: "matches",
         matchSubTab: cfg.draft ? "draft" : "pairings",
       };
-      return { ...ns, pairings: makePairings(ns, pl, [], ph) };
+      return { ...ns, pairings: makePairings(ns, players, [], phase) };
     }
     case "SET_MATCH_RESULT":
       return {
@@ -605,19 +610,19 @@ function reducer(st, a) {
     case "NEXT_ROUND": {
       const cfg = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
       if (!cfg) return st;
-      const eloNs = cfg.eloDB || "ELO";
-      let pl = st.players.map((p) => ({ ...p })),
-        db = { ...(st.eloDb[eloNs] || {}) };
-      const sc = cfg.scoring,
-        rp = st.pairings.map((m) => ({ ...m }));
-      rp.forEach((m) => {
+      const eloSheet = cfg.eloDB || "ELO";
+      let players = st.players.map((p) => ({ ...p })),
+        db = { ...(st.eloDb[eloSheet] || {}) };
+      const scoring = cfg.scoring,
+        roundPairings = st.pairings.map((m) => ({ ...m }));
+      roundPairings.forEach((m) => {
         if (m.isBye || m.result !== "done") return;
         const scored = m.players.filter((n) => String(m.scores[n]).trim() !== "");
         if (!scored.length) return;
         const sorted = [...scored].sort((a, b) => parseFloat(m.scores[b] || 0) - parseFloat(m.scores[a] || 0));
         const topScore = parseFloat(m.scores[sorted[0]] || 0);
 
-        if (sc === "points") {
+        if (scoring === "points") {
           const ptMap = [
             cfg.pts1 !== "" && cfg.pts1 !== undefined ? Number(cfg.pts1) : 3,
             cfg.pts2 !== "" && cfg.pts2 !== undefined ? Number(cfg.pts2) : 2,
@@ -638,12 +643,12 @@ function reducer(st, a) {
             const isLast = groups.length > 1 && idx === groups.length - 1;
             const pts = isLast || g.score === 0 ? ptsLast : (ptMap[rank - 1] ?? ptsLast);
             g.players.forEach((n) => {
-              const p = pl.find((x) => x.name === n);
+              const p = players.find((x) => x.name === n);
               if (!p) return;
               if (cfg.grandPrix) {
                 if (!p.gpScores) p.gpScores = [];
                 p.gpScores.push(pts + (m.extraPoints?.[n] || 0));
-                p.score = gpBestOf(p.gpScores, cfg.gpBestOfLast, cfg.gpDropWorst);
+                p.score = gpBestOf(p.gpScores, cfg.gpBestOfLast, cfg.gpDropWorst, cfg.gpGhostPoints);
               } else {
                 p.score += pts;
               }
@@ -655,11 +660,11 @@ function reducer(st, a) {
             });
             rank += g.players.length;
           });
-        } else if (sc === "swiss") {
+        } else if (scoring === "swiss") {
           const tied = sorted.filter(n => parseFloat(m.scores[n] || 0) === topScore);
           const multi = tied.length > 1;
           sorted.forEach(n => {
-            const p = pl.find(x => x.name === n);
+            const p = players.find(x => x.name === n);
             if (!p) return;
             const isTop = parseFloat(m.scores[n] || 0) === topScore;
             let pts;
@@ -669,15 +674,15 @@ function reducer(st, a) {
             if (cfg.grandPrix) {
               if (!p.gpScores) p.gpScores = [];
               p.gpScores.push(pts + (m.extraPoints?.[n] || 0));
-              p.score = gpBestOf(p.gpScores, cfg.gpBestOfLast, cfg.gpDropWorst);
+              p.score = gpBestOf(p.gpScores, cfg.gpBestOfLast, cfg.gpDropWorst, cfg.gpGhostPoints);
             } else {
               p.score += pts;
             }
           });
-        } else if (sc === "lifepoints") {
+        } else if (scoring === "lifepoints") {
           const draw = sorted.every(n => parseFloat(m.scores[n] || 0) === topScore);
           sorted.forEach(n => {
-            const p = pl.find(x => x.name === n);
+            const p = players.find(x => x.name === n);
             if (!p) return;
             const isTop = parseFloat(m.scores[n] || 0) === topScore;
             if (draw) {
@@ -698,11 +703,11 @@ function reducer(st, a) {
         }
 
         if (cfg.elo && !m.noElo) {
-          const n = m.players.length,
-            K = (cfg.eloKMax || 50) / n,
+          const playerCount = m.players.length,
+            K = (cfg.eloKMax || 50) / playerCount,
             dl = Object.fromEntries(m.players.map((p) => [p, 0]));
-          for (let i = 0; i < n; i++)
-            for (let j = i + 1; j < n; j++) {
+          for (let i = 0; i < playerCount; i++)
+            for (let j = i + 1; j < playerCount; j++) {
               const pA = m.players[i], pB = m.players[j],
                 sA = parseFloat(m.scores[pA] || 0), sB = parseFloat(m.scores[pB] || 0),
                 rA = getElo(db, pA), rB = getElo(db, pB),
@@ -719,29 +724,29 @@ function reducer(st, a) {
           });
         }
       });
-      const h = [...st.history, rp],
-        nr = st.currentRound + 1;
-      let ph = st.phase;
-      if (ph === "roundrobin" && nr > cfg.rrRounds) ph = "swiss";
-      const activePlayers = pl.filter((p) => !p.eliminated),
-        go = cfg.scoring === "lifepoints" && activePlayers.length <= 1;
-      const newEloDb = { ...st.eloDb, [eloNs]: db };
+      const h = [...st.history, roundPairings],
+        nextRound = st.currentRound + 1;
+      let phase = st.phase;
+      if (phase === "roundrobin" && nextRound > cfg.rrRounds) phase = "swiss";
+      const activePlayers = players.filter((p) => !p.eliminated),
+        gameOver = cfg.scoring === "lifepoints" && activePlayers.length <= 1;
+      const newEloDb = { ...st.eloDb, [eloSheet]: db };
       const ns = {
         ...st,
-        players: pl,
+        players,
         eloDb: newEloDb,
         history: h,
-        currentRound: nr,
-        phase: ph,
+        currentRound: nextRound,
+        phase,
         matchLog: [
           ...st.matchLog,
           { type: "round", label: `Round ${st.currentRound} completed`, ts: now() },
         ],
         activeTab: "matches",
-        matchSubTab: go ? "standings" : st.matchSubTab,
+        matchSubTab: gameOver ? "standings" : st.matchSubTab,
       };
       saveLS(EK, newEloDb);
-      return { ...ns, pairings: go ? [] : makePairings(ns, pl, h, ph) };
+      return { ...ns, pairings: gameOver ? [] : makePairings(ns, players, h, phase) };
     }
     case "END_TOURNAMENT": {
       try {
@@ -866,11 +871,11 @@ function reducer(st, a) {
         { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides }.eloDB
         : null) || "ELO";
       let db = { ...(st.eloDb[testNs] || {}) };
-      const pl = [];
+      const newPlayers = [];
       for (let i = 0; i < a.count; i++) {
         const n = ns[i] || `Player ${i + 1}`;
         db = setElo(db, n, 800 + Math.floor(Math.random() * 800), true);
-        pl.push({
+        newPlayers.push({
           name: n,
           score: 0,
           w: 0,
@@ -881,7 +886,7 @@ function reducer(st, a) {
           firstCount: 0,
         });
       }
-      return { ...st, players: pl, eloDb: { ...st.eloDb, [testNs]: db } };
+      return { ...st, players: newPlayers, eloDb: { ...st.eloDb, [testNs]: db } };
     }
     case "AUTO_SELECT_WINNERS": {
       const autoC = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
@@ -1060,6 +1065,7 @@ S.inputSm = { ...S.input, width: 56, fontSize: 13, padding: "4px 6px", textAlign
 S.inputXs = { ...S.input, width: 36, fontSize: 13, padding: "4px 6px", textAlign: "center" };
 S.select = { ...S.input, width: "auto", fontSize: 12, padding: "4px 8px", cursor: "pointer" };
 S.tabBtn = { ...S.btn, width: 90, height: 34, fontSize: 13, padding: "0 4px", textAlign: "center", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", justifyContent: "center" };
+S.epBtn = { fontSize: 11, width: 36, textAlign: "center", borderRadius: 5, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 };
 const cardVariants = {
   default: S.card,
   compact: { ...S.card, padding: "10px 14px" },
@@ -1685,7 +1691,7 @@ const APPS_SCRIPT = `// ══════════════════�
 //    winPoints | drawPoints | lossPoints | cumulativeDrawPenalty | rrRounds |
 //    timerMinutes | draft | elo | eloKMax | eloScale | eloDB | firstPlayer | grandPrix |
 //    prizes | timeout | timeoutTime | rules | matchRound | matchMax |
-//    gpBestOfLast | gpDropWorst | extraPoints | extraPointsValue
+//    gpBestOfLast | gpDropWorst | gpGhostPoints | extraPoints | extraPointsValue
 //    Then add one row per tournament type.
 // 7. Go to Extensions > Apps Script
 // 8. Paste this entire script, replacing any existing code
@@ -1954,7 +1960,7 @@ var TOURNAMENT_FEATURE_KEYS = [
   "cumulativeDrawPenalty", "rrRounds", "timerMinutes", "draft", "elo", "eloKMax",
   "eloScale", "eloDB", "firstPlayer", "grandPrix", "prizes",
   "timeout", "timeoutTime", "rules", "matchRound", "matchMax",
-  "gpBestOfLast", "gpDropWorst", "extraPoints", "extraPointsValue"
+  "gpBestOfLast", "gpDropWorst", "gpGhostPoints", "extraPoints", "extraPointsValue"
 ];
 
 function loadTournaments() {
@@ -2623,22 +2629,22 @@ function PlayersTab({ state, dispatch, config, eloLoadedCols }) {
   const eloCol = config?.features?.eloDB || "ELO";
   const activeElo = state.eloDb?.[eloCol] || {};
   const eloReady = !eloCol || !!eloLoadedCols?.[eloCol] || Object.keys(activeElo).length > 0;
-  const addS = useMemo(
+  const addedNames = useMemo(
     () => new Set(state.players.map((p) => p.name.toLowerCase())),
     [state.players],
   );
-  const dbE = useMemo(
+  const dbPlayers = useMemo(
     () =>
       Object.values(activeElo)
         .filter(
           (e) =>
             e?.name &&
-            !addS.has(e.name.toLowerCase()) &&
+            !addedNames.has(e.name.toLowerCase()) &&
             (!filter || e.name.toLowerCase().includes(filter.toLowerCase())) &&
             (state.testMode ? !!e.test : !e.test),
         )
         .sort((a, b) => (b.elo || 0) - (a.elo || 0)),
-    [activeElo, filter, state.testMode, addS],
+    [activeElo, filter, state.testMode, addedNames],
   );
   const paidCount = state.players.filter((p) => p.paid).length;
   const suggestions = useMemo(() => {
@@ -2648,12 +2654,12 @@ function PlayersTab({ state, dispatch, config, eloLoadedCols }) {
         (e) =>
           e?.name &&
           e.name.toLowerCase().includes(input.toLowerCase()) &&
-          !addS.has(e.name.toLowerCase()) &&
+          !addedNames.has(e.name.toLowerCase()) &&
           (state.testMode ? !!e.test : !e.test),
       )
       .sort((a, b) => (b.elo || 0) - (a.elo || 0))
       .slice(0, 6);
-  }, [input, activeElo, addS, state.testMode]);
+  }, [input, activeElo, addedNames, state.testMode]);
   const addPlayer = (name) => {
     dispatch({ type: "ADD_PLAYER", name });
     setInput("");
@@ -2866,7 +2872,7 @@ function PlayersTab({ state, dispatch, config, eloLoadedCols }) {
             <div style={{ textAlign: "center", padding: 16, color: C.faint, fontSize: 12 }}>
               Loading ELO…
             </div>
-          ) : !dbE.length ? (
+          ) : !dbPlayers.length ? (
             <div style={{ textAlign: "center", padding: 16, color: C.faint, fontSize: 12 }}>
               No ELO entries.
             </div>
@@ -2919,7 +2925,7 @@ function PlayersTab({ state, dispatch, config, eloLoadedCols }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {dbE.map((e, i) => {
+                    {dbPlayers.map((e, i) => {
                       return (
                         <tr key={e.name} style={{ background: i % 2 === 1 ? "#fafafa" : "" }}>
                           <td style={{ padding: "5px 6px 5px 0", fontWeight: 500 }}>{e.name}</td>
@@ -2940,7 +2946,7 @@ function PlayersTab({ state, dispatch, config, eloLoadedCols }) {
                   </tbody>
                 </table>
               </div>
-              <div style={{ fontSize: 11, color: C.faint, marginTop: 6 }}>{dbE.length} entries</div>
+              <div style={{ fontSize: 11, color: C.faint, marginTop: 6 }}>{dbPlayers.length} entries</div>
             </>
           )}
         </Card>
@@ -2953,7 +2959,7 @@ function PlayersTab({ state, dispatch, config, eloLoadedCols }) {
 function StandingsTab({ state, dispatch, config }) {
   const cfg = config.features,
     activePlayers = state.players.filter((p) => !p.eliminated),
-    gp = cfg.grandPrix,
+    isGrandPrix = cfg.grandPrix,
     activeElo = state.eloDb[cfg.eloDB || "ELO"] || {};
   const sorted = [...state.players].sort(
       (a, b) => b.score - a.score || b.w - a.w || getElo(activeElo, a.name) - getElo(activeElo, b.name),
@@ -3075,7 +3081,7 @@ function StandingsTab({ state, dispatch, config }) {
                       ) : (
                         <span style={{ fontWeight: 600 }}>
                           {p.score}pt
-                          {gp ? <span style={{ fontSize: 10, color: C.faint }}> GP</span> : ""}
+                          {isGrandPrix ? <span style={{ fontSize: 10, color: C.faint }}> GP</span> : ""}
                         </span>
                       )}
                     </td>
@@ -3155,7 +3161,7 @@ function MatchCard({ match, index, dispatch, scoring, eloDb, extraPoints, extraP
           {match.rematch && <> <Tag variant="amber">re</Tag></>}
         </div>
         {match.players.map((n) => {
-          const epC = match.extraPoints?.[n] || 0;
+          const epOn = match.extraPoints?.[n] || 0;
           return (
             <div
               key={n}
@@ -3174,9 +3180,9 @@ function MatchCard({ match, index, dispatch, scoring, eloDb, extraPoints, extraP
               {extraPoints && (
                 <button
                   onClick={() => dispatch({ type: "ADD_EXTRA_POINTS", index, player: n, delta: extraPointsValue || 1 })}
-                  style={{ fontSize: 11, padding: "3px 0", width: 36, textAlign: "center", background: epC ? C.aBg : "transparent", border: `0.5px solid ${epC ? C.aBd : "#ddd"}`, borderRadius: 5, cursor: "pointer", color: epC ? C.amber : C.muted, fontFamily: "inherit", flexShrink: 0 }}
+                  style={{ ...S.epBtn, padding: "3px 0", background: epOn ? C.aBg : "transparent", border: `0.5px solid ${epOn ? C.aBd : "#ddd"}`, color: epOn ? C.amber : C.muted }}
                 >
-                  {epC ? "EP" : "+EP"}
+                  {epOn ? "EP" : "+EP"}
                 </button>
               )}
             </div>
@@ -3188,9 +3194,9 @@ function MatchCard({ match, index, dispatch, scoring, eloDb, extraPoints, extraP
 
   // swiss / lifepoints: winner-selection UI
   const [p1, p2] = match.players;
-  const sc = match.scores;
+  const scores = match.scores;
   const isDone = match.result === "done";
-  const p1Score = sc[p1], p2Score = sc[p2];
+  const p1Score = scores[p1], p2Score = scores[p2];
   const sel = !isDone ? null : p1Score > p2Score ? "p1" : p2Score > p1Score ? "p2" : "draw";
 
   if (match.players.length === 2) {
@@ -3212,13 +3218,13 @@ function MatchCard({ match, index, dispatch, scoring, eloDb, extraPoints, extraP
       dispatch({ type: "SET_MATCH_RESULT", index, scores });
     };
     const mkEpBtn = (n) => {
-      const epC = match.extraPoints?.[n] || 0;
+      const epOn = match.extraPoints?.[n] || 0;
       return (
         <button
           onClick={() => dispatch({ type: "ADD_EXTRA_POINTS", index, player: n, delta: extraPointsValue || 1 })}
-          style={{ fontSize: 11, width: 36, textAlign: "center", background: epC ? C.aBg : "transparent", border: `0.5px solid ${epC ? C.aBd : "#ddd"}`, borderRadius: 5, cursor: "pointer", color: epC ? C.amber : C.muted, fontFamily: "inherit", flexShrink: 0, alignSelf: "stretch", display: "flex", alignItems: "center", justifyContent: "center" }}
+          style={{ ...S.epBtn, background: epOn ? C.aBg : "transparent", border: `0.5px solid ${epOn ? C.aBd : "#ddd"}`, color: epOn ? C.amber : C.muted, alignSelf: "stretch", display: "flex", alignItems: "center", justifyContent: "center" }}
         >
-          {epC ? "EP" : "+EP"}
+          {epOn ? "EP" : "+EP"}
         </button>
       );
     };
@@ -3240,7 +3246,7 @@ function MatchCard({ match, index, dispatch, scoring, eloDb, extraPoints, extraP
   }
 
   // N-player swiss/lifepoints: tap to select winner(s), tap again to deselect
-  const winners = match.players.filter(n => sc[n] === 1);
+  const winners = match.players.filter(n => scores[n] === 1);
   const toggle = (name) => {
     const newWinners = winners.includes(name) ? winners.filter(x => x !== name) : [...winners, name];
     if (!newWinners.length) { dispatch({ type: "SET_MATCH_RESULT", index, reset: true }); return; }
@@ -3254,8 +3260,8 @@ function MatchCard({ match, index, dispatch, scoring, eloDb, extraPoints, extraP
         {match.rematch && <> <Tag variant="amber">re</Tag></>}
       </div>
       {match.players.map((n) => {
-        const isWinner = sc[n] === 1, isDraw = sc[n] === 0.5;
-        const epC = match.extraPoints?.[n] || 0;
+        const isWinner = scores[n] === 1, isDraw = scores[n] === 0.5;
+        const epOn = match.extraPoints?.[n] || 0;
         return (
           <div key={n} style={{ display: "flex", gap: 4, marginBottom: 4 }}>
             <button
@@ -3277,9 +3283,9 @@ function MatchCard({ match, index, dispatch, scoring, eloDb, extraPoints, extraP
             {extraPoints && (
               <button
                 onClick={() => dispatch({ type: "ADD_EXTRA_POINTS", index, player: n, delta: extraPointsValue || 1 })}
-                style={{ fontSize: 11, padding: "0", width: 36, textAlign: "center", background: epC ? C.aBg : "transparent", border: `0.5px solid ${epC ? C.aBd : "#ddd"}`, borderRadius: 5, cursor: "pointer", color: epC ? C.amber : C.muted, fontFamily: "inherit", flexShrink: 0 }}
+                style={{ ...S.epBtn, background: epOn ? C.aBg : "transparent", border: `0.5px solid ${epOn ? C.aBd : "#ddd"}`, color: epOn ? C.amber : C.muted }}
               >
-                {epC ? "EP" : "+EP"}
+                {epOn ? "EP" : "+EP"}
               </button>
             )}
           </div>
@@ -3288,8 +3294,8 @@ function MatchCard({ match, index, dispatch, scoring, eloDb, extraPoints, extraP
     </Card>
   );
 }
-function ML({ state }) {
-  let ri = 0;
+function MatchLog({ state }) {
+  let roundIdx = 0;
   if (!state.matchLog.length)
     return <div style={{ textAlign: "center", padding: 32, color: C.faint }}>No activity.</div>;
   const roundHeader = (label, ts) => (
@@ -3302,15 +3308,15 @@ function ML({ state }) {
     <div>
       {state.matchLog.map((ev, ei) => {
         if (ev.type === "round") {
-          const rd = state.history[ri++];
-          if (!rd) return null;
-          const isMulti = rd.some((m) => !m.isBye && m.players.length > 2);
+          const round = state.history[roundIdx++];
+          if (!round) return null;
+          const isMulti = round.some((m) => !m.isBye && m.players.length > 2);
           if (isMulti) {
             return (
               <div key={ei} style={{ marginBottom: 16 }}>
                 {roundHeader(ev.label, ev.ts)}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                  {rd.map((m, mi) => (
+                  {round.map((m, mi) => (
                     <Card key={mi} style={{ marginBottom: 0 }}>
                       <div style={{ fontSize: 11, fontWeight: 600, color: C.purple, marginBottom: 6 }}>
                         Table {mi + 1} · {m.players.length}p
@@ -3341,7 +3347,7 @@ function ML({ state }) {
             <div key={ei} style={{ marginBottom: 16 }}>
               {roundHeader(ev.label, ev.ts)}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                {rd.map((m, mi) => {
+                {round.map((m, mi) => {
                   if (m.isBye)
                     return (
                       <Card key={mi} style={{ marginBottom: 0, fontSize: 13 }}>
@@ -3398,7 +3404,7 @@ function ML({ state }) {
 
 function MatchesTab({ state, dispatch, config, eloLoadedCols }) {
   const cfg = config.features,
-    st = [
+    subTabs = [
       cfg.draft && { id: "draft", label: "Draft" },
       { id: "pairings", label: "Pairings" },
       { id: "standings", label: "Standings" },
@@ -3413,7 +3419,7 @@ function MatchesTab({ state, dispatch, config, eloLoadedCols }) {
   return (
     <div>
       <TabBar
-        tabs={st}
+        tabs={subTabs}
         active={state.matchSubTab}
         onSelect={(id) => dispatch({ type: "SET_MATCH_SUBTAB", tab: id })}
       />
@@ -3479,7 +3485,7 @@ function MatchesTab({ state, dispatch, config, eloLoadedCols }) {
       {state.matchSubTab === "standings" && (
         <StandingsTab state={state} dispatch={dispatch} config={config} eloLoadedCols={eloLoadedCols} />
       )}
-      {state.matchSubTab === "log" && <ML state={state} />}
+      {state.matchSubTab === "log" && <MatchLog state={state} />}
       {state.matchSubTab === "session" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {cfg.grandPrix && (
@@ -4078,6 +4084,18 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
               <span style={S.modTag}>mod</span>
             )}
           </div>
+          <div style={{ ...S.fieldRow, opacity: cfg.grandPrix ? 1 : 0.35 }}>
+            <input
+              type="checkbox"
+              checked={!!cfg.gpGhostPoints}
+              disabled={!cfg.grandPrix}
+              onChange={() => dispatch({ type: "TOGGLE_FEATURE", key: "gpGhostPoints" })}
+              onClick={(e) => e.stopPropagation()}
+              style={{ width: 15, height: 15, accentColor: C.accent, cursor: cfg.grandPrix ? "pointer" : "default", margin: 0 }}
+            />
+            <span style={{ flex: 1, fontSize: 13 }}>Ghost points for missing rounds</span>
+            {state.featureOverrides.gpGhostPoints !== undefined && <span style={S.modTag}>mod</span>}
+          </div>
           <div style={S.sectionLabel}>ELO</div>
           <BoolF label="ELO tracking" k="elo" />
           <div
@@ -4588,13 +4606,13 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
   const [syncStatus, setSyncStatus] = useState("");
   useEffect(() => {
     if (!state.startedAt || !state.tournamentStarted) return;
-    const u = () => {
-      const ms = Date.now() - state.startedAt,
-        m = Math.floor(ms / 60000);
-      setEl(`${Math.floor(m / 60)}h ${m % 60}m`);
+    const updateElapsed = () => {
+      const elapsed = Date.now() - state.startedAt,
+        minutes = Math.floor(elapsed / 60000);
+      setEl(`${Math.floor(minutes / 60)}h ${minutes % 60}m`);
     };
-    u();
-    const i = setInterval(u, 10000);
+    updateElapsed();
+    const i = setInterval(updateElapsed, 10000);
     return () => clearInterval(i);
   }, [state.startedAt, state.tournamentStarted]);
   const timeoutFired = useRef(false);
@@ -4604,14 +4622,14 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
       if (timeoutFired.current) return;
       const [h, m] = (cfg.timeoutTime || "").split(":").map(Number);
       if (isNaN(h) || isNaN(m)) return;
-      const n = new Date(),
-        target = new Date(n);
+      const now = new Date(),
+        target = new Date(now);
       target.setHours(h, m, 0, 0);
       if (state.startedAt) {
         const started = new Date(state.startedAt);
         if (started >= target) return;
       }
-      if (n >= target) {
+      if (now >= target) {
         setTimedOut(true);
         timeoutFired.current = true;
         dispatch({
@@ -4663,14 +4681,14 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
     const url = state.sheetsUrl;
     if (!url) return;
     setSyncStatus("syncing");
-    const ent = Object.values(state.eloDb)
+    const eloEntries = Object.values(state.eloDb)
       .filter((v) => v?.name)
       .map((v) => ({ name: v.name, elo: v.elo, test: !!v.test }));
     fetch(url, {
       method: "POST",
       mode: "no-cors",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: "save", test: false, entries: ent }),
+      body: JSON.stringify({ action: "save", test: false, entries: eloEntries }),
     })
       .then(() => {
         setSyncStatus("synced");

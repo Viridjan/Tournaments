@@ -93,13 +93,13 @@ function reducer(st, a) {
       return { ...st, matchSubTab: a.tab };
     // ── Player management ──
     case "ADD_PLAYER": {
-      const n = a.name.trim();
-      if (!n || st.players.some((p) => p.name.toLowerCase() === n.toLowerCase())) return st;
+      const name = a.name.trim();
+      if (!name || st.players.some((p) => p.name.toLowerCase() === name.toLowerCase())) return st;
       return {
         ...st,
         players: [
           ...st.players,
-          { name: n, score: 0, w: 0, d: 0, l: 0, eliminated: false, paid: false, firstCount: 0 },
+          { name, score: 0, w: 0, d: 0, l: 0, eliminated: false, paid: false, firstCount: 0 },
         ],
       };
     }
@@ -113,10 +113,10 @@ function reducer(st, a) {
     case "ABANDON_PLAYER": {
       const abandoned = st.players[a.index];
       if (!abandoned) return st;
-      const pl = st.players.map((p, i) =>
+      const players = st.players.map((p, i) =>
         i === a.index ? { ...p, eliminated: true, score: 0 } : p,
       );
-      const pa = st.pairings.map((m) => {
+      const pairings = st.pairings.map((m) => {
         if (m.result || m.isBye || m.players.length !== 2) return m;
         if (!m.players.includes(abandoned.name)) return m;
         const winner = m.players.find(n => n !== abandoned.name);
@@ -125,8 +125,8 @@ function reducer(st, a) {
       });
       return {
         ...st,
-        players: pl,
-        pairings: pa,
+        players,
+        pairings,
         matchLog: [...st.matchLog, { type: "abandon", label: `${abandoned.name} abandoned`, ts: now() }],
       };
     }
@@ -136,7 +136,7 @@ function reducer(st, a) {
       if (!cfg) return st;
       const ss = cfg.startScore ?? 0;
       const activeElo = st.eloDb[cfg.eloDB || "ELO"] || {};
-      const pl = st.players.map((p) => ({
+      const players = st.players.map((p) => ({
         ...p,
         score: ss,
         gpScores: [],
@@ -151,22 +151,22 @@ function reducer(st, a) {
         firstCount: 0,
         eloStart: getElo(activeElo, p.name),
       }));
-      const ph = cfg.rrRounds > 0 ? "roundrobin" : "swiss";
+      const phase = cfg.rrRounds > 0 ? "roundrobin" : "swiss";
       const ns = {
         ...st,
-        players: pl,
+        players,
         currentRound: 1,
-        phase: ph,
+        phase,
         history: [],
         tournamentStarted: true,
         startedAt: Date.now(),
         matchLog: [
-          { type: "start", label: `Tournament started — ${pl.length} players`, ts: now() },
+          { type: "start", label: `Tournament started — ${players.length} players`, ts: now() },
         ],
         activeTab: "matches",
         matchSubTab: cfg.draft ? "draft" : "pairings",
       };
-      return { ...ns, pairings: makePairings(ns, pl, [], ph) };
+      return { ...ns, pairings: makePairings(ns, players, [], phase) };
     }
     case "SET_MATCH_RESULT":
       return {
@@ -206,19 +206,19 @@ function reducer(st, a) {
     case "NEXT_ROUND": {
       const cfg = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
       if (!cfg) return st;
-      const eloNs = cfg.eloDB || "ELO";
-      let pl = st.players.map((p) => ({ ...p })),
-        db = { ...(st.eloDb[eloNs] || {}) };
-      const sc = cfg.scoring,
-        rp = st.pairings.map((m) => ({ ...m }));
-      rp.forEach((m) => {
+      const eloSheet = cfg.eloDB || "ELO";
+      let players = st.players.map((p) => ({ ...p })),
+        db = { ...(st.eloDb[eloSheet] || {}) };
+      const scoring = cfg.scoring,
+        roundPairings = st.pairings.map((m) => ({ ...m }));
+      roundPairings.forEach((m) => {
         if (m.isBye || m.result !== "done") return;
         const scored = m.players.filter((n) => String(m.scores[n]).trim() !== "");
         if (!scored.length) return;
         const sorted = [...scored].sort((a, b) => parseFloat(m.scores[b] || 0) - parseFloat(m.scores[a] || 0));
         const topScore = parseFloat(m.scores[sorted[0]] || 0);
 
-        if (sc === "points") {
+        if (scoring === "points") {
           const ptMap = [
             cfg.pts1 !== "" && cfg.pts1 !== undefined ? Number(cfg.pts1) : 3,
             cfg.pts2 !== "" && cfg.pts2 !== undefined ? Number(cfg.pts2) : 2,
@@ -239,12 +239,12 @@ function reducer(st, a) {
             const isLast = groups.length > 1 && idx === groups.length - 1;
             const pts = isLast || g.score === 0 ? ptsLast : (ptMap[rank - 1] ?? ptsLast);
             g.players.forEach((n) => {
-              const p = pl.find((x) => x.name === n);
+              const p = players.find((x) => x.name === n);
               if (!p) return;
               if (cfg.grandPrix) {
                 if (!p.gpScores) p.gpScores = [];
                 p.gpScores.push(pts + (m.extraPoints?.[n] || 0));
-                p.score = gpBestOf(p.gpScores, cfg.gpBestOfLast, cfg.gpDropWorst);
+                p.score = gpBestOf(p.gpScores, cfg.gpBestOfLast, cfg.gpDropWorst, cfg.gpGhostPoints);
               } else {
                 p.score += pts;
               }
@@ -256,11 +256,11 @@ function reducer(st, a) {
             });
             rank += g.players.length;
           });
-        } else if (sc === "swiss") {
+        } else if (scoring === "swiss") {
           const tied = sorted.filter(n => parseFloat(m.scores[n] || 0) === topScore);
           const multi = tied.length > 1;
           sorted.forEach(n => {
-            const p = pl.find(x => x.name === n);
+            const p = players.find(x => x.name === n);
             if (!p) return;
             const isTop = parseFloat(m.scores[n] || 0) === topScore;
             let pts;
@@ -270,15 +270,15 @@ function reducer(st, a) {
             if (cfg.grandPrix) {
               if (!p.gpScores) p.gpScores = [];
               p.gpScores.push(pts + (m.extraPoints?.[n] || 0));
-              p.score = gpBestOf(p.gpScores, cfg.gpBestOfLast, cfg.gpDropWorst);
+              p.score = gpBestOf(p.gpScores, cfg.gpBestOfLast, cfg.gpDropWorst, cfg.gpGhostPoints);
             } else {
               p.score += pts;
             }
           });
-        } else if (sc === "lifepoints") {
+        } else if (scoring === "lifepoints") {
           const draw = sorted.every(n => parseFloat(m.scores[n] || 0) === topScore);
           sorted.forEach(n => {
-            const p = pl.find(x => x.name === n);
+            const p = players.find(x => x.name === n);
             if (!p) return;
             const isTop = parseFloat(m.scores[n] || 0) === topScore;
             if (draw) {
@@ -299,11 +299,11 @@ function reducer(st, a) {
         }
 
         if (cfg.elo && !m.noElo) {
-          const n = m.players.length,
-            K = (cfg.eloKMax || 50) / n,
+          const playerCount = m.players.length,
+            K = (cfg.eloKMax || 50) / playerCount,
             dl = Object.fromEntries(m.players.map((p) => [p, 0]));
-          for (let i = 0; i < n; i++)
-            for (let j = i + 1; j < n; j++) {
+          for (let i = 0; i < playerCount; i++)
+            for (let j = i + 1; j < playerCount; j++) {
               const pA = m.players[i], pB = m.players[j],
                 sA = parseFloat(m.scores[pA] || 0), sB = parseFloat(m.scores[pB] || 0),
                 rA = getElo(db, pA), rB = getElo(db, pB),
@@ -320,29 +320,29 @@ function reducer(st, a) {
           });
         }
       });
-      const h = [...st.history, rp],
-        nr = st.currentRound + 1;
-      let ph = st.phase;
-      if (ph === "roundrobin" && nr > cfg.rrRounds) ph = "swiss";
-      const activePlayers = pl.filter((p) => !p.eliminated),
-        go = cfg.scoring === "lifepoints" && activePlayers.length <= 1;
-      const newEloDb = { ...st.eloDb, [eloNs]: db };
+      const h = [...st.history, roundPairings],
+        nextRound = st.currentRound + 1;
+      let phase = st.phase;
+      if (phase === "roundrobin" && nextRound > cfg.rrRounds) phase = "swiss";
+      const activePlayers = players.filter((p) => !p.eliminated),
+        gameOver = cfg.scoring === "lifepoints" && activePlayers.length <= 1;
+      const newEloDb = { ...st.eloDb, [eloSheet]: db };
       const ns = {
         ...st,
-        players: pl,
+        players,
         eloDb: newEloDb,
         history: h,
-        currentRound: nr,
-        phase: ph,
+        currentRound: nextRound,
+        phase,
         matchLog: [
           ...st.matchLog,
           { type: "round", label: `Round ${st.currentRound} completed`, ts: now() },
         ],
         activeTab: "matches",
-        matchSubTab: go ? "standings" : st.matchSubTab,
+        matchSubTab: gameOver ? "standings" : st.matchSubTab,
       };
       saveLS(EK, newEloDb);
-      return { ...ns, pairings: go ? [] : makePairings(ns, pl, h, ph) };
+      return { ...ns, pairings: gameOver ? [] : makePairings(ns, players, h, phase) };
     }
     case "END_TOURNAMENT": {
       try {
@@ -467,11 +467,11 @@ function reducer(st, a) {
         { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides }.eloDB
         : null) || "ELO";
       let db = { ...(st.eloDb[testNs] || {}) };
-      const pl = [];
+      const newPlayers = [];
       for (let i = 0; i < a.count; i++) {
         const n = ns[i] || `Player ${i + 1}`;
         db = setElo(db, n, 800 + Math.floor(Math.random() * 800), true);
-        pl.push({
+        newPlayers.push({
           name: n,
           score: 0,
           w: 0,
@@ -482,7 +482,7 @@ function reducer(st, a) {
           firstCount: 0,
         });
       }
-      return { ...st, players: pl, eloDb: { ...st.eloDb, [testNs]: db } };
+      return { ...st, players: newPlayers, eloDb: { ...st.eloDb, [testNs]: db } };
     }
     case "AUTO_SELECT_WINNERS": {
       const autoC = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };

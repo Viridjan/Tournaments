@@ -357,6 +357,18 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
               <span style={S.modTag}>mod</span>
             )}
           </div>
+          <div style={{ ...S.fieldRow, opacity: cfg.grandPrix ? 1 : 0.35 }}>
+            <input
+              type="checkbox"
+              checked={!!cfg.gpGhostPoints}
+              disabled={!cfg.grandPrix}
+              onChange={() => dispatch({ type: "TOGGLE_FEATURE", key: "gpGhostPoints" })}
+              onClick={(e) => e.stopPropagation()}
+              style={{ width: 15, height: 15, accentColor: C.accent, cursor: cfg.grandPrix ? "pointer" : "default", margin: 0 }}
+            />
+            <span style={{ flex: 1, fontSize: 13 }}>Ghost points for missing rounds</span>
+            {state.featureOverrides.gpGhostPoints !== undefined && <span style={S.modTag}>mod</span>}
+          </div>
           <div style={S.sectionLabel}>ELO</div>
           <BoolF label="ELO tracking" k="elo" />
           <div

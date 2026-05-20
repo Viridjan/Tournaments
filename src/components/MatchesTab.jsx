@@ -19,7 +19,7 @@ function MatchCard({ match, index, dispatch, scoring, eloDb, extraPoints, extraP
           {match.rematch && <> <Tag variant="amber">re</Tag></>}
         </div>
         {match.players.map((n) => {
-          const epC = match.extraPoints?.[n] || 0;
+          const epOn = match.extraPoints?.[n] || 0;
           return (
             <div
               key={n}
@@ -38,9 +38,9 @@ function MatchCard({ match, index, dispatch, scoring, eloDb, extraPoints, extraP
               {extraPoints && (
                 <button
                   onClick={() => dispatch({ type: "ADD_EXTRA_POINTS", index, player: n, delta: extraPointsValue || 1 })}
-                  style={{ fontSize: 11, padding: "3px 0", width: 36, textAlign: "center", background: epC ? C.aBg : "transparent", border: `0.5px solid ${epC ? C.aBd : "#ddd"}`, borderRadius: 5, cursor: "pointer", color: epC ? C.amber : C.muted, fontFamily: "inherit", flexShrink: 0 }}
+                  style={{ ...S.epBtn, padding: "3px 0", background: epOn ? C.aBg : "transparent", border: `0.5px solid ${epOn ? C.aBd : "#ddd"}`, color: epOn ? C.amber : C.muted }}
                 >
-                  {epC ? "EP" : "+EP"}
+                  {epOn ? "EP" : "+EP"}
                 </button>
               )}
             </div>
@@ -52,9 +52,9 @@ function MatchCard({ match, index, dispatch, scoring, eloDb, extraPoints, extraP
 
   // swiss / lifepoints: winner-selection UI
   const [p1, p2] = match.players;
-  const sc = match.scores;
+  const scores = match.scores;
   const isDone = match.result === "done";
-  const p1Score = sc[p1], p2Score = sc[p2];
+  const p1Score = scores[p1], p2Score = scores[p2];
   const sel = !isDone ? null : p1Score > p2Score ? "p1" : p2Score > p1Score ? "p2" : "draw";
 
   if (match.players.length === 2) {
@@ -76,13 +76,13 @@ function MatchCard({ match, index, dispatch, scoring, eloDb, extraPoints, extraP
       dispatch({ type: "SET_MATCH_RESULT", index, scores });
     };
     const mkEpBtn = (n) => {
-      const epC = match.extraPoints?.[n] || 0;
+      const epOn = match.extraPoints?.[n] || 0;
       return (
         <button
           onClick={() => dispatch({ type: "ADD_EXTRA_POINTS", index, player: n, delta: extraPointsValue || 1 })}
-          style={{ fontSize: 11, width: 36, textAlign: "center", background: epC ? C.aBg : "transparent", border: `0.5px solid ${epC ? C.aBd : "#ddd"}`, borderRadius: 5, cursor: "pointer", color: epC ? C.amber : C.muted, fontFamily: "inherit", flexShrink: 0, alignSelf: "stretch", display: "flex", alignItems: "center", justifyContent: "center" }}
+          style={{ ...S.epBtn, background: epOn ? C.aBg : "transparent", border: `0.5px solid ${epOn ? C.aBd : "#ddd"}`, color: epOn ? C.amber : C.muted, alignSelf: "stretch", display: "flex", alignItems: "center", justifyContent: "center" }}
         >
-          {epC ? "EP" : "+EP"}
+          {epOn ? "EP" : "+EP"}
         </button>
       );
     };
@@ -104,7 +104,7 @@ function MatchCard({ match, index, dispatch, scoring, eloDb, extraPoints, extraP
   }
 
   // N-player swiss/lifepoints: tap to select winner(s), tap again to deselect
-  const winners = match.players.filter(n => sc[n] === 1);
+  const winners = match.players.filter(n => scores[n] === 1);
   const toggle = (name) => {
     const newWinners = winners.includes(name) ? winners.filter(x => x !== name) : [...winners, name];
     if (!newWinners.length) { dispatch({ type: "SET_MATCH_RESULT", index, reset: true }); return; }
@@ -118,8 +118,8 @@ function MatchCard({ match, index, dispatch, scoring, eloDb, extraPoints, extraP
         {match.rematch && <> <Tag variant="amber">re</Tag></>}
       </div>
       {match.players.map((n) => {
-        const isWinner = sc[n] === 1, isDraw = sc[n] === 0.5;
-        const epC = match.extraPoints?.[n] || 0;
+        const isWinner = scores[n] === 1, isDraw = scores[n] === 0.5;
+        const epOn = match.extraPoints?.[n] || 0;
         return (
           <div key={n} style={{ display: "flex", gap: 4, marginBottom: 4 }}>
             <button
@@ -141,9 +141,9 @@ function MatchCard({ match, index, dispatch, scoring, eloDb, extraPoints, extraP
             {extraPoints && (
               <button
                 onClick={() => dispatch({ type: "ADD_EXTRA_POINTS", index, player: n, delta: extraPointsValue || 1 })}
-                style={{ fontSize: 11, padding: "0", width: 36, textAlign: "center", background: epC ? C.aBg : "transparent", border: `0.5px solid ${epC ? C.aBd : "#ddd"}`, borderRadius: 5, cursor: "pointer", color: epC ? C.amber : C.muted, fontFamily: "inherit", flexShrink: 0 }}
+                style={{ ...S.epBtn, background: epOn ? C.aBg : "transparent", border: `0.5px solid ${epOn ? C.aBd : "#ddd"}`, color: epOn ? C.amber : C.muted }}
               >
-                {epC ? "EP" : "+EP"}
+                {epOn ? "EP" : "+EP"}
               </button>
             )}
           </div>
@@ -152,8 +152,8 @@ function MatchCard({ match, index, dispatch, scoring, eloDb, extraPoints, extraP
     </Card>
   );
 }
-function ML({ state }) {
-  let ri = 0;
+function MatchLog({ state }) {
+  let roundIdx = 0;
   if (!state.matchLog.length)
     return <div style={{ textAlign: "center", padding: 32, color: C.faint }}>No activity.</div>;
   const roundHeader = (label, ts) => (
@@ -166,15 +166,15 @@ function ML({ state }) {
     <div>
       {state.matchLog.map((ev, ei) => {
         if (ev.type === "round") {
-          const rd = state.history[ri++];
-          if (!rd) return null;
-          const isMulti = rd.some((m) => !m.isBye && m.players.length > 2);
+          const round = state.history[roundIdx++];
+          if (!round) return null;
+          const isMulti = round.some((m) => !m.isBye && m.players.length > 2);
           if (isMulti) {
             return (
               <div key={ei} style={{ marginBottom: 16 }}>
                 {roundHeader(ev.label, ev.ts)}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                  {rd.map((m, mi) => (
+                  {round.map((m, mi) => (
                     <Card key={mi} style={{ marginBottom: 0 }}>
                       <div style={{ fontSize: 11, fontWeight: 600, color: C.purple, marginBottom: 6 }}>
                         Table {mi + 1} · {m.players.length}p
@@ -205,7 +205,7 @@ function ML({ state }) {
             <div key={ei} style={{ marginBottom: 16 }}>
               {roundHeader(ev.label, ev.ts)}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                {rd.map((m, mi) => {
+                {round.map((m, mi) => {
                   if (m.isBye)
                     return (
                       <Card key={mi} style={{ marginBottom: 0, fontSize: 13 }}>
@@ -262,7 +262,7 @@ function ML({ state }) {
 
 function MatchesTab({ state, dispatch, config, eloLoadedCols }) {
   const cfg = config.features,
-    st = [
+    subTabs = [
       cfg.draft && { id: "draft", label: "Draft" },
       { id: "pairings", label: "Pairings" },
       { id: "standings", label: "Standings" },
@@ -277,7 +277,7 @@ function MatchesTab({ state, dispatch, config, eloLoadedCols }) {
   return (
     <div>
       <TabBar
-        tabs={st}
+        tabs={subTabs}
         active={state.matchSubTab}
         onSelect={(id) => dispatch({ type: "SET_MATCH_SUBTAB", tab: id })}
       />
@@ -343,7 +343,7 @@ function MatchesTab({ state, dispatch, config, eloLoadedCols }) {
       {state.matchSubTab === "standings" && (
         <StandingsTab state={state} dispatch={dispatch} config={config} eloLoadedCols={eloLoadedCols} />
       )}
-      {state.matchSubTab === "log" && <ML state={state} />}
+      {state.matchSubTab === "log" && <MatchLog state={state} />}
       {state.matchSubTab === "session" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {cfg.grandPrix && (

@@ -2,7 +2,7 @@
 function StandingsTab({ state, dispatch, config }) {
   const cfg = config.features,
     activePlayers = state.players.filter((p) => !p.eliminated),
-    gp = cfg.grandPrix,
+    isGrandPrix = cfg.grandPrix,
     activeElo = state.eloDb[cfg.eloDB || "ELO"] || {};
   const sorted = [...state.players].sort(
       (a, b) => b.score - a.score || b.w - a.w || getElo(activeElo, a.name) - getElo(activeElo, b.name),
@@ -124,7 +124,7 @@ function StandingsTab({ state, dispatch, config }) {
                       ) : (
                         <span style={{ fontWeight: 600 }}>
                           {p.score}pt
-                          {gp ? <span style={{ fontSize: 10, color: C.faint }}> GP</span> : ""}
+                          {isGrandPrix ? <span style={{ fontSize: 10, color: C.faint }}> GP</span> : ""}
                         </span>
                       )}
                     </td>

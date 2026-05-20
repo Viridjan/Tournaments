@@ -11,13 +11,13 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
   const [syncStatus, setSyncStatus] = useState("");
   useEffect(() => {
     if (!state.startedAt || !state.tournamentStarted) return;
-    const u = () => {
-      const ms = Date.now() - state.startedAt,
-        m = Math.floor(ms / 60000);
-      setEl(`${Math.floor(m / 60)}h ${m % 60}m`);
+    const updateElapsed = () => {
+      const elapsed = Date.now() - state.startedAt,
+        minutes = Math.floor(elapsed / 60000);
+      setEl(`${Math.floor(minutes / 60)}h ${minutes % 60}m`);
     };
-    u();
-    const i = setInterval(u, 10000);
+    updateElapsed();
+    const i = setInterval(updateElapsed, 10000);
     return () => clearInterval(i);
   }, [state.startedAt, state.tournamentStarted]);
   const timeoutFired = useRef(false);
@@ -27,14 +27,14 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
       if (timeoutFired.current) return;
       const [h, m] = (cfg.timeoutTime || "").split(":").map(Number);
       if (isNaN(h) || isNaN(m)) return;
-      const n = new Date(),
-        target = new Date(n);
+      const now = new Date(),
+        target = new Date(now);
       target.setHours(h, m, 0, 0);
       if (state.startedAt) {
         const started = new Date(state.startedAt);
         if (started >= target) return;
       }
-      if (n >= target) {
+      if (now >= target) {
         setTimedOut(true);
         timeoutFired.current = true;
         dispatch({
@@ -86,14 +86,14 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
     const url = state.sheetsUrl;
     if (!url) return;
     setSyncStatus("syncing");
-    const ent = Object.values(state.eloDb)
+    const eloEntries = Object.values(state.eloDb)
       .filter((v) => v?.name)
       .map((v) => ({ name: v.name, elo: v.elo, test: !!v.test }));
     fetch(url, {
       method: "POST",
       mode: "no-cors",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: "save", test: false, entries: ent }),
+      body: JSON.stringify({ action: "save", test: false, entries: eloEntries }),
     })
       .then(() => {
         setSyncStatus("synced");

@@ -10,22 +10,22 @@ function PlayersTab({ state, dispatch, config, eloLoadedCols }) {
   const eloCol = config?.features?.eloDB || "ELO";
   const activeElo = state.eloDb?.[eloCol] || {};
   const eloReady = !eloCol || !!eloLoadedCols?.[eloCol] || Object.keys(activeElo).length > 0;
-  const addS = useMemo(
+  const addedNames = useMemo(
     () => new Set(state.players.map((p) => p.name.toLowerCase())),
     [state.players],
   );
-  const dbE = useMemo(
+  const dbPlayers = useMemo(
     () =>
       Object.values(activeElo)
         .filter(
           (e) =>
             e?.name &&
-            !addS.has(e.name.toLowerCase()) &&
+            !addedNames.has(e.name.toLowerCase()) &&
             (!filter || e.name.toLowerCase().includes(filter.toLowerCase())) &&
             (state.testMode ? !!e.test : !e.test),
         )
         .sort((a, b) => (b.elo || 0) - (a.elo || 0)),
-    [activeElo, filter, state.testMode, addS],
+    [activeElo, filter, state.testMode, addedNames],
   );
   const paidCount = state.players.filter((p) => p.paid).length;
   const suggestions = useMemo(() => {
@@ -35,12 +35,12 @@ function PlayersTab({ state, dispatch, config, eloLoadedCols }) {
         (e) =>
           e?.name &&
           e.name.toLowerCase().includes(input.toLowerCase()) &&
-          !addS.has(e.name.toLowerCase()) &&
+          !addedNames.has(e.name.toLowerCase()) &&
           (state.testMode ? !!e.test : !e.test),
       )
       .sort((a, b) => (b.elo || 0) - (a.elo || 0))
       .slice(0, 6);
-  }, [input, activeElo, addS, state.testMode]);
+  }, [input, activeElo, addedNames, state.testMode]);
   const addPlayer = (name) => {
     dispatch({ type: "ADD_PLAYER", name });
     setInput("");
@@ -253,7 +253,7 @@ function PlayersTab({ state, dispatch, config, eloLoadedCols }) {
             <div style={{ textAlign: "center", padding: 16, color: C.faint, fontSize: 12 }}>
               Loading ELO…
             </div>
-          ) : !dbE.length ? (
+          ) : !dbPlayers.length ? (
             <div style={{ textAlign: "center", padding: 16, color: C.faint, fontSize: 12 }}>
               No ELO entries.
             </div>
@@ -306,7 +306,7 @@ function PlayersTab({ state, dispatch, config, eloLoadedCols }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {dbE.map((e, i) => {
+                    {dbPlayers.map((e, i) => {
                       return (
                         <tr key={e.name} style={{ background: i % 2 === 1 ? "#fafafa" : "" }}>
                           <td style={{ padding: "5px 6px 5px 0", fontWeight: 500 }}>{e.name}</td>
@@ -327,7 +327,7 @@ function PlayersTab({ state, dispatch, config, eloLoadedCols }) {
                   </tbody>
                 </table>
               </div>
-              <div style={{ fontSize: 11, color: C.faint, marginTop: 6 }}>{dbE.length} entries</div>
+              <div style={{ fontSize: 11, color: C.faint, marginTop: 6 }}>{dbPlayers.length} entries</div>
             </>
           )}
         </Card>

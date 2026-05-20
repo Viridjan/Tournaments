@@ -86,6 +86,7 @@ S.inputSm = { ...S.input, width: 56, fontSize: 13, padding: "4px 6px", textAlign
 S.inputXs = { ...S.input, width: 36, fontSize: 13, padding: "4px 6px", textAlign: "center" };
 S.select = { ...S.input, width: "auto", fontSize: 12, padding: "4px 8px", cursor: "pointer" };
 S.tabBtn = { ...S.btn, width: 90, height: 34, fontSize: 13, padding: "0 4px", textAlign: "center", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", justifyContent: "center" };
+S.epBtn = { fontSize: 11, width: 36, textAlign: "center", borderRadius: 5, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 };
 const cardVariants = {
   default: S.card,
   compact: { ...S.card, padding: "10px 14px" },
