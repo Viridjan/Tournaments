@@ -4,7 +4,9 @@ function Timer({ minutes }) {
   const [left, setLeft] = useState(total);
   const [running, setRunning] = useState(false);
   const intervalRef = useRef(null),
-    audioRef = useRef(null);
+    audioRef = useRef(null),
+    endTimeRef = useRef(null),
+    wakeLockRef = useRef(null);
   const alarm = useCallback(() => {
     try {
       if (!audioRef.current) audioRef.current = new (window.AudioContext || window.webkitAudioContext)();
@@ -25,22 +27,55 @@ function Timer({ minutes }) {
       });
     } catch {}
   }, []);
+  const acquireWakeLock = useCallback(async () => {
+    try {
+      if (navigator.wakeLock) wakeLockRef.current = await navigator.wakeLock.request("screen");
+    } catch {}
+  }, []);
+  const releaseWakeLock = useCallback(() => {
+    wakeLockRef.current?.release().catch(() => {});
+    wakeLockRef.current = null;
+  }, []);
   useEffect(() => {
-    if (running && left > 0)
-      intervalRef.current = setInterval(
-        () =>
-          setLeft((p) => {
-            if (p <= 1) {
-              setRunning(false);
-              alarm();
-              return 0;
-            }
-            return p - 1;
-          }),
-        1000,
-      );
+    if (running && left > 0) {
+      if (!endTimeRef.current) {
+        endTimeRef.current = Date.now() + left * 1000;
+        acquireWakeLock();
+      }
+      intervalRef.current = setInterval(() => {
+        const remaining = Math.max(0, Math.round((endTimeRef.current - Date.now()) / 1000));
+        if (remaining <= 0) {
+          endTimeRef.current = null;
+          releaseWakeLock();
+          setRunning(false);
+          setLeft(0);
+          alarm();
+        } else {
+          setLeft(remaining);
+        }
+      }, 500);
+    } else {
+      endTimeRef.current = null;
+      releaseWakeLock();
+    }
     return () => clearInterval(intervalRef.current);
-  }, [running, left, alarm]);
+  }, [running, alarm, acquireWakeLock, releaseWakeLock]);
+  useEffect(() => {
+    const onVisible = () => {
+      if (!running || !endTimeRef.current) return;
+      if (!wakeLockRef.current) acquireWakeLock();
+      const remaining = Math.max(0, Math.round((endTimeRef.current - Date.now()) / 1000));
+      setLeft(remaining);
+      if (remaining <= 0) {
+        endTimeRef.current = null;
+        releaseWakeLock();
+        setRunning(false);
+        alarm();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [running, alarm, acquireWakeLock, releaseWakeLock]);
   const urgent = left <= 60,
     m = Math.floor(left / 60),
     sec = left % 60;
