@@ -74,18 +74,31 @@ function RulesTab({ state }) {
           <tbody>
             {rows.map((r, i) => (
               <tr key={i} style={{ background: i % 2 === 1 ? "#fafafa" : "" }}>
-                {r.map((c, j) => (
-                  <td
-                    key={j}
-                    style={{
-                      padding: "6px 10px 6px 0",
-                      borderBottom: `0.5px solid ${C.bL}`,
-                      whiteSpace: "pre-wrap",
-                    }}
-                  >
-                    {c}
-                  </td>
-                ))}
+                {r.map((c, j) => {
+                  const isLast = j === r.length - 1;
+                  let display = c;
+                  if (isLast) {
+                    const d = new Date(c);
+                    if (!isNaN(d.getTime())) {
+                      display = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+                    } else {
+                      display = String(c).slice(0, 10);
+                    }
+                  }
+                  return (
+                    <td
+                      key={j}
+                      style={{
+                        padding: "6px 10px 6px 0",
+                        borderBottom: `0.5px solid ${C.bL}`,
+                        whiteSpace: "pre-wrap",
+                        ...(isLast && { color: C.muted, fontSize: 11, whiteSpace: "nowrap" }),
+                      }}
+                    >
+                      {display}
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>
