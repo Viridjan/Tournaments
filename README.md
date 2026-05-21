@@ -79,7 +79,10 @@ No code changes needed. Add a row to the **Settings** tab of the Sheet and redep
 | `eloKMax` | number | Maximum ELO K-factor (default 50) |
 | `eloScale` | number | ELO scale factor (default 500) |
 | `eloDB` | string | Column name in the ELO sheet to read/write |
-| `firstPlayer` | TRUE/FALSE | Track and balance who goes first |
+| `playerOrder` | TRUE/FALSE | Track and rotate player seating order each round |
+| `tiebreaker1` | `elo` \| `elo_rev` \| `omw` \| `gwr` \| `none` | Primary tiebreaker for standings |
+| `tiebreaker2` | same as above | Secondary tiebreaker |
+| `tiebreaker3` | same as above | Tertiary tiebreaker |
 | `grandPrix` | TRUE/FALSE | Enable GP cumulative scoring (best 3 of last 4 rounds) |
 | `prizes` | TRUE/FALSE | Enable prize pool allocation |
 | `timeout` | TRUE/FALSE | Enable hard timeout warning |
@@ -88,6 +91,11 @@ No code changes needed. Add a row to the **Settings** tab of the Sheet and redep
 | `rules` | TRUE/FALSE | Enable the rules tab |
 | `matchRound` | `none` \| `up` \| `down` | What to do with leftover players: bye, round up to bigger groups, or round down |
 | `matchMax` | number | Max players per match (2 = 1v1, 3+ = multi-player) |
+| `gpBestOfLast` | number | GP window size — how many recent rounds count toward score (default 4) |
+| `gpDropWorst` | number | GP worst-score drops within the window (default 1) |
+| `gpGhostPoints` | TRUE/FALSE | Pad missing rounds with the player's worst score (penalises late joiners) |
+| `extraPoints` | TRUE/FALSE | Enable per-match bonus point button |
+| `extraPointsValue` | number | Points awarded per bonus point click (default 1) |
 
 ### Scoring modes
 
@@ -210,7 +218,7 @@ Concatenates `src/` files in fixed order into `index.html`. Edit source files, t
 |---|---|---|
 | 1 | `src/config.js` | `ED`, `EM`, `ES`, `EK`, `SK`, `BK`, `DU` |
 | 2 | `src/logic.js` | `gpBestOf`, `eCalc`, `genPairings`, `calcAlloc`, … |
-| 3 | `src/storage.js` | `now`, `mkId`, `lLS`, `sLS`, `gSU`, `buildSnap`, `autoSeedSave`, `mkP` |
+| 3 | `src/storage.js` | `now`, `mkId`, `lLS`, `sLS`, `gSU`, `buildSnap`, `autoSeedSave`, `makePairings` |
 | 4 | `src/reducer.js` | `init`, `reducer` |
 | 5 | `src/ui.js` | `C`, `S`, `Card`, `Btn`, `Tag`, `TabBar`, `Hearts` |
 | 6 | `src/components/` | feature components (dependency order — see `build.sh`) |
@@ -230,7 +238,7 @@ Single `useReducer(reducer, init)` in `App.jsx`. All state transitions go throug
 | `tournamentId` | string | Key into `state.tournaments` |
 | `tournaments` | object | `{id: {id, name, icon, desc, features{}}}` — loaded from Sheets |
 | `featureOverrides` | object | Runtime overrides merged over tournament features |
-| `players` | array | `{name, score, w, d, l, eliminated, paid, firstCount, gpScores?, eloStart?}` |
+| `players` | array | `{name, score, w, d, l, eliminated, paid, positionSum, gpScores?, eloStart?}` |
 | `pairings` | array | Current round matches |
 | `history` | array | Past rounds (array of pairing arrays) |
 | `matchLog` | array | `{type, label, ts}` timeline entries |
@@ -238,6 +246,7 @@ Single `useReducer(reducer, init)` in `App.jsx`. All state transitions go throug
 | `currentRound` | number | 1-indexed, 0 before start |
 | `phase` | string | `"roundrobin"` \| `"swiss"` |
 | `tournamentStarted` | bool | Controls tab visibility and auto-backup |
+| `draftEnded` | bool | Draft phase complete; hides Draft subtab for the rest of the session |
 | `prizes` | array | Prize pool entries |
 | `ranks` | array | Payout percentage per rank |
 | `sheetsUrl` | string | Apps Script deployment URL |
@@ -319,7 +328,7 @@ Add a row to the Sheet's Settings tab. Appears on the landing screen automatical
 Add scoring function in `src/logic.js` + handle in the `NEXT_ROUND` case in `reducer.js`.
 
 ### New pairing mode
-Add pairing function in `src/logic.js` + add a branch in `mkP()` in `storage.js`.
+Add pairing function in `src/logic.js` + add a branch in `makePairings()` in `storage.js`.
 
 ### New backend endpoint
 Add handler in `apps-script.js` + register in `doGet`/`doPost` → regenerate embed → redeploy → call via `fetch(gSU() + "?action=my_action")`.
