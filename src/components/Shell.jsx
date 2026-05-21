@@ -5,7 +5,7 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
   const config = { ...rawConfig, features: { ...rawConfig.features, ...state.featureOverrides } };
   const cfg = config.features,
     activePlayers = state.players.filter((p) => !p.eliminated),
-    go = state.tournamentStarted && cfg.scoring === "lifepoints" && activePlayers.length <= 1;
+    go = state.tournamentStarted && isGameOver(cfg.scoring, activePlayers);
   const [el, setEl] = useState("");
   const [timedOut, setTimedOut] = useState(false);
   const [syncStatus, setSyncStatus] = useState("");
@@ -20,16 +20,20 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
     const i = setInterval(updateElapsed, 10000);
     return () => clearInterval(i);
   }, [state.startedAt, state.tournamentStarted]);
+  // timeoutFired ref prevents the timeout from triggering more than once per session,
+  // even if the effect re-runs due to state changes after the timeout is reached.
   const timeoutFired = useRef(false);
   useEffect(() => {
     if (!state.tournamentStarted || !cfg.timeout || !cfg.timeoutTime || timedOut) return;
     const check = () => {
       if (timeoutFired.current) return;
+      // cfg.timeoutTime is a wall-clock "HH:MM" string — compare against today's date.
       const [h, m] = (cfg.timeoutTime || "").split(":").map(Number);
       if (isNaN(h) || isNaN(m)) return;
       const now = new Date(),
         target = new Date(now);
       target.setHours(h, m, 0, 0);
+      // If the tournament started after the target time, skip (timeout is for "before" a cutoff).
       if (state.startedAt) {
         const started = new Date(state.startedAt);
         if (started >= target) return;
@@ -48,6 +52,10 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
     const i = setInterval(check, 30000);
     return () => clearInterval(i);
   }, [state.tournamentStarted, cfg.timeout, cfg.timeoutTime, timedOut, dispatch, state.startedAt]);
+  // Local backup: write the current tournament state to localStorage on every relevant change.
+  // Intentionally duplicates the buildSnap() structure inline rather than calling buildSnap()
+  // because this backup runs synchronously on every render and must stay lightweight.
+  // buildSnap() is used for remote seed saves which are async and less frequent.
   useEffect(() => {
     if (!state.players.length) return;
     saveLS(BK + "_" + state.tournamentId, {
@@ -74,6 +82,9 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
     });
     try { localStorage.setItem(BK_LAST, state.tournamentId); } catch {}
   }, [state.players, state.pairings, state.currentRound, state.tournamentStarted, state.history]);
+  // Auto-push ELO to Google Sheets after each completed round.
+  // lastPushedRound tracks history.length at last push so this only fires once per new round,
+  // not on every state change that happens to re-render Shell.
   const lastPushedRound = useRef(0);
   useEffect(() => {
     if (

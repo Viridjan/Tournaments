@@ -7,13 +7,8 @@ function DraftGroups({ players, eloDb, dispatch }) {
         Add at least 2 players.
       </div>
     );
-  const ng = Math.max(1, Math.floor(n / 5)),
-    sorted = [...players].sort((a, b) => getElo(eloDb, b.name) - getElo(eloDb, a.name)),
-    g = Array.from({ length: ng }, () => []);
-  sorted.forEach((p, i) => {
-    const r = Math.floor(i / ng);
-    g[r % 2 === 0 ? i % ng : ng - 1 - (i % ng)].push(p);
-  });
+  const g = draftGroups(players, eloDb),
+    ng = g.length;
   const gc = ["#185fa5", "#0f6e56", "#a32d2d", "#854f0b", "#534ab7", "#3b6d11"];
   return (
     <div>

@@ -4,9 +4,23 @@ function StandingsTab({ state, dispatch, config }) {
     activePlayers = state.players.filter((p) => !p.eliminated),
     isGrandPrix = cfg.grandPrix,
     activeElo = state.eloDb[cfg.eloDB || "ELO"] || {};
+  const tb1 = cfg.tiebreaker1 || "elo",
+    tb2 = cfg.tiebreaker2 || "none",
+    tb3 = cfg.tiebreaker3 || "none";
+  const playerStats = Object.fromEntries(
+    state.players.map((p) => [p.name, {
+      elo: getElo(activeElo, p.name),
+      omw: calcOMW(p.name, state.history, state.players),
+      gwr: calcGWR(p),
+    }]),
+  );
   const sorted = [...state.players].sort(
-      (a, b) => b.score - a.score || b.w - a.w || getElo(activeElo, a.name) - getElo(activeElo, b.name),
-    ),
+    (a, b) =>
+      b.score - a.score ||
+      (tb1 !== "none" ? calcTiebreakerValue(playerStats, b, tb1) - calcTiebreakerValue(playerStats, a, tb1) : 0) ||
+      (tb2 !== "none" ? calcTiebreakerValue(playerStats, b, tb2) - calcTiebreakerValue(playerStats, a, tb2) : 0) ||
+      (tb3 !== "none" ? calcTiebreakerValue(playerStats, b, tb3) - calcTiebreakerValue(playerStats, a, tb3) : 0),
+  ),
     winner = activePlayers.length === 1 ? activePlayers[0] : null;
   const prizeCalc = cfg.prizes
     ? calcAlloc(

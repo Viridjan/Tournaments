@@ -21,9 +21,10 @@ function SpinnerTab({ state, dispatch }) {
       ctx.save();
       ctx.translate(cx, cy);
       ctx.rotate((a * Math.PI) / 180);
+      // Start at -π/2 so the first slice begins at the top (12 o'clock position).
       let start = -Math.PI / 2;
       (opts.length ? opts : [{ name: "(none)", weight: 1 }]).forEach((o, i) => {
-        const sl = 2 * Math.PI * ((o.weight || 1) / total);
+        const sl = 2 * Math.PI * ((o.weight || 1) / total); // arc length proportional to weight
         ctx.beginPath();
         ctx.moveTo(0, 0);
         ctx.arc(0, 0, r, start, start + sl);
@@ -34,11 +35,12 @@ function SpinnerTab({ state, dispatch }) {
         ctx.lineWidth = 2;
         ctx.stroke();
         ctx.save();
+        // Rotate to the midpoint of the slice, then +π/2 to align text upward along the radius.
         ctx.rotate(start + sl / 2 + Math.PI / 2);
         ctx.textAlign = "center";
         ctx.fillStyle = "#fff";
         ctx.font = `bold ${Math.min(16, Math.max(9, 110 / opts.length))}px system-ui`;
-        ctx.fillText(String(i + 1), 0, -(r * 0.65));
+        ctx.fillText(String(i + 1), 0, -(r * 0.65)); // place label 65% out from center
         ctx.restore();
         start += sl;
       });
@@ -57,6 +59,8 @@ function SpinnerTab({ state, dispatch }) {
     if (spinning || !opts.length) return;
     setSpinning(true);
     setResult("");
+    // Weighted random selection: walk options subtracting weight until we go negative.
+    // The option that pushes rand below 0 is the winner (probability = weight/total).
     let rand = Math.random() * total,
       wi = 0;
     for (let i = 0; i < opts.length; i++) {
@@ -66,6 +70,7 @@ function SpinnerTab({ state, dispatch }) {
         break;
       }
     }
+    // Convert winning slice to degree range so we know where the wheel must stop.
     let cum = 0;
     const ss = opts.map((o) => {
         const s = cum;
@@ -73,14 +78,16 @@ function SpinnerTab({ state, dispatch }) {
         return s;
       }),
       se = opts.map((o, i) => ss[i] + ((o.weight || 1) / total) * 360);
+    // Pick a random stopping point within the winning slice.
+    // ta = how far the wheel needs to rotate to land that slice under the pointer (top of wheel).
     const stop = ss[wi] + Math.random() * (se[wi] - ss[wi]),
       ta = (360 - stop + 360) % 360,
-      extra = 5 + Math.floor(Math.random() * 5),
-      td = extra * 360 + ta - (((angle % 360) + 360) % 360),
-      dur = 3000 + Math.random() * 1000,
+      extra = 5 + Math.floor(Math.random() * 5),       // 5–9 full rotations before stopping
+      td = extra * 360 + ta - (((angle % 360) + 360) % 360), // total degrees to travel from current angle
+      dur = 3000 + Math.random() * 1000,               // 3–4 second spin duration
       sa = angle,
       st2 = performance.now(),
-      ease = (t) => 1 - Math.pow(1 - t, 3);
+      ease = (t) => 1 - Math.pow(1 - t, 3); // cubic ease-out: fast start, slow finish
     const frame = (n) => {
       const t = Math.min((n - st2) / dur, 1);
       setAngle(sa + td * ease(t));

@@ -15,13 +15,19 @@ const init = {
   tournamentStarted: false,
   startedAt: null,
   eloDb: (() => {
+    // ELO db structure: { sheetName → { playerNameLower → { elo, name, test } } }
+    // Legacy format (v1) stored entries flat at the top level (no sheet grouping).
+    // Detect legacy by checking if any top-level value has an "elo" key directly,
+    // and migrate it into the default "ELO" sheet on first load.
     const raw = loadLS(EK, {});
     const vals = Object.values(raw);
     if (vals.length > 0 && vals.some((v) => v && typeof v === "object" && "elo" in v)) {
+      // Legacy flat format — migrate to { "ELO": { ... } }
       const db = {};
       vals.forEach((e) => { if (e?.name) db[e.name.toLowerCase()] = e; });
       return { "ELO": db };
     }
+    // Current format — normalize all entries to lowercase keys
     const result = {};
     Object.entries(raw).forEach(([sh, entries]) => {
       if (entries && typeof entries === "object") {
@@ -116,6 +122,9 @@ function reducer(st, a) {
       const players = st.players.map((p, i) =>
         i === a.index ? { ...p, eliminated: true, score: 0 } : p,
       );
+      // Auto-resolve any open 1v1 match as a forfeit: opponent scores 1, abandoner scores 0.
+      // noElo=true prevents ELO from changing on a forfeit — that would unfairly penalize the winner.
+      // Only affects unresolved 2-player matches; byes and multi-player pods are left alone.
       const pairings = st.pairings.map((m) => {
         if (m.result || m.isBye || m.players.length !== 2) return m;
         if (!m.players.includes(abandoned.name)) return m;
@@ -151,7 +160,7 @@ function reducer(st, a) {
         firstCount: 0,
         eloStart: getElo(activeElo, p.name),
       }));
-      const phase = cfg.rrRounds > 0 ? "roundrobin" : "swiss";
+      const phase = initialPhase(cfg);
       const ns = {
         ...st,
         players,
@@ -188,6 +197,8 @@ function reducer(st, a) {
         }),
       };
     case "ADD_EXTRA_POINTS": {
+      // Toggle semantics: if the player already has extra points on this match, remove them (diff = -currentEp).
+      // If not, apply the delta (diff = delta). This lets the UI use the same button for on/off.
       const delta = a.delta || 1;
       const currentEp = st.pairings[a.index]?.extraPoints?.[a.player] || 0;
       const isOn = currentEp > 0;
@@ -207,129 +218,21 @@ function reducer(st, a) {
       const cfg = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
       if (!cfg) return st;
       const eloSheet = cfg.eloDB || "ELO";
-      let players = st.players.map((p) => ({ ...p })),
+      const players = st.players.map((p) => ({ ...p })),
         db = { ...(st.eloDb[eloSheet] || {}) };
-      const scoring = cfg.scoring,
-        roundPairings = st.pairings.map((m) => ({ ...m }));
-      roundPairings.forEach((m) => {
-        if (m.isBye || m.result !== "done") return;
-        const scored = m.players.filter((n) => String(m.scores[n]).trim() !== "");
-        if (!scored.length) return;
-        const sorted = [...scored].sort((a, b) => parseFloat(m.scores[b] || 0) - parseFloat(m.scores[a] || 0));
-        const topScore = parseFloat(m.scores[sorted[0]] || 0);
-
-        if (scoring === "points") {
-          const ptMap = [
-            cfg.pts1 !== "" && cfg.pts1 !== undefined ? Number(cfg.pts1) : 3,
-            cfg.pts2 !== "" && cfg.pts2 !== undefined ? Number(cfg.pts2) : 2,
-            cfg.pts3 !== "" && cfg.pts3 !== undefined ? Number(cfg.pts3) : 1,
-          ];
-          const ptsLast = cfg.ptsLast !== "" && cfg.ptsLast !== undefined ? Number(cfg.ptsLast) : 0;
-          const groups = [];
-          let gi = 0;
-          while (gi < sorted.length) {
-            const gs = parseFloat(m.scores[sorted[gi]] || 0);
-            let gj = gi;
-            while (gj < sorted.length && parseFloat(m.scores[sorted[gj]] || 0) === gs) gj++;
-            groups.push({ players: sorted.slice(gi, gj), score: gs });
-            gi = gj;
-          }
-          let rank = 1;
-          groups.forEach((g, idx) => {
-            const isLast = groups.length > 1 && idx === groups.length - 1;
-            const pts = isLast || g.score === 0 ? ptsLast : (ptMap[rank - 1] ?? ptsLast);
-            g.players.forEach((n) => {
-              const p = players.find((x) => x.name === n);
-              if (!p) return;
-              if (cfg.grandPrix) {
-                if (!p.gpScores) p.gpScores = [];
-                p.gpScores.push(pts + (m.extraPoints?.[n] || 0));
-                p.score = gpBestOf(p.gpScores, cfg.gpBestOfLast, cfg.gpDropWorst, cfg.gpGhostPoints);
-              } else {
-                p.score += pts;
-              }
-              if (isLast || g.score === 0) p.pLast = (p.pLast || 0) + 1;
-              else if (rank === 1)         p.p1 = (p.p1 || 0) + 1;
-              else if (rank === 2)         p.p2 = (p.p2 || 0) + 1;
-              else if (rank === 3)         p.p3 = (p.p3 || 0) + 1;
-              else                         p.pLast = (p.pLast || 0) + 1;
-            });
-            rank += g.players.length;
-          });
-        } else if (scoring === "swiss") {
-          const tied = sorted.filter(n => parseFloat(m.scores[n] || 0) === topScore);
-          const multi = tied.length > 1;
-          sorted.forEach(n => {
-            const p = players.find(x => x.name === n);
-            if (!p) return;
-            const isTop = parseFloat(m.scores[n] || 0) === topScore;
-            let pts;
-            if (isTop && multi) { p.d++; pts = cfg.drawPoints ?? 1; }
-            else if (isTop)     { p.w++; pts = cfg.winPoints ?? 3; }
-            else                { p.l++; pts = cfg.lossPoints ?? 0; }
-            if (cfg.grandPrix) {
-              if (!p.gpScores) p.gpScores = [];
-              p.gpScores.push(pts + (m.extraPoints?.[n] || 0));
-              p.score = gpBestOf(p.gpScores, cfg.gpBestOfLast, cfg.gpDropWorst, cfg.gpGhostPoints);
-            } else {
-              p.score += pts;
-            }
-          });
-        } else if (scoring === "lifepoints") {
-          const draw = sorted.every(n => parseFloat(m.scores[n] || 0) === topScore);
-          sorted.forEach(n => {
-            const p = players.find(x => x.name === n);
-            if (!p) return;
-            const isTop = parseFloat(m.scores[n] || 0) === topScore;
-            if (draw) {
-              p.d++;
-              const basePenalty = Math.abs(cfg.drawPoints);
-              const dp = cfg.cumulativeDrawPenalty ? basePenalty * p.d : basePenalty;
-              p.score = Math.max(0, p.score - dp);
-              if (p.score <= 0) p.eliminated = true;
-            } else if (isTop) {
-              p.w++;
-              p.score = Math.max(0, p.score + cfg.winPoints);
-            } else {
-              p.l++;
-              p.score = Math.max(0, p.score + cfg.lossPoints);
-              if (p.score <= 0) p.eliminated = true;
-            }
-          });
-        }
-
-        if (cfg.elo && !m.noElo) {
-          const playerCount = m.players.length,
-            K = (cfg.eloKMax || 50) / playerCount,
-            dl = Object.fromEntries(m.players.map((p) => [p, 0]));
-          for (let i = 0; i < playerCount; i++)
-            for (let j = i + 1; j < playerCount; j++) {
-              const pA = m.players[i], pB = m.players[j],
-                sA = parseFloat(m.scores[pA] || 0), sB = parseFloat(m.scores[pB] || 0),
-                rA = getElo(db, pA), rB = getElo(db, pB),
-                eA = eloExpected(rA, rB, cfg.eloScale),
-                scA = sA > sB ? 1 : sA < sB ? 0 : 0.5;
-              dl[pA] += K * (scA - eA);
-              dl[pB] += K * ((1 - scA) - (1 - eA));
-            }
-          m.eloDeltas = {};
-          m.players.forEach((p) => {
-            const d = Math.round(dl[p]);
-            m.eloDeltas[p] = d;
-            db = setElo(db, p, getElo(db, p) + d, db[p.toLowerCase()]?.test);
-          });
-        }
-      });
-      const h = [...st.history, roundPairings],
+      const roundPairings = st.pairings.map((m) => ({ ...m }));
+      const { players: scoredPlayers, db: scoredDb, roundPairings: scoredPairings } =
+        scoreRound(roundPairings, players, cfg, db);
+      const h = [...st.history, scoredPairings],
         nextRound = st.currentRound + 1;
       let phase = st.phase;
-      if (phase === "roundrobin" && nextRound > cfg.rrRounds) phase = "swiss";
-      const activePlayers = players.filter((p) => !p.eliminated),
-        gameOver = cfg.scoring === "lifepoints" && activePlayers.length <= 1;
-      const newEloDb = { ...st.eloDb, [eloSheet]: db };
+      phase = advancePhase(phase, nextRound, cfg);
+      const activePlayers = scoredPlayers.filter((p) => !p.eliminated),
+        gameOver = isGameOver(cfg.scoring, activePlayers);
+      const newEloDb = { ...st.eloDb, [eloSheet]: scoredDb };
       const ns = {
         ...st,
-        players,
+        players: scoredPlayers,
         eloDb: newEloDb,
         history: h,
         currentRound: nextRound,
@@ -342,7 +245,7 @@ function reducer(st, a) {
         matchSubTab: gameOver ? "standings" : st.matchSubTab,
       };
       saveLS(EK, newEloDb);
-      return { ...ns, pairings: gameOver ? [] : makePairings(ns, players, h, phase) };
+      return { ...ns, pairings: gameOver ? [] : makePairings(ns, scoredPlayers, h, phase) };
     }
     case "END_TOURNAMENT": {
       try {
@@ -360,7 +263,7 @@ function reducer(st, a) {
     case "NEW_GP_SESSION": {
       const cfg = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
       if (!cfg) return st;
-      const ph = cfg.rrRounds > 0 ? "roundrobin" : "swiss";
+      const ph = initialPhase(cfg);
       const ns = { ...st, currentRound: 1, phase: ph, pairings: [] };
       return { ...ns, pairings: makePairings(ns, st.players, st.history, ph) };
     }

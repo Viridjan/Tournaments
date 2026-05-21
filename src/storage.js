@@ -33,6 +33,9 @@ function getSheetsUrl() {
     return DU;
   }
 }
+// Serialize current state into a v3 snapshot object (used for remote seed saves and local backup).
+// v3 format: top-level metadata + nested `state` block with runtime data + prize/feature config.
+// Not every state key is included — only what's needed to restore a tournament in progress.
 function buildSnap(state) {
   const t = state.tournaments?.[state.tournamentId];
   return {
@@ -64,6 +67,10 @@ function buildSnap(state) {
     advancedSetup: state.advancedSetup,
   };
 }
+// Fire-and-forget POST to the Sheets backend to save the current snapshot as a "seed" entry.
+// Skipped silently when: no URL configured, tournament not started, no players, or test mode active.
+// Uses no-cors mode because the Apps Script endpoint doesn't return CORS headers;
+// we can't read the response, but the write still lands on the server.
 function autoSeedSave(state) {
   const url = getSheetsUrl();
   if (!url || !state.tournamentStarted || !state.players.length || state.testMode) return;
@@ -79,6 +86,8 @@ function autoSeedSave(state) {
     }).catch(() => {});
   } catch {}
 }
+// Bridge between reducer and genPairings() in logic.js.
+// Merges base tournament features with per-tournament overrides before delegating.
 function makePairings(st, pl, h, ph) {
   const cfg = { ...st.tournaments?.[st.tournamentId]?.features, ...st.featureOverrides };
   if (!cfg) return [];

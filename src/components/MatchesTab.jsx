@@ -270,10 +270,10 @@ function MatchesTab({ state, dispatch, config, eloLoadedCols }) {
       { id: "session", label: "Session" },
     ].filter(Boolean);
   const isRR = state.phase === "roundrobin" && cfg.rrRounds > 0,
-    scoringLabel = { points: "Score ranks", lifepoints: "Lifepoints", swiss: "Swiss" }[cfg.scoring] || "Swiss",
+    scoringMode = SCORING_MODES.find(m => m.value === cfg.scoring) || SCORING_MODES[1],
     rl = isRR
       ? `Round Robin — R${state.currentRound}/${cfg.rrRounds}`
-      : `${scoringLabel} — R${state.currentRound - (isRR ? 0 : cfg.rrRounds)}`;
+      : `${scoringMode.label} — R${state.currentRound - (isRR ? 0 : cfg.rrRounds)}`;
   return (
     <div>
       <TabBar
@@ -299,7 +299,7 @@ function MatchesTab({ state, dispatch, config, eloLoadedCols }) {
             <div>
               <div style={{ fontSize: 16, fontWeight: 500 }}>{rl}</div>
               <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
-                {isRR ? "By ELO" : cfg.scoring === "points" ? "By points" : "By win rate"}
+                {isRR ? "By ELO" : scoringMode.pairingSort}
               </div>
             </div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>

@@ -73,6 +73,12 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
       )}
     </div>
   );
+  const TB_OPTIONS = [
+    { value: "elo", label: "ELO" },
+    { value: "elo_rev", label: "ELO reversed" },
+    { value: "omw", label: "OMW (opponent match win)" },
+    { value: "gwr", label: "GWR (game win ratio)" },
+  ];
   const isLP = cfg.scoring === "lifepoints";
   const isPoints = cfg.scoring === "points";
   return (
@@ -159,9 +165,9 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
                 onChange={(e) => setFeature("matchRound", e.target.value)}
                 style={S.select}
               >
-                <option value="none">BYE</option>
-                <option value="up">round up</option>
-                <option value="down">round down</option>
+                {MATCH_ROUND_OPTIONS.map(o => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -192,7 +198,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
               <span style={S.modTag}>mod</span>
             )}
           </div>
-          <SelF label="Scoring mode" k="scoring" options={["lifepoints", "swiss", { value: "points", label: "score ranks" }]} />
+          <SelF label="Scoring mode" k="scoring" options={SCORING_MODES} />
           <div
             style={{
               display: "flex",
@@ -295,6 +301,9 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
               <span style={S.modTag}>mod</span>
             )}
           </div>
+          <SelF label="Tiebreaker 1" k="tiebreaker1" options={TB_OPTIONS} />
+          <SelF label="Tiebreaker 2" k="tiebreaker2" options={TB_OPTIONS} />
+          <SelF label="Tiebreaker 3" k="tiebreaker3" options={TB_OPTIONS} />
         </Card>
         <Card style={{ flex: 1, minWidth: 260 }}>
           <h3 style={S.cardTitle}>Features</h3>
@@ -427,7 +436,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
           <div style={{ marginTop: 16 }}>
             <div
               onClick={() => setDbOpen((o) => !o)}
-              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", padding: "6px 0", borderTop: `0.5px solid ${C.bL}` }}
+              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", padding: "6px 0" }}
             >
               <span style={S.sectionLabel}>Database</span>
               <span style={{ fontSize: 12, color: C.muted }}>{dbOpen ? "▲" : "▼"}</span>
@@ -456,6 +465,8 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
                     const pool = state.entryCost * state.players.length;
                     const ppct = state.prizePct || 50;
                     const rawAc = (state.players.length * ppct) / 100;
+                    // Lightweight mirror of calcAlloc() — only used to gray out ranks that won't pay out.
+                    // Intentionally not calling calcAlloc() here to avoid a full prize solve on every render.
                     const allocated = state.prizePctRoundUp ? Math.ceil(rawAc) : Math.floor(rawAc);
                     const inact = state.players.length > 0 && i >= allocated;
                     return (

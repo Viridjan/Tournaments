@@ -11,6 +11,7 @@ function Timer({ minutes }) {
     try {
       if (!audioRef.current) audioRef.current = new (window.AudioContext || window.webkitAudioContext)();
       const ctx = audioRef.current;
+      // 6-tone sequence: A5, E5, A5, E5, A5, C#6 — staggered 0.38s apart, each with fade in/out envelope.
       [880, 660, 880, 660, 880, 1100].forEach((f, i) => {
         const o = ctx.createOscillator(),
           g = ctx.createGain();
@@ -27,6 +28,8 @@ function Timer({ minutes }) {
       });
     } catch {}
   }, []);
+  // Prevent screen sleep while the timer is running (Screen Wake Lock API).
+  // Silently ignored on browsers that don't support it.
   const acquireWakeLock = useCallback(async () => {
     try {
       if (navigator.wakeLock) wakeLockRef.current = await navigator.wakeLock.request("screen");
@@ -39,10 +42,13 @@ function Timer({ minutes }) {
   useEffect(() => {
     if (running && left > 0) {
       if (!endTimeRef.current) {
+        // Store absolute end time rather than counting down from `left` on each tick.
+        // This makes the timer immune to setInterval drift and tab throttling.
         endTimeRef.current = Date.now() + left * 1000;
         acquireWakeLock();
       }
       intervalRef.current = setInterval(() => {
+        // Recompute remaining from the absolute deadline each tick — stays accurate even if the tab was throttled.
         const remaining = Math.max(0, Math.round((endTimeRef.current - Date.now()) / 1000));
         if (remaining <= 0) {
           endTimeRef.current = null;
@@ -61,9 +67,11 @@ function Timer({ minutes }) {
     return () => clearInterval(intervalRef.current);
   }, [running, alarm, acquireWakeLock, releaseWakeLock]);
   useEffect(() => {
+    // Re-sync when the user returns to this tab: the interval may have been throttled or paused
+    // by the browser while the tab was hidden, so we recalculate from the absolute deadline.
     const onVisible = () => {
       if (!running || !endTimeRef.current) return;
-      if (!wakeLockRef.current) acquireWakeLock();
+      if (!wakeLockRef.current) acquireWakeLock(); // re-acquire if the system released it during hide
       const remaining = Math.max(0, Math.round((endTimeRef.current - Date.now()) / 1000));
       setLeft(remaining);
       if (remaining <= 0) {

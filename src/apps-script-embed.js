@@ -12,11 +12,12 @@ const APPS_SCRIPT = `// ══════════════════�
 //    Then add your rules with the tournament name matching exactly
 //    (e.g., "Drunken Draft", "Vintage Draft", "Risk Grand Prix")
 // 6. In the Settings tab, add headers in row 1:
-//    id | name | icon | desc | scoring | startScore | pts1 | pts2 | pts3 | ptsLast |
-//    winPoints | drawPoints | lossPoints | cumulativeDrawPenalty | rrRounds |
-//    timerMinutes | draft | elo | eloKMax | eloScale | eloDB | firstPlayer | grandPrix |
-//    prizes | timeout | timeoutTime | rules | matchRound | matchMax |
-//    gpBestOfLast | gpDropWorst | gpGhostPoints | extraPoints | extraPointsValue
+//    id | name | icon | desc | matchMax | matchRound | timerMinutes | rrRounds |
+//    extraPoints | extraPointsValue | scoring | winPoints | drawPoints | lossPoints |
+//    startScore | cumulativeDrawPenalty | pts1 | pts2 | pts3 | ptsLast |
+//    tiebreaker1 | tiebreaker2 | tiebreaker3 | draft | timeout | timeoutTime |
+//    firstPlayer | prizes | rules | grandPrix | gpBestOfLast | gpDropWorst |
+//    gpGhostPoints | elo | eloKMax | eloScale | eloDB
 //    Then add one row per tournament type.
 // 7. Go to Extensions > Apps Script
 // 8. Paste this entire script, replacing any existing code
@@ -281,11 +282,19 @@ function loadRules(tournament) {
 // ── Tournaments ──
 
 var TOURNAMENT_FEATURE_KEYS = [
-  "scoring", "startScore", "pts1", "pts2", "pts3", "ptsLast", "winPoints", "drawPoints", "lossPoints",
-  "cumulativeDrawPenalty", "rrRounds", "timerMinutes", "draft", "elo", "eloKMax",
-  "eloScale", "eloDB", "firstPlayer", "grandPrix", "prizes",
-  "timeout", "timeoutTime", "rules", "matchRound", "matchMax",
-  "gpBestOfLast", "gpDropWorst", "gpGhostPoints", "extraPoints", "extraPointsValue"
+  // Left card — Rounds & Matches
+  "matchMax", "matchRound", "timerMinutes", "rrRounds",
+  // Left card — Scoring
+  "extraPoints", "extraPointsValue", "scoring",
+  "winPoints", "drawPoints", "lossPoints", "startScore",
+  "cumulativeDrawPenalty", "pts1", "pts2", "pts3", "ptsLast",
+  "tiebreaker1", "tiebreaker2", "tiebreaker3",
+  // Right card — Features
+  "draft", "timeout", "timeoutTime", "firstPlayer", "prizes", "rules",
+  // Right card — Grand Prix
+  "grandPrix", "gpBestOfLast", "gpDropWorst", "gpGhostPoints",
+  // Right card — ELO
+  "elo", "eloKMax", "eloScale", "eloDB",
 ];
 
 function loadTournaments() {
