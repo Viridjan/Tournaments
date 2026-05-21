@@ -198,7 +198,18 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
               <span style={S.modTag}>mod</span>
             )}
           </div>
-          <SelF label="Scoring mode" k="scoring" options={SCORING_MODES} />
+          <div style={S.fieldRow}>
+            <span style={{ flex: 1, fontSize: 13 }}>Scoring mode</span>
+            <select
+              value={cfg.scoring || "swiss"}
+              onChange={(e) => setFeature("scoring", e.target.value)}
+              style={S.select}
+            >
+              <option value="lifepoints">Lifepoints</option>
+              <option value="swiss">Swiss</option>
+              <option value="points">Ranks</option>
+            </select>
+          </div>
           <div
             style={{
               display: "flex",
