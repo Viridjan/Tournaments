@@ -1,4 +1,8 @@
 // Shell — layout, tab bar, banners, timeout, auto-push ELO, backup
+const ELAPSED_POLL_MS  = 10_000; // how often the elapsed-time display updates
+const TIMEOUT_POLL_MS  = 30_000; // how often to check the tournament timeout wall-clock
+const STATUS_CLEAR_MS  =  5_000; // how long a successful sync status message stays visible
+const STATUS_ERROR_MS  =  8_000; // how long an error sync status message stays visible
 function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
   const rawConfig = state.tournaments?.[state.tournamentId];
   if (!rawConfig) return null;
@@ -17,7 +21,7 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
       setEl(`${Math.floor(minutes / 60)}h ${minutes % 60}m`);
     };
     updateElapsed();
-    const i = setInterval(updateElapsed, 10000);
+    const i = setInterval(updateElapsed, ELAPSED_POLL_MS);
     return () => clearInterval(i);
   }, [state.startedAt, state.tournamentStarted]);
   // timeoutFired ref prevents the timeout from triggering more than once per session,
@@ -49,7 +53,7 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
       }
     };
     check();
-    const i = setInterval(check, 30000);
+    const i = setInterval(check, TIMEOUT_POLL_MS);
     return () => clearInterval(i);
   }, [state.tournamentStarted, cfg.timeout, cfg.timeoutTime, timedOut, dispatch, state.startedAt]);
   // Local backup: write the current tournament state to localStorage on every relevant change.
@@ -110,11 +114,11 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
     })
       .then(() => {
         setSyncStatus("synced");
-        setTimeout(() => setSyncStatus(""), 5000);
+        setTimeout(() => setSyncStatus(""), STATUS_CLEAR_MS);
       })
       .catch(() => {
         setSyncStatus("error");
-        setTimeout(() => setSyncStatus(""), 8000);
+        setTimeout(() => setSyncStatus(""), STATUS_ERROR_MS);
       });
   }, [state.history.length]);
   useEffect(() => {

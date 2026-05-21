@@ -3,6 +3,7 @@
 // Left: Identity (id/name/icon) + Rounds & Matches (min/max, timer, RR)
 function AdvancedTab({ state, dispatch, config, eloColOptions }) {
   const [dbOpen, setDbOpen] = React.useState(false);
+  const [refOpen, setRefOpen] = React.useState(false);
   const cfg = config.features;
   const setFeature = (k, v) => dispatch({ type: "SET_FEATURE", key: k, value: v });
   const NumF = ({ label, k, desc, suffix }) => (
@@ -346,7 +347,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
               style={{ ...S.inputSm, width: 64, fontVariantNumeric: "tabular-nums" }}
             />
           </div>
-          <BoolF label="Decide first player" k="firstPlayer" />
+          <BoolF label="Player order" k="playerOrder" />
           <BoolF label="Prizes" k="prizes" />
           <BoolF label="Rules tab" k="rules" />
 
@@ -456,6 +457,31 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
           </div>
         </Card>
       </div>
+      <div
+        onClick={() => setRefOpen((o) => !o)}
+        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", padding: "10px 0 4px" }}
+      >
+        <span style={{ fontSize: 12, fontWeight: 600, color: C.muted, letterSpacing: "0.05em", textTransform: "uppercase" }}>Spreadsheet reference</span>
+        <span style={{ fontSize: 12, color: C.muted }}>{refOpen ? "▲" : "▼"}</span>
+      </div>
+      {refOpen && (
+        <Card style={{ marginBottom: 12 }}>
+          {[
+            { col: "scoring",         vals: ["swiss", "lifepoints", "points"] },
+            { col: "matchRound",      vals: ["none (BYE)", "up", "down"] },
+            { col: "tiebreaker1/2/3", vals: ["elo", "elo_rev", "omw", "gwr", "none"] },
+            { col: "draft / elo / prizes / rules / playerOrder / grandPrix / gpGhostPoints / timeout / extraPoints / cumulativeDrawPenalty", vals: ["TRUE", "FALSE"] },
+            { col: "startScore / pts1 / pts2 / pts3 / ptsLast / winPoints / drawPoints / lossPoints / rrRounds / timerMinutes / eloKMax / eloScale / timeoutTime / matchMax / gpBestOfLast / gpDropWorst / extraPointsValue", vals: ["number"] },
+            { col: "eloDB",           vals: ["ELO column name in your sheet"] },
+            { col: "id",              vals: ["unique key (no spaces)"] },
+          ].map(({ col, vals }) => (
+            <div key={col} style={{ padding: "5px 0", borderBottom: `0.5px solid ${C.bL}`, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "baseline" }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: C.text, minWidth: 120, fontFamily: "monospace" }}>{col}</span>
+              <span style={{ fontSize: 11, color: C.muted }}>{vals.join(" · ")}</span>
+            </div>
+          ))}
+        </Card>
+      )}
       {cfg.prizes && (
         <>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>

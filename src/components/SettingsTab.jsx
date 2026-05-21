@@ -84,7 +84,7 @@ function SettingsTab({ state, dispatch, config }) {
           <div style={{ ...S.sectionLabel, marginTop: 8, marginBottom: 4 }}>Feature flags</div>
           <Ft label="Draft" on={f.draft} />
           <Ft label="ELO" on={f.elo} />
-          <Ft label="First player" on={f.firstPlayer} />
+          <Ft label="Player order" on={f.playerOrder} />
           <Ft label="Grand Prix" on={f.grandPrix} />
           <Ft label="Prizes" on={f.prizes} />
           <Ft label="Timeout" on={f.timeout} />

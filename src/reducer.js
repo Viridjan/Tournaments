@@ -107,7 +107,7 @@ function reducer(st, a) {
         ...st,
         players: [
           ...st.players,
-          { name, score: 0, w: 0, d: 0, l: 0, eliminated: false, paid: false, firstCount: 0 },
+          { name, score: 0, w: 0, d: 0, l: 0, eliminated: false, paid: false, positionSum: 0 },
         ],
       };
     }
@@ -159,7 +159,7 @@ function reducer(st, a) {
         p3: 0,
         pLast: 0,
         eliminated: false,
-        firstCount: 0,
+        positionSum: 0,
         eloStart: getElo(activeElo, p.name),
       }));
       const phase = initialPhase(cfg);
@@ -384,7 +384,7 @@ function reducer(st, a) {
           l: 0,
           eliminated: false,
           paid: false,
-          firstCount: 0,
+          positionSum: 0,
         });
       }
       return { ...st, players: newPlayers, eloDb: { ...st.eloDb, [testNs]: db } };

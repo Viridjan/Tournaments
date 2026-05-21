@@ -1,3 +1,5 @@
+const AC_MAX_SUGGESTIONS = 6;   // max autocomplete results shown in the dropdown
+const AC_BLUR_DELAY_MS   = 150; // delay before hiding dropdown on blur — prevents click-before-close race
 // Left card: add players with autocomplete dropdown from ELO database
 //   - Dropdown shows up to 6 matches, filtered by test mode
 //   - Player list with paid toggle, abandon button, remove button
@@ -39,7 +41,7 @@ function PlayersTab({ state, dispatch, config, eloLoadedCols }) {
           (state.testMode ? !!e.test : !e.test),
       )
       .sort((a, b) => (b.elo || 0) - (a.elo || 0))
-      .slice(0, 6);
+      .slice(0, AC_MAX_SUGGESTIONS);
   }, [input, activeElo, addedNames, state.testMode]);
   const addPlayer = (name) => {
     dispatch({ type: "ADD_PLAYER", name });
@@ -51,10 +53,12 @@ function PlayersTab({ state, dispatch, config, eloLoadedCols }) {
         <Btn
           onClick={() => {
             if (state.players.length < 2) return;
+            const unpaid = state.players.filter((p) => !p.paid).length;
+            const unpaidNote = unpaid > 0 ? `\n⚠ ${unpaid} player${unpaid > 1 ? "s have" : " has"} not paid.` : "";
             if (
               state.tournamentStarted
-                ? !confirm("Restart?")
-                : !confirm(`Start with ${state.players.length}?`)
+                ? !confirm("Restart?" + unpaidNote)
+                : !confirm(`Start with ${state.players.length}?` + unpaidNote)
             )
               return;
             dispatch({ type: "START_TOURNAMENT" });
@@ -75,7 +79,7 @@ function PlayersTab({ state, dispatch, config, eloLoadedCols }) {
               style={S.input}
               onChange={(e) => setInput(e.target.value)}
               onFocus={() => setAcFocused(true)}
-              onBlur={() => setTimeout(() => setAcFocused(false), 150)}
+              onBlur={() => setTimeout(() => setAcFocused(false), AC_BLUR_DELAY_MS)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && input.trim()) {
                   if (suggestions.length > 0) addPlayer(suggestions[0].name);

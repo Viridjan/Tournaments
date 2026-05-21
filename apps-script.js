@@ -14,7 +14,7 @@
 // 6. In the Settings tab, add headers in row 1:
 //    id | name | icon | desc | scoring | startScore | pts1 | pts2 | pts3 | ptsLast |
 //    winPoints | drawPoints | lossPoints | cumulativeDrawPenalty | rrRounds |
-//    timerMinutes | draft | elo | eloKMax | eloScale | eloDB | firstPlayer | grandPrix |
+//    timerMinutes | draft | elo | eloKMax | eloScale | eloDB | playerOrder | grandPrix |
 //    prizes | timeout | timeoutTime | rules | matchRound | matchMax |
 //    gpBestOfLast | gpDropWorst | gpGhostPoints | extraPoints | extraPointsValue |
 //    tiebreaker1 | tiebreaker2 | tiebreaker3
@@ -284,7 +284,7 @@ function loadRules(tournament) {
 var TOURNAMENT_FEATURE_KEYS = [
   "scoring", "startScore", "pts1", "pts2", "pts3", "ptsLast", "winPoints", "drawPoints", "lossPoints",
   "cumulativeDrawPenalty", "rrRounds", "timerMinutes", "draft", "elo", "eloKMax",
-  "eloScale", "eloDB", "firstPlayer", "grandPrix", "prizes",
+  "eloScale", "eloDB", "playerOrder", "grandPrix", "prizes",
   "timeout", "timeoutTime", "rules", "matchRound", "matchMax",
   "gpBestOfLast", "gpDropWorst", "gpGhostPoints", "extraPoints", "extraPointsValue",
   "tiebreaker1", "tiebreaker2", "tiebreaker3"

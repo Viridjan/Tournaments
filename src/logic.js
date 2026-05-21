@@ -51,29 +51,29 @@ function eloExpected(a, b, scale) {
 
 // Read a player's ELO from the db object. Keys are lowercased player names.
 // Returns ED (default starting ELO, e.g. 1000) if the player has no entry.
-function getElo(d, n) {
-  return d[n.toLowerCase()]?.elo ?? ED;
+function getElo(db, name) {
+  return db[name.toLowerCase()]?.elo ?? ED;
 }
 
 // Write a player's ELO. Returns a new db object (immutable — never mutates in place).
 // isTest marks the entry as a test player so it can be filtered out of production stats.
-function setElo(d, n, e, isTest) {
-  return { ...d, [n.toLowerCase()]: { elo: e, name: n, test: !!isTest } };
+function setElo(db, name, elo, isTest) {
+  return { ...db, [name.toLowerCase()]: { elo, name, test: !!isTest } };
 }
 
 // Calculate ELO delta for a head-to-head result.
-//   a, b  — current ELO ratings
-//   s     — actual score for player A (1 = win, 0.5 = draw, 0 = loss)
-//   kMax  — K-factor cap (sensitivity), default EM
+//   ratingA, ratingB — current ELO ratings
+//   score            — actual score for player A (1 = win, 0.5 = draw, 0 = loss)
+//   kMax             — K-factor cap (sensitivity), default EM
 // Returns { dA, dB } — how many ELO points each player gains/loses.
 // NOTE: eCalc is defined here for completeness but not currently called by the app.
 // scoreRound() handles multi-player ELO inline since it needs to loop over all pairs.
-function eCalc(a, b, s, kMax, scale) {
+function eCalc(ratingA, ratingB, score, kMax, scale) {
   const k = kMax || EM;
-  const e = eloExpected(a, b, scale),
-    r = k * (s - e),
-    d = Math.round(Math.max(-k, Math.min(k, r)));
-  return { dA: d, dB: -d };
+  const expected = eloExpected(ratingA, ratingB, scale),
+    rawDelta = k * (score - expected),
+    delta = Math.round(Math.max(-k, Math.min(k, rawDelta)));
+  return { dA: delta, dB: -delta };
 }
 
 
@@ -135,10 +135,10 @@ function getPrev(history, activePlayers) {
 
 // Count how many byes each active player has received across all rounds.
 // Returns { playerName → byeCount }. Used to give byes to players with fewest byes first.
-function getByes(h, a) {
+function getByes(history, activePlayers) {
   const counts = {};
-  a.forEach(p => (counts[p.name] = 0));
-  h.forEach(r => r.forEach(m => {
+  activePlayers.forEach(p => (counts[p.name] = 0));
+  history.forEach(r => r.forEach(m => {
     if (m.isBye && counts[m.players[0]] !== undefined) counts[m.players[0]]++;
   }));
   return counts;
@@ -174,34 +174,34 @@ function splitGroups(n, max, round) {
 //
 // Bye assignment: odd player count → lowest-ranked player with fewest historical byes gets the bye.
 // Rematch avoidance: backtracking first tries no-rematch pairings; if impossible, allows rematches.
-// First-player rotation (cfg.firstPlayer): player who has gone first fewer times goes first; ties broken randomly.
-function genPairings(pl, h, ph, cfg, db) {
+// Player order rotation (cfg.playerOrder): each player accumulates a positionSum (sum of seat numbers received). Higher sum goes first next round; ties broken randomly. Works for any match size.
+function genPairings(players, history, phase, cfg, eloDb) {
   const groupSize = Math.max(2, Number(cfg.matchMax) || 2);
   const matchRound = cfg.matchRound || "none";
-  const activePlayers = pl.filter(p => !p.eliminated);
+  const activePlayers = players.filter(p => !p.eliminated);
   const sorted = [...activePlayers].sort((a, b) =>
-    ph === "roundrobin"
-      ? getElo(db, b.name) - getElo(db, a.name)
+    phase === "roundrobin"
+      ? getElo(eloDb, b.name) - getElo(eloDb, a.name)
       : b.w / (b.w + b.d + b.l || 1) - a.w / (a.w + a.d + a.l || 1) || b.score - a.score
   );
-  const prev = getPrev(h, activePlayers);
-  const pa = [];
-  let tp = sorted;
+  const prev = getPrev(history, activePlayers);
+  const pairings = [];
+  let unpaired = sorted;
 
   // Assign bye to lowest-ranked player with the fewest accumulated byes.
   if (groupSize <= 2 && sorted.length % 2 === 1) {
-    const byeCounts = getByes(h, activePlayers);
+    const byeCounts = getByes(history, activePlayers);
     const minByes = Math.min(...Object.values(byeCounts));
     let byeName = null;
     // Scan from bottom of standings upward — lower-ranked players get byes first.
     for (let i = sorted.length - 1; i >= 0; i--)
       if (byeCounts[sorted[i].name] <= minByes) { byeName = sorted[i].name; break; }
     if (!byeName) byeName = sorted[sorted.length - 1].name;
-    tp = sorted.filter(p => p.name !== byeName);
-    pa.push({ players: [byeName], scores: {}, result: "done", isBye: true, rematch: false, eloDeltas: {}, noElo: false });
+    unpaired = sorted.filter(p => p.name !== byeName);
+    pairings.push({ players: [byeName], scores: {}, result: "done", isBye: true, rematch: false, eloDeltas: {}, noElo: false });
   }
 
-  const ns = tp.map(p => p.name);
+  const names = unpaired.map(p => p.name);
   // Build a match object for a set of player names. Marks rematches for UI warning display.
   const mkMatch = playerNames => {
     const hasRematch = playerNames.some((p1, i) =>
@@ -212,41 +212,41 @@ function genPairings(pl, h, ph, cfg, db) {
 
   // Try clean pairings first (no rematches). Fall back to rematches if unavoidable.
   let grouped = false;
-  if (ns.length > 0 && ns.length % groupSize === 0) {
-    let groups = findGroups(ns, prev, groupSize, false);
-    if (!groups) groups = findGroups(ns, prev, groupSize, true); // fallback: allow rematches
+  if (names.length > 0 && names.length % groupSize === 0) {
+    let groups = findGroups(names, prev, groupSize, false);
+    if (!groups) groups = findGroups(names, prev, groupSize, true); // fallback: allow rematches
     if (groups) {
-      for (const group of groups) pa.push(mkMatch(group.map(i => ns[i])));
+      for (const group of groups) pairings.push(mkMatch(group.map(i => names[i])));
       grouped = true;
     }
   }
 
   // If backtracking couldn't solve it (e.g. player count not divisible by groupSize),
   // fall back to sequential slicing using splitGroups().
-  if (!grouped && ns.length > 0) {
-    const sizes = splitGroups(ns.length, groupSize, matchRound);
+  if (!grouped && names.length > 0) {
+    const sizes = splitGroups(names.length, groupSize, matchRound);
     let offset = 0;
     for (const size of sizes) {
-      if (size > 0) pa.push(mkMatch(ns.slice(offset, offset + size)));
+      if (size > 0) pairings.push(mkMatch(names.slice(offset, offset + size)));
       offset += size;
     }
   }
 
-  // Assign first player for 1v1 matches: player who has gone first fewer times goes first.
-  // Ties broken randomly. This is tracked in p.firstCount across rounds.
-  if (cfg.firstPlayer && groupSize === 2) {
-    const firstCounts = {};
-    pl.forEach(p => (firstCounts[p.name] = p.firstCount || 0));
-    pa.forEach(match => {
-      if (match.isBye || match.players.length !== 2) return;
-      const [a, b] = match.players;
-      if ((firstCounts[a] || 0) > (firstCounts[b] || 0) || ((firstCounts[a] || 0) === (firstCounts[b] || 0) && Math.random() < 0.5))
-        [match.players[0], match.players[1]] = [b, a];
-      firstCounts[match.players[0]] = (firstCounts[match.players[0]] || 0) + 1;
+  // Sort players within each match by positionSum desc: higher accumulated seat number goes first.
+  // Ties broken randomly. Works for any match size.
+  if (cfg.playerOrder) {
+    const sums = {};
+    players.forEach(p => (sums[p.name] = p.positionSum || 0));
+    pairings.forEach(match => {
+      if (match.isBye) return;
+      match.players.sort((a, b) => {
+        const diff = (sums[b] || 0) - (sums[a] || 0);
+        return diff !== 0 ? diff : Math.random() - 0.5;
+      });
     });
   }
 
-  return pa;
+  return pairings;
 }
 
 
@@ -263,8 +263,9 @@ function rkLbl(i) {
 
 // Default prize rank percentages for up to 8 paid spots.
 // Percentages are rounded to one decimal place; last entry absorbs rounding error.
+const DEFAULT_PRIZE_PCTS = [30, 15, 15, 10, 10, 10, 5, 5];
 function defRanks() {
-  const rawPcts = [30, 15, 15, 10, 10, 10, 5, 5],
+  const rawPcts = DEFAULT_PRIZE_PCTS,
     total = rawPcts.reduce((a, v) => a + v, 0),
     pcts = rawPcts.map((v) => Math.round((v / total) * 1000) / 10);
   pcts[pcts.length - 1] = Math.round((pcts[pcts.length - 1] + (100 - pcts.reduce((a, v) => a + v, 0))) * 10) / 10;
@@ -467,14 +468,14 @@ function isGameOver(scoring, activePlayers) {
 // This balances ELO across tables — each table gets one top player, one bottom player, etc.
 function draftGroups(players, eloDb) {
   const n = players.length;
-  const ng = Math.max(1, Math.floor(n / 5));
+  const groupCount = Math.max(1, Math.floor(n / 5));
   const sorted = [...players].sort((a, b) => getElo(eloDb, b.name) - getElo(eloDb, a.name));
-  const g = Array.from({ length: ng }, () => []);
+  const groups = Array.from({ length: groupCount }, () => []);
   sorted.forEach((p, i) => {
-    const r = Math.floor(i / ng); // which row of the snake
-    g[r % 2 === 0 ? i % ng : ng - 1 - (i % ng)].push(p);
+    const row = Math.floor(i / groupCount); // which row of the snake
+    groups[row % 2 === 0 ? i % groupCount : groupCount - 1 - (i % groupCount)].push(p);
   });
-  return g;
+  return groups;
 }
 
 
@@ -578,7 +579,7 @@ function scoreRound(roundPairings, players, cfg, db) {
         const isTop = parseFloat(m.scores[n] || 0) === topScore;
         if (draw) {
           p.d++;
-          const basePenalty = Math.abs(cfg.drawPoints);
+          const basePenalty = Math.abs(cfg.drawPoints); // accept positive or negative config values
           const dp = cfg.cumulativeDrawPenalty ? basePenalty * p.d : basePenalty;
           p.score = Math.max(0, p.score - dp);
           if (p.score <= 0) p.eliminated = true;
@@ -593,12 +594,13 @@ function scoreRound(roundPairings, players, cfg, db) {
       });
     }
 
-    // Persist first-player assignment: increment firstCount on whoever is listed as players[0].
-    // genPairings() reads firstCount to decide who should go first next round (lower count = goes first).
-    // Without this update the per-round rotation works but firstCount never carries over between rounds.
-    if (cfg.firstPlayer && m.players.length === 2) {
-      const fp = players.find(x => x.name === m.players[0]);
-      if (fp) fp.firstCount = (fp.firstCount || 0) + 1;
+    // Persist player order: add seat number (1-based) to positionSum for each player.
+    // Higher positionSum next round = goes first (fairness rotation).
+    if (cfg.playerOrder && !m.isBye) {
+      m.players.forEach((name, idx) => {
+        const p = players.find(x => x.name === name);
+        if (p) p.positionSum = (p.positionSum || 0) + (idx + 1);
+      });
     }
 
     // ELO delta calculation for all pairs in this match.
@@ -620,9 +622,9 @@ function scoreRound(roundPairings, players, cfg, db) {
         }
       m.eloDeltas = {};
       m.players.forEach((p) => {
-        const d = Math.round(dl[p]);
-        m.eloDeltas[p] = d;
-        _db = setElo(_db, p, getElo(_db, p) + d, _db[p.toLowerCase()]?.test);
+        const eloChange = Math.round(dl[p]);
+        m.eloDeltas[p] = eloChange;
+        _db = setElo(_db, p, Math.max(0, getElo(_db, p) + eloChange), _db[p.toLowerCase()]?.test);
       });
     }
   });
@@ -632,33 +634,29 @@ function scoreRound(roundPairings, players, cfg, db) {
 
 // ── 7. STANDINGS TIEBREAKER HELPERS ──────────────────────────────────────────
 
-// Opponent Match Win rate: average match-win % of all opponents faced.
-// Standard Swiss tiebreaker (used in MTG and most competitive card games).
-// Opponents who have played zero matches contribute 0% to avoid division issues.
+// Opponent Match Win: average standings score of all opponents faced.
+// Works for any match size — sums all opponents' scores then divides by opponent count.
 function calcOMW(playerName, history, players) {
-  const opponents = [];
+  let sum = 0, count = 0;
   history.forEach((round) => {
     round.forEach((match) => {
       if (match.isBye || match.result !== "done") return;
       if (!match.players.includes(playerName)) return;
-      match.players.forEach((opp) => { if (opp !== playerName) opponents.push(opp); });
+      match.players.forEach((opp) => {
+        if (opp === playerName) return;
+        const p = players.find((x) => x.name === opp);
+        if (p) { sum += p.score || 0; count++; }
+      });
     });
   });
-  if (!opponents.length) return 0;
-  const rates = opponents.map((opp) => {
-    const p = players.find((x) => x.name === opp);
-    if (!p) return 0;
-    const total = p.w + p.d + p.l;
-    return total > 0 ? p.w / total : 0;
-  });
-  return rates.reduce((s, r) => s + r, 0) / rates.length;
+  return count > 0 ? sum / count : 0;
 }
 
-// Game Win Rate: matches won / total matches played.
-// Uses match-level w/d/l since per-game data isn't tracked separately.
+// Game Win Rate: player's standings score divided by matches played.
+// Scales correctly for both 1v1 and multiplayer formats.
 function calcGWR(player) {
   const total = player.w + player.d + player.l;
-  return total > 0 ? player.w / total : 0;
+  return total > 0 ? (player.score || 0) / total : 0;
 }
 
 // Map a tiebreaker key to a numeric sort value for player p.

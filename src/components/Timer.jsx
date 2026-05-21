@@ -11,20 +11,21 @@ function Timer({ minutes }) {
     try {
       if (!audioRef.current) audioRef.current = new (window.AudioContext || window.webkitAudioContext)();
       const ctx = audioRef.current;
-      // 6-tone sequence: A5, E5, A5, E5, A5, C#6 — staggered 0.38s apart, each with fade in/out envelope.
-      [880, 660, 880, 660, 880, 1100].forEach((f, i) => {
-        const o = ctx.createOscillator(),
-          g = ctx.createGain();
-        o.connect(g);
-        g.connect(ctx.destination);
-        o.type = "sine";
-        o.frequency.value = f;
-        const t = ctx.currentTime + i * 0.38;
-        g.gain.setValueAtTime(0, t);
-        g.gain.linearRampToValueAtTime(0.45, t + 0.05);
-        g.gain.linearRampToValueAtTime(0, t + 0.33);
-        o.start(t);
-        o.stop(t + 0.38);
+      const ALARM_FREQS = [880, 660, 880, 660, 880, 1100]; // A5 E5 A5 E5 A5 C#6
+      const TONE_STAGGER_S = 0.38; // seconds between tone onsets
+      ALARM_FREQS.forEach((freq, i) => {
+        const oscillator = ctx.createOscillator(),
+          gainNode = ctx.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        oscillator.type = "sine";
+        oscillator.frequency.value = freq;
+        const toneStart = ctx.currentTime + i * TONE_STAGGER_S;
+        gainNode.gain.setValueAtTime(0, toneStart);
+        gainNode.gain.linearRampToValueAtTime(0.45, toneStart + 0.05);
+        gainNode.gain.linearRampToValueAtTime(0, toneStart + 0.33);
+        oscillator.start(toneStart);
+        oscillator.stop(toneStart + TONE_STAGGER_S);
       });
     } catch {}
   }, []);
@@ -85,7 +86,7 @@ function Timer({ minutes }) {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [running, alarm, acquireWakeLock, releaseWakeLock]);
   const urgent = left <= 60,
-    m = Math.floor(left / 60),
+    mins = Math.floor(left / 60),
     sec = left % 60;
   return (
     <div
@@ -110,7 +111,7 @@ function Timer({ minutes }) {
           color: urgent ? C.heart : C.text,
         }}
       >
-        {String(m).padStart(2, "0")}:{String(sec).padStart(2, "0")}
+        {String(mins).padStart(2, "0")}:{String(sec).padStart(2, "0")}
       </div>
       <div
         style={{

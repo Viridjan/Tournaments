@@ -16,7 +16,7 @@ const APPS_SCRIPT = `// ══════════════════�
 //    extraPoints | extraPointsValue | scoring | winPoints | drawPoints | lossPoints |
 //    startScore | cumulativeDrawPenalty | pts1 | pts2 | pts3 | ptsLast |
 //    tiebreaker1 | tiebreaker2 | tiebreaker3 | draft | timeout | timeoutTime |
-//    firstPlayer | prizes | rules | grandPrix | gpBestOfLast | gpDropWorst |
+//    playerOrder | prizes | rules | grandPrix | gpBestOfLast | gpDropWorst |
 //    gpGhostPoints | elo | eloKMax | eloScale | eloDB
 //    Then add one row per tournament type.
 // 7. Go to Extensions > Apps Script
@@ -290,7 +290,7 @@ var TOURNAMENT_FEATURE_KEYS = [
   "cumulativeDrawPenalty", "pts1", "pts2", "pts3", "ptsLast",
   "tiebreaker1", "tiebreaker2", "tiebreaker3",
   // Right card — Features
-  "draft", "timeout", "timeoutTime", "firstPlayer", "prizes", "rules",
+  "draft", "timeout", "timeoutTime", "playerOrder", "prizes", "rules",
   // Right card — Grand Prix
   "grandPrix", "gpBestOfLast", "gpDropWorst", "gpGhostPoints",
   // Right card — ELO

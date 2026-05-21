@@ -1,6 +1,6 @@
 // Sub-tabs: Draft (groups) | Pairings (cards) | Log (history)
 // Matches tab — pairing cards, match log, timer, draft sub-tabs
-function MatchCard({ match, index, dispatch, scoring, eloDb, extraPoints, extraPointsValue }) {
+function MatchCard({ match, index, dispatch, scoring, eloDb, extraPoints, extraPointsValue, playerOrder }) {
   if (match.isBye)
     return (
       <Card variant="bye">
@@ -117,7 +117,7 @@ function MatchCard({ match, index, dispatch, scoring, eloDb, extraPoints, extraP
         Match {index + 1} · {match.players.length}p
         {match.rematch && <> <Tag variant="amber">re</Tag></>}
       </div>
-      {match.players.map((n) => {
+      {match.players.map((n, pi) => {
         const isWinner = scores[n] === 1, isDraw = scores[n] === 0.5;
         const epOn = match.extraPoints?.[n] || 0;
         return (
@@ -133,6 +133,11 @@ function MatchCard({ match, index, dispatch, scoring, eloDb, extraPoints, extraP
                 fontWeight: isWinner || isDraw ? 600 : 400, fontSize: 13,
               }}
             >
+              {playerOrder && (
+                <span style={{ fontSize: 10, fontWeight: 700, color: pi === 0 ? C.green : C.faint, minWidth: 14 }}>
+                  {pi === 0 ? "⚡" : pi + 1}
+                </span>
+              )}
               <span style={{ flex: 1 }}>{n}</span>
               <span style={{ fontSize: 11, color: C.faint }}>{getElo(eloDb, n)}</span>
               {isWinner && <span style={{ fontSize: 11 }}>Win</span>}
@@ -327,7 +332,7 @@ function MatchesTab({ state, dispatch, config, eloLoadedCols }) {
             </div>
           </div>
           {cfg.timerMinutes > 0 && <Timer minutes={cfg.timerMinutes} key={state.currentRound} />}
-          {cfg.firstPlayer && state.pairings.some((m) => !m.isBye && m.players.length === 2) && (
+          {cfg.playerOrder && state.pairings.some((m) => !m.isBye && m.players.length === 2) && (
             <div
               style={{
                 display: "grid",
@@ -348,7 +353,7 @@ function MatchesTab({ state, dispatch, config, eloLoadedCols }) {
             <div style={{ textAlign: "center", padding: 32, color: C.faint }}>No pairings.</div>
           )}
           {state.pairings.map((m, i) => (
-            <MatchCard key={i} match={m} index={i} dispatch={dispatch} scoring={cfg.scoring} eloDb={state.eloDb[cfg.eloDB || "ELO"] || {}} extraPoints={cfg.extraPoints} extraPointsValue={cfg.extraPointsValue || 1} />
+            <MatchCard key={i} match={m} index={i} dispatch={dispatch} scoring={cfg.scoring} eloDb={state.eloDb[cfg.eloDB || "ELO"] || {}} extraPoints={cfg.extraPoints} extraPointsValue={cfg.extraPointsValue || 1} playerOrder={cfg.playerOrder} />
           ))}
         </div>
       )}
