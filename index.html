@@ -464,27 +464,6 @@ function calcAlloc(players, prizes, ranks, entryCost, prizePct, prizePctUp, ruPc
 
 // ── 5. TOURNAMENT FORMAT RULES ───────────────────────────────────────────────
 
-// Scoring mode registry — single source of truth for all three modes.
-// Components use this for dropdowns and labels instead of hardcoding strings inline.
-//   value      — the string stored in cfg.scoring
-//   label      — human-readable name shown in the UI
-//   pairingSort — text displayed in the pairings header describing how opponents are selected
-const SCORING_MODES = [
-  { value: "lifepoints", label: "Lifepoints",   pairingSort: "By win rate" },
-  { value: "swiss",      label: "Swiss",         pairingSort: "By win rate" },
-  { value: "points",     label: "Ranks",          pairingSort: "By points"   },
-];
-
-// Max-players overflow modes — how to handle player counts not evenly divisible by matchMax.
-//   "none" — give the leftover player a BYE (they sit out and score as a win)
-//   "up"   — round group sizes up (fewer tables, each with more players)
-//   "down" — round group sizes down (more tables, each with fewer players)
-const MATCH_ROUND_OPTIONS = [
-  { value: "none", label: "BYE"        },
-  { value: "up",   label: "round up"   },
-  { value: "down", label: "round down" },
-];
-
 // Determine starting phase from config.
 // If rrRounds > 0, start with round-robin; after those rounds are done, switch to swiss.
 function initialPhase(cfg) {
@@ -3775,10 +3754,11 @@ function MatchesTab({ state, dispatch, config, eloLoadedCols }) {
       { id: "session", label: "Session" },
     ].filter(Boolean);
   const isRR = state.phase === "roundrobin" && cfg.rrRounds > 0,
-    scoringMode = SCORING_MODES.find(m => m.value === cfg.scoring) || SCORING_MODES[1],
+    scoringLabel = { lifepoints: "Lifepoints", points: "Ranks", swiss: "Swiss" }[cfg.scoring] || "Swiss",
+    pairingSort = cfg.scoring === "points" ? "By points" : "By win rate",
     rl = isRR
       ? `Round Robin — R${state.currentRound}/${cfg.rrRounds}`
-      : `${scoringMode.label} — R${state.currentRound - (isRR ? 0 : cfg.rrRounds)}`;
+      : `${scoringLabel} — R${state.currentRound - (isRR ? 0 : cfg.rrRounds)}`;
   return (
     <div>
       <TabBar
@@ -3804,7 +3784,7 @@ function MatchesTab({ state, dispatch, config, eloLoadedCols }) {
             <div>
               <div style={{ fontSize: 16, fontWeight: 500 }}>{rl}</div>
               <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
-                {isRR ? "By ELO" : scoringMode.pairingSort}
+                {isRR ? "By ELO" : pairingSort}
               </div>
             </div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -4163,11 +4143,21 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
       )}
     </div>
   );
+  const SCORING_MODES = [
+    { value: "lifepoints", label: "Lifepoints" },
+    { value: "swiss",      label: "Swiss" },
+    { value: "points",     label: "Ranks" },
+  ];
+  const MATCH_ROUND_OPTIONS = [
+    { value: "none", label: "BYE" },
+    { value: "up",   label: "round up" },
+    { value: "down", label: "round down" },
+  ];
   const TB_OPTIONS = [
-    { value: "elo", label: "ELO" },
+    { value: "elo",     label: "ELO" },
     { value: "elo_rev", label: "ELO reversed" },
-    { value: "omw", label: "OMW (opponent match win)" },
-    { value: "gwr", label: "GWR (game win ratio)" },
+    { value: "omw",     label: "OMW (opponent match win)" },
+    { value: "gwr",     label: "GWR (game win ratio)" },
   ];
   const isLP = cfg.scoring === "lifepoints";
   const isPoints = cfg.scoring === "points";
@@ -4295,9 +4285,9 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
               onChange={(e) => setFeature("scoring", e.target.value)}
               style={S.select}
             >
-              <option value="lifepoints">Lifepoints</option>
-              <option value="swiss">Swiss</option>
-              <option value="points">Ranks</option>
+              {SCORING_MODES.map(o => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
             </select>
           </div>
           <div

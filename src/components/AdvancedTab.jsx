@@ -73,11 +73,21 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
       )}
     </div>
   );
+  const SCORING_MODES = [
+    { value: "lifepoints", label: "Lifepoints" },
+    { value: "swiss",      label: "Swiss" },
+    { value: "points",     label: "Ranks" },
+  ];
+  const MATCH_ROUND_OPTIONS = [
+    { value: "none", label: "BYE" },
+    { value: "up",   label: "round up" },
+    { value: "down", label: "round down" },
+  ];
   const TB_OPTIONS = [
-    { value: "elo", label: "ELO" },
+    { value: "elo",     label: "ELO" },
     { value: "elo_rev", label: "ELO reversed" },
-    { value: "omw", label: "OMW (opponent match win)" },
-    { value: "gwr", label: "GWR (game win ratio)" },
+    { value: "omw",     label: "OMW (opponent match win)" },
+    { value: "gwr",     label: "GWR (game win ratio)" },
   ];
   const isLP = cfg.scoring === "lifepoints";
   const isPoints = cfg.scoring === "points";
@@ -205,9 +215,9 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
               onChange={(e) => setFeature("scoring", e.target.value)}
               style={S.select}
             >
-              <option value="lifepoints">Lifepoints</option>
-              <option value="swiss">Swiss</option>
-              <option value="points">Ranks</option>
+              {SCORING_MODES.map(o => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
             </select>
           </div>
           <div

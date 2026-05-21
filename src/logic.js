@@ -430,27 +430,6 @@ function calcAlloc(players, prizes, ranks, entryCost, prizePct, prizePctUp, ruPc
 
 // ── 5. TOURNAMENT FORMAT RULES ───────────────────────────────────────────────
 
-// Scoring mode registry — single source of truth for all three modes.
-// Components use this for dropdowns and labels instead of hardcoding strings inline.
-//   value      — the string stored in cfg.scoring
-//   label      — human-readable name shown in the UI
-//   pairingSort — text displayed in the pairings header describing how opponents are selected
-const SCORING_MODES = [
-  { value: "lifepoints", label: "Lifepoints",   pairingSort: "By win rate" },
-  { value: "swiss",      label: "Swiss",         pairingSort: "By win rate" },
-  { value: "points",     label: "Ranks",          pairingSort: "By points"   },
-];
-
-// Max-players overflow modes — how to handle player counts not evenly divisible by matchMax.
-//   "none" — give the leftover player a BYE (they sit out and score as a win)
-//   "up"   — round group sizes up (fewer tables, each with more players)
-//   "down" — round group sizes down (more tables, each with fewer players)
-const MATCH_ROUND_OPTIONS = [
-  { value: "none", label: "BYE"        },
-  { value: "up",   label: "round up"   },
-  { value: "down", label: "round down" },
-];
-
 // Determine starting phase from config.
 // If rrRounds > 0, start with round-robin; after those rounds are done, switch to swiss.
 function initialPhase(cfg) {
