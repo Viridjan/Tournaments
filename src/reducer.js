@@ -40,6 +40,7 @@ const init = {
   })(),
   activeTab: "players",
   matchSubTab: "pairings",
+  draftEnded: false,
   prizes: [
     { name: "Pauper", value: 7, maxQty: 1, maxQtyPerPlayer: 1, guaranteed: "1", avoid: "" },
     { name: "Tournament", value: 5, maxQty: 1, maxQtyPerPlayer: 1, guaranteed: "2", avoid: "" },
@@ -83,6 +84,7 @@ function reducer(st, a) {
         tournamentId: a.id,
         activeTab: "players",
         matchSubTab: "pairings",
+        draftEnded: false,
         featureOverrides: {},
         players: [],
         currentRound: 0,
@@ -424,6 +426,13 @@ function reducer(st, a) {
         else localStorage.removeItem(SK);
       } catch {}
       return { ...st, sheetsUrl: a.url };
+    case "DRAFT_END":
+      return {
+        ...st,
+        draftEnded: true,
+        matchSubTab: "pairings",
+        matchLog: [...st.matchLog, { type: "draft-end", label: "Draft ended", ts: now(), tables: a.tables }],
+      };
     case "LOG_EVENT":
       return {
         ...st,

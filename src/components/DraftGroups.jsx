@@ -17,9 +17,18 @@ function DraftGroups({ players, eloDb, dispatch }) {
           {ng} table{ng > 1 ? "s" : ""} · {n} players
         </span>
         <Btn
-          onClick={() =>
-            dispatch({ type: "LOG_EVENT", eventType: "draft-end", label: "Draft ended" })
-          }
+          onClick={() => {
+            if (!window.confirm("End the draft and save seating to the log?")) return;
+            dispatch({
+              type: "DRAFT_END",
+              tables: g.map((gr) =>
+                gr
+                  .slice()
+                  .sort((a, b) => getElo(eloDb, b.name) - getElo(eloDb, a.name))
+                  .map((p) => ({ name: p.name, elo: getElo(eloDb, p.name) }))
+              ),
+            });
+          }}
           style={{ fontSize: 12 }}
         >
           Draft ended ↗

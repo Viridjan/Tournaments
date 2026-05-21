@@ -73,16 +73,6 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
       )}
     </div>
   );
-  const SCORING_MODES = [
-    { value: "lifepoints", label: "Lifepoints" },
-    { value: "swiss",      label: "Swiss" },
-    { value: "points",     label: "Ranks" },
-  ];
-  const MATCH_ROUND_OPTIONS = [
-    { value: "none", label: "BYE" },
-    { value: "up",   label: "round up" },
-    { value: "down", label: "round down" },
-  ];
   const TB_OPTIONS = [
     { value: "elo",     label: "ELO" },
     { value: "elo_rev", label: "ELO reversed" },

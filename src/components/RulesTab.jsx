@@ -82,7 +82,7 @@ function RulesTab({ state }) {
                     if (!isNaN(d.getTime())) {
                       display = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
                     } else {
-                      display = String(c).slice(0, 10);
+                      display = String(c);
                     }
                   }
                   return (

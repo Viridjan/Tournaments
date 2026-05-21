@@ -67,6 +67,7 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
         history: state.history,
         matchLog: state.matchLog,
         startedAt: state.startedAt,
+        draftEnded: state.draftEnded,
       },
       tournamentStarted: state.tournamentStarted,
       tournamentMode: state.tournamentId,
@@ -81,7 +82,7 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
       savedAt: Date.now(),
     });
     try { localStorage.setItem(BK_LAST, state.tournamentId); } catch {}
-  }, [state.players, state.pairings, state.currentRound, state.tournamentStarted, state.history]);
+  }, [state.players, state.pairings, state.currentRound, state.tournamentStarted, state.history, state.matchLog, state.draftEnded]);
   // Auto-push ELO to Google Sheets after each completed round.
   // lastPushedRound tracks history.length at last push so this only fires once per new round,
   // not on every state change that happens to re-render Shell.

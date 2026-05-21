@@ -430,6 +430,18 @@ function calcAlloc(players, prizes, ranks, entryCost, prizePct, prizePctUp, ruPc
 
 // ── 5. TOURNAMENT FORMAT RULES ───────────────────────────────────────────────
 
+const SCORING_MODES = [
+  { value: "lifepoints", label: "Lifepoints", pairingSort: "By win rate" },
+  { value: "swiss",      label: "Swiss",       pairingSort: "By win rate" },
+  { value: "points",     label: "Ranks",       pairingSort: "By points"   },
+];
+
+const MATCH_ROUND_OPTIONS = [
+  { value: "none", label: "BYE"        },
+  { value: "up",   label: "round up"   },
+  { value: "down", label: "round down" },
+];
+
 // Determine starting phase from config.
 // If rrRounds > 0, start with round-robin; after those rounds are done, switch to swiss.
 function initialPhase(cfg) {

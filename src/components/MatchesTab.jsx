@@ -248,11 +248,23 @@ function MatchLog({ state }) {
           bg = { start: C.gBg, abandon: C.aBg, "draft-end": C.bBg, "tournament-timeout": C.rBg },
           colors = { start: C.green, abandon: C.amber, "draft-end": C.blue, "tournament-timeout": C.red };
         return (
-          <div key={ei} style={{ background: bg[ev.type] || C.subtle, borderRadius: 8, padding: "8px 12px", marginBottom: 12, display: "flex", justifyContent: "space-between" }}>
-            <span style={{ fontSize: 13, fontWeight: 500, color: colors[ev.type] || C.text }}>
-              {icons[ev.type] || "•"} {ev.label}
-            </span>
-            <span style={{ fontSize: 11, color: C.faint }}>{ev.ts}</span>
+          <div key={ei} style={{ background: bg[ev.type] || C.subtle, borderRadius: 8, padding: "8px 12px", marginBottom: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ fontSize: 13, fontWeight: 500, color: colors[ev.type] || C.text }}>
+                {icons[ev.type] || "•"} {ev.label}
+              </span>
+              <span style={{ fontSize: 11, color: C.faint }}>{ev.ts}</span>
+            </div>
+            {ev.tables && (
+              <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {ev.tables.map((tbl, ti) => (
+                  <div key={ti} style={{ fontSize: 11, color: C.text }}>
+                    <span style={{ fontWeight: 600, color: C.blue }}>T{ti + 1}: </span>
+                    {tbl.map((p) => p.name).join(", ")}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         );
       })}
@@ -263,18 +275,17 @@ function MatchLog({ state }) {
 function MatchesTab({ state, dispatch, config, eloLoadedCols }) {
   const cfg = config.features,
     subTabs = [
-      cfg.draft && { id: "draft", label: "Draft" },
+      cfg.draft && !state.draftEnded && { id: "draft", label: "Draft" },
       { id: "pairings", label: "Pairings" },
       { id: "standings", label: "Standings" },
       { id: "log", label: "Log" },
       { id: "session", label: "Session" },
     ].filter(Boolean);
   const isRR = state.phase === "roundrobin" && cfg.rrRounds > 0,
-    scoringLabel = { lifepoints: "Lifepoints", points: "Ranks", swiss: "Swiss" }[cfg.scoring] || "Swiss",
-    pairingSort = cfg.scoring === "points" ? "By points" : "By win rate",
+    scoringMode = SCORING_MODES.find(m => m.value === cfg.scoring) || SCORING_MODES[1],
     rl = isRR
       ? `Round Robin — R${state.currentRound}/${cfg.rrRounds}`
-      : `${scoringLabel} — R${state.currentRound - (isRR ? 0 : cfg.rrRounds)}`;
+      : `${scoringMode.label} — R${state.currentRound - (isRR ? 0 : cfg.rrRounds)}`;
   return (
     <div>
       <TabBar
@@ -300,7 +311,7 @@ function MatchesTab({ state, dispatch, config, eloLoadedCols }) {
             <div>
               <div style={{ fontSize: 16, fontWeight: 500 }}>{rl}</div>
               <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
-                {isRR ? "By ELO" : pairingSort}
+                {isRR ? "By ELO" : scoringMode.pairingSort}
               </div>
             </div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
