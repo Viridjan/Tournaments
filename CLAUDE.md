@@ -18,9 +18,9 @@ Single-page app with no bundler. React 18 + Babel Standalone loaded via CDN. All
 
 ### Source load order (from `build.sh`)
 
-1. `src/config.js` — Tournament definitions (`T` object), localStorage key constants (`EK`, `SK`, `BK`), default Apps Script URL (`DU`)
+1. `src/config.js` — Global constants: ELO defaults (`ED`, `EM`, `ES`), localStorage key constants (`EK`, `SK`, `BK`, `BK_LAST`), default Apps Script URL (`DU`)
 2. `src/logic.js` — Pure functions: ELO math, pairing algorithms, prize allocation
-3. `src/storage.js` — localStorage helpers (`lLS`, `sLS`), `mkP()` pairing dispatcher, `now()`
+3. `src/storage.js` — localStorage helpers (`loadLS`, `saveLS`), `buildSnap()`, `autoSeedSave()`, `makePairings()` dispatcher, `now()`
 4. `src/reducer.js` — Initial state (`init`) + all state transitions (`reducer`)
 5. `src/ui.js` — Color palette (`C`), style objects (`S`), shared primitives (`Card`, `Btn`, `Tag`, `TabBar`, `Hearts`)
 6. `src/components/` — Feature components in dependency order (see `build.sh`)
@@ -31,25 +31,28 @@ Single-page app with no bundler. React 18 + Babel Standalone loaded via CDN. All
 Single `useReducer(reducer, init)` in `App.jsx`. All state transitions go through `reducer.js`. Key state:
 
 - `screen` — `"landing"` | `"tournament"`
-- `tournamentId` — key into `T` object
-- `featureOverrides` — runtime overrides on top of `T[id].features`; merged at action time via `{ ...T[id].features, ...featureOverrides }`
-- `eloDb` — persisted to `localStorage` under `EK`; auto-synced from Google Sheets on mount
-- State auto-backed-up to `localStorage` under `BK` during a tournament; restored on next load
+- `tournamentId` — key into `state.tournaments`
+- `tournaments` — `{id: {id, name, icon, desc, features{}}}` loaded from Sheets on mount via `SET_TOURNAMENTS`
+- `featureOverrides` — runtime overrides merged over tournament features; merged at action time via `{ ...state.tournaments[id]?.features, ...featureOverrides }`
+- `players` — `{name, score, w, d, l, eliminated, paid, positionSum, gpScores?, eloStart?}`
+- `eloDb` — `{colName: {nameLower: {elo, name, test}}}` persisted under `EK`; auto-synced from Sheets on mount
+- `draftEnded` — hides Draft sub-tab after draft phase completes
+- State auto-backed-up to `localStorage` under `BK + "_" + tournamentId` during a tournament; restored on next load
 
-### Tournament types (`src/config.js`)
+**Feature config access pattern** (used everywhere components need feature flags):
+```js
+const c = { ...state.tournaments[state.tournamentId]?.features, ...state.featureOverrides };
+```
 
-Three hardcoded tournaments in `T`:
-- `drunken-draft` — lifepoints elimination, 1v1
-- `vintage-draft` — Swiss scoring, 1v1
-- `risk-grand-prix` — multi-player points with Grand Prix cumulative scoring
+### Tournament types
 
-Each has a `features` object controlling scoring mode, pairing mode, ELO, timers, draft phase, prizes, etc.
+Loaded dynamically from the Google Sheet's Settings tab on mount — **not hardcoded**. `state.tournaments` starts as `{}` and is populated by `SET_TOURNAMENTS` after `?action=tournament_list`. Adding a new tournament type requires only a new row in the Sheet (no code change).
 
 ### Scoring modes (`src/logic.js`)
 
 - `lifepoints` — players start with `startScore` lives; loss/draw costs lives; elimination at 0
 - `swiss` — points accumulate (win/draw/loss points)
-- `points` (Grand Prix) — `gpScore()` takes best N of last M results, drops worst K
+- `points` (Grand Prix) — `gpBestOf()` takes best N of last M results, drops worst K; ghost-padding penalises late joiners
 
 ### Pairing modes
 
@@ -58,10 +61,41 @@ Each has a `features` object controlling scoring mode, pairing mode, ELO, timers
 
 ### Google Apps Script backend
 
-`apps-script.js` is the source deployed separately to Google Apps Script (not part of the JS bundle). `src/apps-script-embed.js` embeds its content as a string constant `APPS_SCRIPT` so the UI can display it.
+`apps-script.js` is deployed separately to Google Apps Script (not bundled). `src/apps-script-embed.js` embeds its content as a string constant `APPS_SCRIPT` for display in the Advanced tab. Regenerate after editing `apps-script.js`:
 
-The backend handles: ELO load/save, seed save/load/delete/list, rules load. All via GET/POST to the deployed web app URL stored in `localStorage` under `SK`.
+```bash
+node -e "
+const c = require('fs').readFileSync('apps-script.js','utf8');
+const e = JSON.stringify(c);
+require('fs').writeFileSync('src/apps-script-embed.js','const APPS_SCRIPT = ' + e + ';\n');
+"
+```
 
-### Adding a new tournament type
+`TOURNAMENT_FEATURE_KEYS` in `apps-script.js` controls which Sheet columns are parsed as feature flags. Add new columns there when adding new feature flags.
 
-Add an entry to `T` in `src/config.js` with a `features` object. All feature flags are consumed by `reducer.js` and components via `{ ...T[id].features, ...state.featureOverrides }`.
+### Auto-save
+
+`autoSeedSave()` fires 2 s after any change to pairings, history, players, round, or phase — and immediately before dispatch on **New session** and **End tournament**. Fire-and-forget (`mode: "no-cors"`); failures are silent. Seeds are labelled `[auto]`.
+
+### localStorage keys
+
+| Constant | Key string | Content |
+|---|---|---|
+| `EK` | `tournament_elo_db_v2` | ELO database |
+| `SK` | `tournament_sheets_url_v1` | Apps Script URL |
+| `BK` | `tournament_local_backup` | Prefix; suffixed `_<tournamentId>` |
+| `BK_LAST` | `tournament_local_backup_last` | Most recently active tournament id |
+
+## Expansion patterns
+
+**New feature flag** — Add column to Sheet Settings tab → add key to `TOURNAMENT_FEATURE_KEYS` in `apps-script.js` and redeploy → consume in component: `if (c.myFlag) { … }` → optionally expose in `AdvancedTab.jsx` for runtime override.
+
+**New tab** — Create `src/components/MyTab.jsx` (receives `{state, dispatch, config}`) → add to `build.sh` at correct dependency position → in `Shell.jsx` add to tabs array (gate with feature flag) and add render case.
+
+**New scoring mode** — Add scoring function in `src/logic.js` + handle in `NEXT_ROUND` case in `reducer.js`.
+
+**New pairing mode** — Add pairing function in `src/logic.js` + add branch in `makePairings()` in `storage.js`.
+
+**New backend endpoint** — Add handler in `apps-script.js` + register in `doGet`/`doPost` → regenerate embed → redeploy → call via `fetch(getSheetsUrl() + "?action=my_action")`.
+
+**New persistent state field** — Add to `init` in `reducer.js` + handle in relevant actions + include in `buildSnap()` in `storage.js` if it should survive reload.
