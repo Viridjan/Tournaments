@@ -17,7 +17,7 @@
 //    id | name | icon | desc | scoring | startScore | pts1 | pts2 | pts3 | ptsLast |
 //    winPoints | drawPoints | lossPoints | cumulativeDrawPenalty | rrRounds |
 //    timerMinutes | draft | elo | eloKMax | eloScale | eloDB | playerOrder | grandPrix |
-//    prizes | entryCost | prizePct | prizePctRoundUp | roundUpPct | roundUpPctRoundUp |
+//    prizes | entryCost | prizrPlCount | prizePlCountRUp | rUpPlCount | rUpPlCountRUp |
 //    timeout | timeoutTime | rules | matchRound | matchMax |
 //    gpBestOfLast | gpDropWorst | gpGhostPoints | extraPoints | extraPointsValue |
 //    tiebreaker1 | tiebreaker2 | tiebreaker3
@@ -288,7 +288,7 @@ var TOURNAMENT_FEATURE_KEYS = [
   "scoring", "startScore", "pts1", "pts2", "pts3", "ptsLast", "winPoints", "drawPoints", "lossPoints",
   "cumulativeDrawPenalty", "rrRounds", "timerMinutes", "draft", "elo", "eloKMax",
   "eloScale", "eloDefault", "eloDB", "playerOrder", "grandPrix", "prizes",
-  "entryCost", "prizePct", "prizePctRoundUp", "roundUpPct", "roundUpPctRoundUp",
+  "entryCost", "prizrPlCount", "prizePlCountRUp", "rUpPlCount", "rUpPlCountRUp",
   "timeout", "timeoutTime", "rules", "matchRound", "matchMax",
   "gpBestOfLast", "gpDropWorst", "gpGhostPoints", "extraPoints", "extraPointsValue",
   "tiebreaker1", "tiebreaker2", "tiebreaker3"

@@ -23,7 +23,7 @@ function StandingsTab({ state, dispatch, config }) {
   ),
     winner = activePlayers.length === 1 ? activePlayers[0] : null;
   const prizeMisconfigured =
-    cfg.prizes && (cfg.entryCost == null || cfg.prizePct == null || cfg.roundUpPct == null);
+    cfg.prizes && (cfg.entryCost == null || cfg.prizrPlCount == null || cfg.rUpPlCount == null);
   const prizeCalc =
     cfg.prizes && !prizeMisconfigured
       ? calcAlloc(
@@ -31,10 +31,10 @@ function StandingsTab({ state, dispatch, config }) {
           state.prizes,
           state.ranks,
           cfg.entryCost,
-          cfg.prizePct,
-          cfg.prizePctRoundUp,
-          cfg.roundUpPct,
-          cfg.roundUpPctRoundUp,
+          cfg.prizrPlCount,
+          cfg.prizePlCountRUp,
+          cfg.rUpPlCount,
+          cfg.rUpPlCountRUp,
         )
       : null;
   return (
@@ -51,7 +51,7 @@ function StandingsTab({ state, dispatch, config }) {
             marginBottom: 12,
           }}
         >
-          Prizes enabled but <strong>entryCost</strong>, <strong>prizePct</strong>, and <strong>roundUpPct</strong> must be set in the Settings tab.
+          Prizes enabled but <strong>entryCost</strong>, <strong>prizrPlCount</strong>, and <strong>rUpPlCount</strong> must be set in the Settings tab.
         </div>
       )}
       {winner && (

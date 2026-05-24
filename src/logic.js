@@ -279,34 +279,34 @@ function defRanks() {
 //   prizes      — prize inventory [{ name, value, maxQty, guaranteed, avoid, maxQtyPerPlayer }]
 //   ranks       — rank definitions [{ label, pct }] from defRanks() or user config
 //   entryCost   — entry fee per player
-//   prizePct    — % of players that receive prizes (default 50%)
-//   prizePctUp  — round allocated count up (true) or down (false)
-//   ruPct       — % of prize ranks that round UP their target value (the "runup" winners)
-//   ruPctUp     — round runup count up (true) or down (false)
+//   prizrPlCount  — % of players that receive prizes
+//   prizePlCountRUp — round allocated count up (true) or down (false)
+//   rUpPlCount    — % of prize ranks that round UP their target value (the "runup" winners)
+//   rUpPlCountRUp — round runup count up (true) or down (false)
 //
 // Returns { allocs, totalPool, grandTotal } or null if pool is empty/unconfigured.
 //   allocs — array of { rank, target, chosen, actualValue } per paying rank
 //
 // Algorithm:
-//   1. Calculate how many ranks pay out (allocated = floor/ceil of players * prizePct%)
+//   1. Calculate how many ranks pay out (allocated = floor/ceil of players * prizrPlCount%)
 //   2. Split paying ranks into "runup" (round up to target) and normal (round down)
 //   3. Pre-place guaranteed prizes (prize.guaranteed = "1,3" means it goes to ranks 1 and 3)
 //   4. For each rank, find the best prize combo using backtracking search (findBestCombo)
 //   5. If a rank ends up with nothing, assign the cheapest available prize as fallback
 //   6. Post-pass: ensure higher ranks are always worth more than lower ranks
 //      by adding cheapest available prizes to any rank that violates the monotonic constraint
-function calcAlloc(players, prizes, ranks, entryCost, prizePct, prizePctUp, ruPct, ruPctUp) {
+function calcAlloc(players, prizes, ranks, entryCost, prizrPlCount, prizePlCountRUp, rUpPlCount, rUpPlCountRUp) {
   const totalPool = entryCost * players.length;
-  if (!totalPool || !ranks.length || !prizes.length || prizePct == null || ruPct == null) return null;
-  const prizePercent = prizePct;
+  if (!totalPool || !ranks.length || !prizes.length || prizrPlCount == null || rUpPlCount == null) return null;
+  const prizePercent = prizrPlCount;
   const rawAllocated = (players.length * prizePercent) / 100;
-  const allocated = prizePctUp ? Math.ceil(rawAllocated) : Math.floor(rawAllocated);
+  const allocated = prizePlCountRUp ? Math.ceil(rawAllocated) : Math.floor(rawAllocated);
   if (allocated < 1) return null;
-  const runupPercent = ruPct;
+  const runupPercent = rUpPlCount;
   const rawRunup = (allocated * runupPercent) / 100;
   // runupCount: how many top ranks round their payout UP to the target value.
   // Remaining ranks round DOWN (they get at most the target, not over).
-  const runupCount = ruPctUp ? Math.ceil(rawRunup) : Math.floor(rawRunup);
+  const runupCount = rUpPlCountRUp ? Math.ceil(rawRunup) : Math.floor(rawRunup);
   const prizeRanks = ranks.slice(0, allocated),
     inventory = prizes.map((p) => ({ ...p })); // working copy — maxQty gets decremented
 

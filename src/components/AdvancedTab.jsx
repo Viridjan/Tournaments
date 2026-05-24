@@ -471,8 +471,8 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
             { col: "scoring",         vals: ["swiss", "lifepoints", "points"] },
             { col: "matchRound",      vals: ["none (BYE)", "up", "down"] },
             { col: "tiebreaker1/2/3", vals: ["elo", "elo_rev", "omw", "gwr", "none"] },
-            { col: "draft / elo / prizes / rules / playerOrder / grandPrix / gpGhostPoints / timeout / extraPoints / cumulativeDrawPenalty / prizePctRoundUp / roundUpPctRoundUp", vals: ["TRUE", "FALSE"] },
-            { col: "startScore / pts1 / pts2 / pts3 / ptsLast / winPoints / drawPoints / lossPoints / rrRounds / timerMinutes / eloKMax / eloScale / eloDefault / timeoutTime / matchMax / gpBestOfLast / gpDropWorst / extraPointsValue / entryCost / prizePct / roundUpPct", vals: ["number"] },
+            { col: "draft / elo / prizes / rules / playerOrder / grandPrix / gpGhostPoints / timeout / extraPoints / cumulativeDrawPenalty / prizePlCountRUp / rUpPlCountRUp", vals: ["TRUE", "FALSE"] },
+            { col: "startScore / pts1 / pts2 / pts3 / ptsLast / winPoints / drawPoints / lossPoints / rrRounds / timerMinutes / eloKMax / eloScale / eloDefault / timeoutTime / matchMax / gpBestOfLast / gpDropWorst / extraPointsValue / entryCost / prizrPlCount / rUpPlCount", vals: ["number"] },
             { col: "eloDB",           vals: ["ELO column name in your sheet"] },
             { col: "id",              vals: ["unique key (no spaces)"] },
           ].map(({ col, vals }) => (
@@ -501,11 +501,11 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
                 <tbody>
                   {state.ranks.map((r, i) => {
                     const pool = (cfg.entryCost || 0) * state.players.length;
-                    const ppct = cfg.prizePct || 0;
+                    const ppct = cfg.prizrPlCount || 0;
                     const rawAc = (state.players.length * ppct) / 100;
                     // Lightweight mirror of calcAlloc() — only used to gray out ranks that won't pay out.
                     // Intentionally not calling calcAlloc() here to avoid a full prize solve on every render.
-                    const allocated = cfg.prizePctRoundUp ? Math.ceil(rawAc) : Math.floor(rawAc);
+                    const allocated = cfg.prizePlCountRUp ? Math.ceil(rawAc) : Math.floor(rawAc);
                     const inact = state.players.length > 0 && i >= allocated;
                     return (
                       <tr key={i} style={{ opacity: inact ? 0.35 : 1 }}>
@@ -565,10 +565,10 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
                   <span style={{ flex: 1, fontSize: 13 }}>Players who get prizes</span>
                   <input
                     type="text"
-                    value={cfg.prizePct ?? ""}
+                    value={cfg.prizrPlCount ?? ""}
                     onChange={(e) => {
                       const v = parseFloat(e.target.value);
-                      dispatch({ type: "SET_FEATURE", key: "prizePct", value: isNaN(v) ? "" : v });
+                      dispatch({ type: "SET_FEATURE", key: "prizrPlCount", value: isNaN(v) ? "" : v });
                     }}
                     style={{
                       ...S.input,
@@ -591,9 +591,9 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
                   >
                     <input
                       type="checkbox"
-                      checked={!!cfg.prizePctRoundUp}
+                      checked={!!cfg.prizePlCountRUp}
                       onChange={(e) =>
-                        dispatch({ type: "SET_FEATURE", key: "prizePctRoundUp", value: e.target.checked })
+                        dispatch({ type: "SET_FEATURE", key: "prizePlCountRUp", value: e.target.checked })
                       }
                       style={{ width: 14, height: 14, accentColor: C.accent, cursor: "pointer" }}
                     />
@@ -604,10 +604,10 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
                   <span style={{ flex: 1, fontSize: 13 }}>Prizes rounded up</span>
                   <input
                     type="text"
-                    value={cfg.roundUpPct ?? ""}
+                    value={cfg.rUpPlCount ?? ""}
                     onChange={(e) => {
                       const v = parseFloat(e.target.value);
-                      dispatch({ type: "SET_FEATURE", key: "roundUpPct", value: isNaN(v) ? "" : v });
+                      dispatch({ type: "SET_FEATURE", key: "rUpPlCount", value: isNaN(v) ? "" : v });
                     }}
                     style={{
                       ...S.input,
@@ -630,9 +630,9 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
                   >
                     <input
                       type="checkbox"
-                      checked={!!cfg.roundUpPctRoundUp}
+                      checked={!!cfg.rUpPlCountRUp}
                       onChange={(e) =>
-                        dispatch({ type: "SET_FEATURE", key: "roundUpPctRoundUp", value: e.target.checked })
+                        dispatch({ type: "SET_FEATURE", key: "rUpPlCountRUp", value: e.target.checked })
                       }
                       style={{ width: 14, height: 14, accentColor: C.accent, cursor: "pointer" }}
                     />
