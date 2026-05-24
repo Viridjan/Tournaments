@@ -1,0 +1,70 @@
+[
+  {
+    "id": "drunken-draft",
+    "name": "Drunken Draft",
+    "icon": "🍺",
+    "desc": "Lifepoints elimination",
+    "features": {
+      "scoring": "lifepoints",
+      "rrRounds": 2,
+      "timerMinutes": 20,
+      "draft": true,
+      "draftTableSize": 5,
+      "elo": true,
+      "eloDB": "ELO Magic",
+      "playerOrder": true,
+      "grandPrix": false,
+      "prizes": true,
+      "timeout": true,
+      "timeoutTime": "23:55",
+      "rules": true,
+      "matchRound": "BYE",
+      "matchMax": 2
+    }
+  },
+  {
+    "id": "vintage-draft",
+    "name": "Vintage Draft",
+    "icon": "🪷",
+    "desc": "Classic draft",
+    "features": {
+      "scoring": "swiss",
+      "rrRounds": 0,
+      "timerMinutes": 50,
+      "draft": true,
+      "draftTableSize": 5,
+      "elo": true,
+      "eloDB": "ELO Magic",
+      "playerOrder": true,
+      "grandPrix": false,
+      "prizes": true,
+      "timeout": true,
+      "timeoutTime": "23:55",
+      "rules": true,
+      "matchRound": "BYE",
+      "matchMax": 2
+    }
+  },
+  {
+    "id": "risk-grand-prix",
+    "name": "Risk Grand Prix",
+    "icon": "🪖",
+    "desc": "Best 3 of last 4 played",
+    "features": {
+      "scoring": "points",
+      "rrRounds": 0,
+      "timerMinutes": 90,
+      "draft": false,
+      "elo": true,
+      "eloDB": "ELO Risk",
+      "playerOrder": true,
+      "grandPrix": true,
+      "prizes": false,
+      "timeout": false,
+      "timeoutTime": "",
+      "rules": true,
+      "matchRound": "round up",
+      "matchMax": 4
+    }
+  }
+]

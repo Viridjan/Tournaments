@@ -23,8 +23,8 @@
 //   drop   — how many worst scores to discard within the window, default 1
 //   ghost  — if true, pad missing rounds with the player's worst actual score
 function gpBestOf(scores, last, drop, ghost) {
-  const lastN = Math.max(2, Number(last) || 4);
-  const dropCount = Math.max(0, Number(drop) || 1);
+  const lastN = Math.max(2, Number(last));
+  const dropCount = Math.max(0, Number(drop));
   let padded = scores;
   // Pad missing rounds with the player's worst score so late joiners aren't over-rewarded.
   if (ghost && padded.length > 0 && padded.length < lastN) {
@@ -462,10 +462,9 @@ function isGameOver(scoring, activePlayers) {
 }
 
 // Assign players to draft tables using ELO-seeded snake order.
-// Target: ~5 players per table (floor(n/5) tables).
 // Snake distribution: row 0 fills left-to-right, row 1 fills right-to-left, alternating.
 // This balances ELO across tables — each table gets one top player, one bottom player, etc.
-function draftGroups(players, eloDb, eloDefault = 0, tableSize = 5) {
+function draftGroups(players, eloDb, eloDefault = 0, tableSize) {
   const n = players.length;
   const groupCount = Math.max(1, Math.floor(n / tableSize));
   const sorted = [...players].sort((a, b) => getElo(eloDb, b.name, eloDefault) - getElo(eloDb, a.name, eloDefault));
@@ -508,12 +507,8 @@ function scoreRound(roundPairings, players, cfg, db) {
     if (scoring === "points") {
       // Group players that tied at the same score within the match.
       // Each group gets points based on the rank of their position (1st, 2nd, 3rd, last).
-      const ptMap = [
-        cfg.pts1 !== "" && cfg.pts1 !== undefined ? Number(cfg.pts1) : 3,
-        cfg.pts2 !== "" && cfg.pts2 !== undefined ? Number(cfg.pts2) : 2,
-        cfg.pts3 !== "" && cfg.pts3 !== undefined ? Number(cfg.pts3) : 1,
-      ];
-      const ptsLast = cfg.ptsLast !== "" && cfg.ptsLast !== undefined ? Number(cfg.ptsLast) : 0;
+      const ptMap = [Number(cfg.pts1), Number(cfg.pts2), Number(cfg.pts3)];
+      const ptsLast = Number(cfg.ptsLast);
       const groups = [];
       let gi = 0;
       while (gi < sorted.length) {
@@ -556,9 +551,9 @@ function scoreRound(roundPairings, players, cfg, db) {
         if (!p) return;
         const isTop = parseFloat(m.scores[n] || 0) === topScore;
         let pts;
-        if (isTop && multi) { p.d++; pts = cfg.drawPoints ?? 1; }
-        else if (isTop)     { p.w++; pts = cfg.winPoints ?? 3; }
-        else                { p.l++; pts = cfg.lossPoints ?? 0; }
+        if (isTop && multi) { p.d++; pts = cfg.drawPoints; }
+        else if (isTop)     { p.w++; pts = cfg.winPoints; }
+        else                { p.l++; pts = cfg.lossPoints; }
         if (cfg.grandPrix) {
           if (!p.gpScores) p.gpScores = [];
           p.gpScores.push(pts + (m.extraPoints?.[n] || 0));

@@ -1,0 +1,34 @@
+[
+  {
+    "name": "Pauper",
+    "value": 7,
+    "maxQty": 1,
+    "maxQtyPerPlayer": 1,
+    "guaranteed": "1",
+    "avoid": ""
+  },
+  {
+    "name": "Tournament",
+    "value": 5,
+    "maxQty": 1,
+    "maxQtyPerPlayer": 1,
+    "guaranteed": "2",
+    "avoid": ""
+  },
+  {
+    "name": "Booster",
+    "value": 6,
+    "maxQty": 99,
+    "maxQtyPerPlayer": 99,
+    "guaranteed": "",
+    "avoid": ""
+  },
+  {
+    "name": "Token",
+    "value": 3,
+    "maxQty": 99,
+    "maxQtyPerPlayer": 1,
+    "guaranteed": "",
+    "avoid": ""
+  }
+]

@@ -37,6 +37,14 @@ cat > "$OUT" << 'HTML_HEAD'
 const{useState,useReducer,useEffect,useRef,useCallback,useMemo}=React;
 HTML_HEAD
 
+# Embed config JSON files as JS globals (before src files so reducer can reference them)
+echo "" >> "$OUT"
+echo "const PRIZES = $(cat config/prizes.json);" >> "$OUT"
+echo "const SPINNER_OPTIONS = $(cat config/spinner.json);" >> "$OUT"
+echo "const TOURNAMENTS = $(cat config/tournaments.json);" >> "$OUT"
+echo "const SCORING_PRESETS = $(cat config/scoring.json);" >> "$OUT"
+echo "const GLOBAL_SETTINGS = $(cat config/global-settings.json);" >> "$OUT"
+
 # Concatenate source files in dependency order
 FILES=(
   "$SRC/config.js"

@@ -296,13 +296,13 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
                 </span>
               )}
             </span>
-            {[["pts1", "1st", 3], ["pts2", "2nd", 2], ["pts3", "3rd", 1], ["ptsLast", "last", 0]].map(([k, lbl, def]) => (
+            {[["pts1", "1st"], ["pts2", "2nd"], ["pts3", "3rd"], ["ptsLast", "last"]].map(([k, lbl]) => (
               <div key={k} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
                 <span style={{ fontSize: 10, color: C.muted }}>{lbl}</span>
                 <input
                   type="text"
                   inputMode="numeric"
-                  value={cfg[k] !== undefined && cfg[k] !== "" ? cfg[k] : def}
+                  value={cfg[k] ?? ""}
                   disabled={!isPoints}
                   onChange={(e) => setFeature(k, e.target.value === "" ? "" : Number(e.target.value))}
                   style={{ ...S.inputXs, opacity: isPoints ? 1 : 0.5 }}
@@ -363,13 +363,13 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
               style={{ width: 15, height: 15, accentColor: C.accent, cursor: "pointer", margin: 0 }}
             />
             <span style={{ flex: 1, fontSize: 13 }}>Grand Prix mode</span>
-            {[["gpBestOfLast", "Best of", 4], ["gpDropWorst", "Drop", 1]].map(([k, lbl, def]) => (
+            {[["gpBestOfLast", "Best of"], ["gpDropWorst", "Drop"]].map(([k, lbl]) => (
               <div key={k} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, opacity: cfg.grandPrix ? 1 : 0.35 }}>
                 <span style={{ fontSize: 10, color: C.muted }}>{lbl}</span>
                 <input
                   type="text"
                   inputMode="numeric"
-                  value={cfg[k] !== undefined && cfg[k] !== "" ? cfg[k] : def}
+                  value={cfg[k] ?? ""}
                   disabled={!cfg.grandPrix}
                   onChange={(e) => { const v = e.target.value; setFeature(k, v === "" ? "" : isNaN(Number(v)) ? v : Number(v)); }}
                   style={{ ...S.inputXs, opacity: cfg.grandPrix ? 1 : 0.5 }}

@@ -36,13 +36,16 @@ Single `useReducer(reducer, init)` in `App.jsx`. All state transitions go throug
 - `featureOverrides` — runtime overrides merged over tournament features; merged at action time via `{ ...state.tournaments[id]?.features, ...featureOverrides }`
 - `players` — `{name, score, w, d, l, eliminated, paid, positionSum, gpScores?, eloStart?}`
 - `eloDb` — `{colName: {nameLower: {elo, name, test}}}` persisted under `LS_ELO_DB`; auto-synced from Sheets on mount
+- `globalSettings` — global defaults from the Sheet's global settings row; lowest-priority config layer
 - `draftEnded` — hides Draft sub-tab after draft phase completes
+- `testMode` / `experimental` / `advancedSetup` — booleans that unhide the Test, Spinner, and Advanced tabs
 - State auto-backed-up to `localStorage` under `LS_BACKUP + "_" + tournamentId` during a tournament; restored on next load
 
-**Feature config access pattern** (used everywhere components need feature flags):
+**Feature config access pattern** (used everywhere components need feature flags — three layers, last wins):
 ```js
-const c = { ...state.tournaments[state.tournamentId]?.features, ...state.featureOverrides };
+const cfg = { ...state.globalSettings, ...state.tournaments[state.tournamentId]?.features, ...state.featureOverrides };
 ```
+Priority: `globalSettings` (Sheet-wide defaults) → tournament `features` → `featureOverrides` (runtime overrides).
 
 ### Tournament types
 
@@ -73,6 +76,8 @@ require('fs').writeFileSync('src/apps-script-embed.js','const APPS_SCRIPT = ' + 
 ```
 
 `TOURNAMENT_FEATURE_KEYS` in `apps-script.js` controls which Sheet columns are parsed as feature flags. Add new columns there when adding new feature flags.
+
+On mount, `App.jsx` fires two fetches in parallel: `?action=global_settings` (populates `globalSettings`) and `?action=tournament_list` (populates `tournaments`). A third fetch, `?action=elo_cols`, discovers which ELO columns exist; `?action=load&col=NAME` loads each column's entries.
 
 ### Auto-save
 

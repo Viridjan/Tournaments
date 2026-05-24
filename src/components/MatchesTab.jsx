@@ -299,7 +299,7 @@ function MatchesTab({ state, dispatch, config, eloLoadedCols }) {
         onSelect={(id) => dispatch({ type: "SET_MATCH_SUBTAB", tab: id })}
       />
       {state.matchSubTab === "draft" && (
-        <DraftGroups players={state.players} eloDb={state.eloDb[cfg.eloDB || "ELO"] || {}} dispatch={dispatch} eloDefault={cfg.eloDefault} tableSize={cfg.draftTableSize || 5} />
+        <DraftGroups players={state.players} eloDb={state.eloDb[cfg.eloDB || "ELO"] || {}} dispatch={dispatch} eloDefault={cfg.eloDefault} tableSize={cfg.draftTableSize} />
       )}
       {state.matchSubTab === "pairings" && (
         <div>

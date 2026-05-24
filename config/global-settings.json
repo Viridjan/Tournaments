@@ -1,0 +1,10 @@
+{
+  "eloDefault": 1000,
+  "eloKMax": 50,
+  "eloScale": 500,
+  "entryCost": "",
+  "prizrPlCount": "",
+  "prizePlCountRUp": false,
+  "rUpPlCount": "",
+  "rUpPlCountRUp": false
+}

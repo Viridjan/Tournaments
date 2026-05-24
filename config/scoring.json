@@ -1,0 +1,41 @@
+{
+  "lifepoints": {
+    "startScore": 4,
+    "winPoints": 0,
+    "drawPoints": -0.5,
+    "lossPoints": -1,
+    "cumulativeDrawPenalty": true,
+    "extraPoints": false,
+    "extraPointsValue": "",
+    "tiebreaker1": "omw",
+    "tiebreaker2": "elo_rev",
+    "tiebreaker3": "gwr"
+  },
+  "swiss": {
+    "startScore": 0,
+    "winPoints": 3,
+    "drawPoints": 1,
+    "lossPoints": 0,
+    "cumulativeDrawPenalty": false,
+    "extraPoints": false,
+    "extraPointsValue": "",
+    "tiebreaker1": "omw",
+    "tiebreaker2": "elo_rev",
+    "tiebreaker3": "gwr"
+  },
+  "points": {
+    "startScore": 0,
+    "pts1": 3,
+    "pts2": 2,
+    "pts3": 1,
+    "ptsLast": 0,
+    "gpBestOfLast": 4,
+    "gpDropWorst": 1,
+    "gpGhostPoints": false,
+    "extraPoints": true,
+    "extraPointsValue": 1,
+    "tiebreaker1": "omw",
+    "tiebreaker2": "elo_rev",
+    "tiebreaker3": ""
+  }
+}

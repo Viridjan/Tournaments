@@ -1,0 +1,9 @@
+[
+  { "name": "Small decks",          "weight": 20 },
+  { "name": "Plancia commanders",   "weight": 13 },
+  { "name": "Two heads bozos",      "weight": 20 },
+  { "name": "Vintage lands",        "weight": 20 },
+  { "name": "Drafting commanders",  "weight": 13 },
+  { "name": "Ante",                 "weight": 20 },
+  { "name": "Pain rare",            "weight": 20 }
+]

@@ -1,7 +1,7 @@
 // Tournament type picker — 3 cards + 'coming soon' placeholder
 // Landing screen — tournament type picker
 // Clicking a card dispatches OPEN_TOURNAMENT
-function LandingScreen({ dispatch, tournaments, onRetry, fetchError }) {
+function LandingScreen({ dispatch, tournaments, onRetry }) {
   const [customUrl, setCustomUrl] = React.useState("");
   const empty = Object.keys(tournaments).length === 0;
   return (
@@ -19,7 +19,7 @@ function LandingScreen({ dispatch, tournaments, onRetry, fetchError }) {
       {empty && (
         <div style={{ width: "100%", maxWidth: 420, marginBottom: 24 }}>
           <div style={{ background: "#fff3cd", border: "0.5px solid #ffc107", borderRadius: 10, padding: "12px 16px", fontSize: 13, color: "#856404", marginBottom: 12 }}>
-            {fetchError || "No tournaments loaded. Check your Apps Script deployment is authorized and the Settings sheet is populated."}
+            No tournaments loaded. Check config/tournaments.json is not empty and rebuild.
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <input

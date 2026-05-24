@@ -25,3 +25,17 @@ Anyone who forks or self-hosts the app shares this URL until they override it in
 - Load ranks from `?action=ranks` (new endpoint) alongside tournament features
 - Remove `DEFAULT_PRIZE_PCTS` and `defRanks()` from logic.js once Sheet-sourced
 - Until then the in-app Advanced tab editor (existing) serves as the runtime override
+
+---
+
+## Remove Google Sheets entirely
+
+Tournaments already load from `config/tournaments.json`. Remaining Sheets dependencies to cut:
+
+- **Global settings** (`?action=global_settings`) — move to `config/global-settings.json`, embed as `GLOBAL_SETTINGS` in build, dispatch `SET_GLOBAL_SETTINGS` synchronously on mount
+- **ELO database** (`?action=load`, `?action=elo_cols`) — ELO is already mirrored in localStorage (`LS_ELO_DB`). Drop the Sheets fetch; load from localStorage only on mount. Remove `eloLoadedCols` / `eloColOptions` state from App.jsx
+- **ELO save** (`POST ?action=save`) — currently fired by `SheetsSync.jsx`. Replace with localStorage-only persistence or JSON export/import via file download
+- **Seeds** (`seed_list`, `seed_load`, `seed_save`, `seed_delete`) — move to localStorage. Seeds are already backed up there; the AdvancedTab seeds browser needs to read from localStorage instead of fetching
+- **Rules** (`?action=rules`) — move to `config/rules.json`, load at build time or fetch from a static file
+- **Auto-seed save** (`autoSeedSave()` in `storage.js`) — remove the fire-and-forget POST; keep the 2s debounce but write to localStorage only
+- **Cleanup** — remove `DEFAULT_SHEETS_URL` and `LS_SHEETS_URL`, remove URL field from AdvancedTab, remove `SheetsSync.jsx`, remove `apps-script-embed.js` from build, retire `apps-script.js`
