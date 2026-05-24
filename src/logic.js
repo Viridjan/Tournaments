@@ -465,9 +465,9 @@ function isGameOver(scoring, activePlayers) {
 // Target: ~5 players per table (floor(n/5) tables).
 // Snake distribution: row 0 fills left-to-right, row 1 fills right-to-left, alternating.
 // This balances ELO across tables — each table gets one top player, one bottom player, etc.
-function draftGroups(players, eloDb, eloDefault = 0) {
+function draftGroups(players, eloDb, eloDefault = 0, tableSize = 5) {
   const n = players.length;
-  const groupCount = Math.max(1, Math.floor(n / 5));
+  const groupCount = Math.max(1, Math.floor(n / tableSize));
   const sorted = [...players].sort((a, b) => getElo(eloDb, b.name, eloDefault) - getElo(eloDb, a.name, eloDefault));
   const groups = Array.from({ length: groupCount }, () => []);
   sorted.forEach((p, i) => {

@@ -15,11 +15,13 @@ Anyone who forks or self-hosts the app shares this URL until they override it in
 
 ---
 
-## Draft table size
+## Prize rank defaults (DEFAULT_PRIZE_PCTS)
 
-`Math.floor(n / 5)` in `src/logic.js` (draftGroups) hardcodes 5 players per table.
+`DEFAULT_PRIZE_PCTS = [30, 15, 15, 10, 10, 10, 5, 5]` in `src/logic.js` seeds the initial rank split when a tournament opens.
 
-**Goal:** make configurable via a tournament feature flag (e.g. `draftTableSize`).
+**Goal:** make rank definitions per-tournament and load them from the Sheet. Needs a dedicated **Prize ranks tab** (or a section in Settings) where each row is a rank with its label and percentage.
 
-- Add `draftTableSize` to `TOURNAMENT_FEATURE_KEYS` in `apps-script.js`
-- Use `cfg.draftTableSize || 5` in `draftGroups()`
+- Add a new "Ranks" sheet or extend Settings with rank columns
+- Load ranks from `?action=ranks` (new endpoint) alongside tournament features
+- Remove `DEFAULT_PRIZE_PCTS` and `defRanks()` from logic.js once Sheet-sourced
+- Until then the in-app Advanced tab editor (existing) serves as the runtime override

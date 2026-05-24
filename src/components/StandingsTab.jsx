@@ -24,6 +24,10 @@ function StandingsTab({ state, dispatch, config }) {
     winner = activePlayers.length === 1 ? activePlayers[0] : null;
   const prizeMisconfigured =
     cfg.prizes && (cfg.entryCost == null || cfg.prizrPlCount == null || cfg.rUpPlCount == null);
+  const gpMisconfigured =
+    cfg.grandPrix && (cfg.gpBestOfLast == null || cfg.gpDropWorst == null);
+  const swissMisconfigured =
+    cfg.scoring === "swiss" && (cfg.winPoints == null || cfg.drawPoints == null || cfg.lossPoints == null);
   const prizeCalc =
     cfg.prizes && !prizeMisconfigured
       ? calcAlloc(
@@ -40,18 +44,18 @@ function StandingsTab({ state, dispatch, config }) {
   return (
     <div>
       {prizeMisconfigured && (
-        <div
-          style={{
-            background: "#fff3cd",
-            border: "0.5px solid #f0ad4e",
-            borderRadius: 8,
-            padding: "10px 16px",
-            fontSize: 13,
-            color: "#7d4e00",
-            marginBottom: 12,
-          }}
-        >
+        <div style={{ background: "#fff3cd", border: "0.5px solid #f0ad4e", borderRadius: 8, padding: "10px 16px", fontSize: 13, color: "#7d4e00", marginBottom: 12 }}>
           Prizes enabled but <strong>entryCost</strong>, <strong>prizrPlCount</strong>, and <strong>rUpPlCount</strong> must be set in the Settings tab.
+        </div>
+      )}
+      {gpMisconfigured && (
+        <div style={{ background: "#fff3cd", border: "0.5px solid #f0ad4e", borderRadius: 8, padding: "10px 16px", fontSize: 13, color: "#7d4e00", marginBottom: 12 }}>
+          Grand Prix enabled but <strong>gpBestOfLast</strong> and <strong>gpDropWorst</strong> must be set in the Settings tab.
+        </div>
+      )}
+      {swissMisconfigured && (
+        <div style={{ background: "#fff3cd", border: "0.5px solid #f0ad4e", borderRadius: 8, padding: "10px 16px", fontSize: 13, color: "#7d4e00", marginBottom: 12 }}>
+          Swiss scoring enabled but <strong>winPoints</strong>, <strong>drawPoints</strong>, and <strong>lossPoints</strong> must be set in the Settings tab.
         </div>
       )}
       {winner && (

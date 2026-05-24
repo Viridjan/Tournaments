@@ -320,6 +320,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
         <Card style={{ flex: 1, minWidth: 260 }}>
           <h3 style={S.cardTitle}>Features</h3>
           <BoolF label="Draft phase" k="draft" />
+          {cfg.draft && <NumF label="Players per table" k="draftTableSize" />}
           <div
             style={{
               display: "flex",
@@ -472,7 +473,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
             { col: "matchRound",      vals: ["none (BYE)", "up", "down"] },
             { col: "tiebreaker1/2/3", vals: ["elo", "elo_rev", "omw", "gwr", "none"] },
             { col: "draft / elo / prizes / rules / playerOrder / grandPrix / gpGhostPoints / timeout / extraPoints / cumulativeDrawPenalty / prizePlCountRUp / rUpPlCountRUp", vals: ["TRUE", "FALSE"] },
-            { col: "startScore / pts1 / pts2 / pts3 / ptsLast / winPoints / drawPoints / lossPoints / rrRounds / timerMinutes / eloKMax / eloScale / eloDefault / timeoutTime / matchMax / gpBestOfLast / gpDropWorst / extraPointsValue / entryCost / prizrPlCount / rUpPlCount", vals: ["number"] },
+            { col: "startScore / pts1 / pts2 / pts3 / ptsLast / winPoints / drawPoints / lossPoints / rrRounds / timerMinutes / eloKMax / eloScale / eloDefault / timeoutTime / matchMax / gpBestOfLast / gpDropWorst / extraPointsValue / entryCost / prizrPlCount / rUpPlCount / draftTableSize", vals: ["number"] },
             { col: "eloDB",           vals: ["ELO column name in your sheet"] },
             { col: "id",              vals: ["unique key (no spaces)"] },
           ].map(({ col, vals }) => (

@@ -17,7 +17,7 @@
 //    id | name | icon | desc | scoring | startScore | pts1 | pts2 | pts3 | ptsLast |
 //    winPoints | drawPoints | lossPoints | cumulativeDrawPenalty | rrRounds |
 //    timerMinutes | draft | elo | eloKMax | eloScale | eloDB | playerOrder | grandPrix |
-//    prizes | entryCost | prizrPlCount | prizePlCountRUp | rUpPlCount | rUpPlCountRUp |
+//    prizes | entryCost | prizrPlCount | prizePlCountRUp | rUpPlCount | rUpPlCountRUp | draftTableSize |
 //    timeout | timeoutTime | rules | matchRound | matchMax |
 //    gpBestOfLast | gpDropWorst | gpGhostPoints | extraPoints | extraPointsValue |
 //    tiebreaker1 | tiebreaker2 | tiebreaker3
@@ -289,6 +289,7 @@ var TOURNAMENT_FEATURE_KEYS = [
   "cumulativeDrawPenalty", "rrRounds", "timerMinutes", "draft", "elo", "eloKMax",
   "eloScale", "eloDefault", "eloDB", "playerOrder", "grandPrix", "prizes",
   "entryCost", "prizrPlCount", "prizePlCountRUp", "rUpPlCount", "rUpPlCountRUp",
+  "draftTableSize",
   "timeout", "timeoutTime", "rules", "matchRound", "matchMax",
   "gpBestOfLast", "gpDropWorst", "gpGhostPoints", "extraPoints", "extraPointsValue",
   "tiebreaker1", "tiebreaker2", "tiebreaker3"
