@@ -44,14 +44,13 @@ function gpBestOf(scores, last, drop, ghost) {
 
 // Standard ELO expected score: probability that player A beats player B.
 // Formula: 1 / (1 + 10^((Rb - Ra) / scale))
-// Scale defaults to ELO_SCALE (config constant, typically 400 or 500).
 function eloExpected(a, b, scale) {
-  return 1 / (1 + Math.pow(10, (b - a) / (scale || ELO_SCALE)));
+  return 1 / (1 + Math.pow(10, (b - a) / scale));
 }
 
 // Read a player's ELO from the db object. Keys are lowercased player names.
 // Returns defaultElo if the player has no entry.
-function getElo(db, name, defaultElo = ELO_DEFAULT) {
+function getElo(db, name, defaultElo = 0) {
   return db[name.toLowerCase()]?.elo ?? defaultElo;
 }
 
@@ -64,12 +63,12 @@ function setElo(db, name, elo, isTest) {
 // Calculate ELO delta for a head-to-head result.
 //   ratingA, ratingB — current ELO ratings
 //   score            — actual score for player A (1 = win, 0.5 = draw, 0 = loss)
-//   kMax             — K-factor cap (sensitivity), default ELO_K_MAX
+//   kMax             — K-factor cap (sensitivity)
 // Returns { dA, dB } — how many ELO points each player gains/loses.
 // NOTE: eCalc is defined here for completeness but not currently called by the app.
 // scoreRound() handles multi-player ELO inline since it needs to loop over all pairs.
 function eCalc(ratingA, ratingB, score, kMax, scale) {
-  const k = kMax || ELO_K_MAX;
+  const k = kMax;
   const expected = eloExpected(ratingA, ratingB, scale),
     rawDelta = k * (score - expected),
     delta = Math.round(Math.max(-k, Math.min(k, rawDelta)));
@@ -181,7 +180,7 @@ function genPairings(players, history, phase, cfg, eloDb) {
   const activePlayers = players.filter(p => !p.eliminated);
   const sorted = [...activePlayers].sort((a, b) =>
     phase === "roundrobin"
-      ? getElo(eloDb, b.name, cfg.eloDefault ?? ELO_DEFAULT) - getElo(eloDb, a.name, cfg.eloDefault ?? ELO_DEFAULT)
+      ? getElo(eloDb, b.name, cfg.eloDefault) - getElo(eloDb, a.name, cfg.eloDefault)
       : b.w / (b.w + b.d + b.l || 1) - a.w / (a.w + a.d + a.l || 1) || b.score - a.score
   );
   const prev = getPrev(history, activePlayers);
@@ -298,12 +297,12 @@ function defRanks() {
 //      by adding cheapest available prizes to any rank that violates the monotonic constraint
 function calcAlloc(players, prizes, ranks, entryCost, prizePct, prizePctUp, ruPct, ruPctUp) {
   const totalPool = entryCost * players.length;
-  if (!totalPool || !ranks.length || !prizes.length) return null;
-  const prizePercent = prizePct || 50;
+  if (!totalPool || !ranks.length || !prizes.length || prizePct == null || ruPct == null) return null;
+  const prizePercent = prizePct;
   const rawAllocated = (players.length * prizePercent) / 100;
   const allocated = prizePctUp ? Math.ceil(rawAllocated) : Math.floor(rawAllocated);
   if (allocated < 1) return null;
-  const runupPercent = ruPct || 50;
+  const runupPercent = ruPct;
   const rawRunup = (allocated * runupPercent) / 100;
   // runupCount: how many top ranks round their payout UP to the target value.
   // Remaining ranks round DOWN (they get at most the target, not over).
@@ -466,7 +465,7 @@ function isGameOver(scoring, activePlayers) {
 // Target: ~5 players per table (floor(n/5) tables).
 // Snake distribution: row 0 fills left-to-right, row 1 fills right-to-left, alternating.
 // This balances ELO across tables — each table gets one top player, one bottom player, etc.
-function draftGroups(players, eloDb, eloDefault = ELO_DEFAULT) {
+function draftGroups(players, eloDb, eloDefault = 0) {
   const n = players.length;
   const groupCount = Math.max(1, Math.floor(n / 5));
   const sorted = [...players].sort((a, b) => getElo(eloDb, b.name, eloDefault) - getElo(eloDb, a.name, eloDefault));
@@ -608,13 +607,13 @@ function scoreRound(roundPairings, players, cfg, db) {
     // have the same total ELO at stake as a standard head-to-head.
     if (cfg.elo && !m.noElo) {
       const playerCount = m.players.length,
-        K = (cfg.eloKMax || 50) / playerCount,
+        K = cfg.eloKMax / playerCount,
         dl = Object.fromEntries(m.players.map((p) => [p, 0]));
       for (let i = 0; i < playerCount; i++)
         for (let j = i + 1; j < playerCount; j++) {
           const pA = m.players[i], pB = m.players[j],
             sA = parseFloat(m.scores[pA] || 0), sB = parseFloat(m.scores[pB] || 0),
-            rA = getElo(_db, pA, cfg.eloDefault ?? ELO_DEFAULT), rB = getElo(_db, pB, cfg.eloDefault ?? ELO_DEFAULT),
+            rA = getElo(_db, pA, cfg.eloDefault), rB = getElo(_db, pB, cfg.eloDefault),
             eA = eloExpected(rA, rB, cfg.eloScale),
             scA = sA > sB ? 1 : sA < sB ? 0 : 0.5; // normalize to 0/0.5/1
           dl[pA] += K * (scA - eA);
@@ -624,7 +623,7 @@ function scoreRound(roundPairings, players, cfg, db) {
       m.players.forEach((p) => {
         const eloChange = Math.round(dl[p]);
         m.eloDeltas[p] = eloChange;
-        _db = setElo(_db, p, Math.max(0, getElo(_db, p, cfg.eloDefault ?? ELO_DEFAULT) + eloChange), _db[p.toLowerCase()]?.test);
+        _db = setElo(_db, p, Math.max(0, getElo(_db, p, cfg.eloDefault) + eloChange), _db[p.toLowerCase()]?.test);
       });
     }
   });

@@ -1,6 +1,6 @@
 // Sub-tabs: Draft (groups) | Pairings (cards) | Log (history)
 // Matches tab — pairing cards, match log, timer, draft sub-tabs
-function MatchCard({ match, index, dispatch, scoring, eloDb, eloDefault = ELO_DEFAULT, extraPoints, extraPointsValue, playerOrder }) {
+function MatchCard({ match, index, dispatch, scoring, eloDb, eloDefault = 0, extraPoints, extraPointsValue, playerOrder }) {
   if (match.isBye)
     return (
       <Card variant="bye">
@@ -299,7 +299,7 @@ function MatchesTab({ state, dispatch, config, eloLoadedCols }) {
         onSelect={(id) => dispatch({ type: "SET_MATCH_SUBTAB", tab: id })}
       />
       {state.matchSubTab === "draft" && (
-        <DraftGroups players={state.players} eloDb={state.eloDb[cfg.eloDB || "ELO"] || {}} dispatch={dispatch} eloDefault={cfg.eloDefault ?? ELO_DEFAULT} />
+        <DraftGroups players={state.players} eloDb={state.eloDb[cfg.eloDB || "ELO"] || {}} dispatch={dispatch} eloDefault={cfg.eloDefault} />
       )}
       {state.matchSubTab === "pairings" && (
         <div>
@@ -353,7 +353,7 @@ function MatchesTab({ state, dispatch, config, eloLoadedCols }) {
             <div style={{ textAlign: "center", padding: 32, color: C.faint }}>No pairings.</div>
           )}
           {state.pairings.map((m, i) => (
-            <MatchCard key={i} match={m} index={i} dispatch={dispatch} scoring={cfg.scoring} eloDb={state.eloDb[cfg.eloDB || "ELO"] || {}} eloDefault={cfg.eloDefault ?? ELO_DEFAULT} extraPoints={cfg.extraPoints} extraPointsValue={cfg.extraPointsValue || 1} playerOrder={cfg.playerOrder} />
+            <MatchCard key={i} match={m} index={i} dispatch={dispatch} scoring={cfg.scoring} eloDb={state.eloDb[cfg.eloDB || "ELO"] || {}} eloDefault={cfg.eloDefault} extraPoints={cfg.extraPoints} extraPointsValue={cfg.extraPointsValue || 1} playerOrder={cfg.playerOrder} />
           ))}
         </div>
       )}

@@ -1,5 +1,5 @@
 // Draft groups — snake-draft seating by ELO across tables
-function DraftGroups({ players, eloDb, dispatch, eloDefault = ELO_DEFAULT }) {
+function DraftGroups({ players, eloDb, dispatch, eloDefault = 0 }) {
   const n = players.length;
   if (n < 2)
     return (

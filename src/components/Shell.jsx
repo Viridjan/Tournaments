@@ -77,11 +77,6 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
       tournamentMode: state.tournamentId,
       prizes: state.prizes,
       ranks: state.ranks,
-      entryCost: state.entryCost,
-      prizePct: state.prizePct,
-      prizePctRoundUp: state.prizePctRoundUp,
-      roundUpPct: state.roundUpPct,
-      roundUpPctRoundUp: state.roundUpPctRoundUp,
       featureOverrides: state.featureOverrides,
       savedAt: Date.now(),
     });

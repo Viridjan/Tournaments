@@ -26,7 +26,7 @@ function App() {
               .then((ed) => {
                 if (ed?.entries) {
                   const db = {};
-                  ed.entries.forEach((e) => { if (e?.name) db[e.name.toLowerCase()] = { elo: parseInt(e.elo) ?? ELO_DEFAULT, name: e.name, test: !!e.test }; });
+                  ed.entries.forEach((e) => { if (e?.name) db[e.name.toLowerCase()] = { elo: parseInt(e.elo), name: e.name, test: !!e.test }; });
                   dispatch({ type: "SET_ELO_DB", db, col });
                   setEloLoadedCols((prev) => ({ ...prev, [col]: true }));
                 }
@@ -67,7 +67,7 @@ function App() {
       .then((ed) => {
         if (ed?.entries) {
           const db = {};
-          ed.entries.forEach((e) => { if (e?.name) db[e.name.toLowerCase()] = { elo: parseInt(e.elo) ?? ELO_DEFAULT, name: e.name, test: !!e.test }; });
+          ed.entries.forEach((e) => { if (e?.name) db[e.name.toLowerCase()] = { elo: parseInt(e.elo), name: e.name, test: !!e.test }; });
           dispatch({ type: "SET_ELO_DB", db, col });
           setEloLoadedCols((prev) => ({ ...prev, [col]: true }));
         }

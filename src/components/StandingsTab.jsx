@@ -9,7 +9,7 @@ function StandingsTab({ state, dispatch, config }) {
     tb3 = cfg.tiebreaker3 || "none";
   const playerStats = Object.fromEntries(
     state.players.map((p) => [p.name, {
-      elo: getElo(activeElo, p.name, cfg.eloDefault ?? ELO_DEFAULT),
+      elo: getElo(activeElo, p.name, cfg.eloDefault),
       omw: calcOMW(p.name, state.history, state.players),
       gwr: calcGWR(p),
     }]),
@@ -22,20 +22,38 @@ function StandingsTab({ state, dispatch, config }) {
       (tb3 !== "none" ? calcTiebreakerValue(playerStats, b, tb3) - calcTiebreakerValue(playerStats, a, tb3) : 0),
   ),
     winner = activePlayers.length === 1 ? activePlayers[0] : null;
-  const prizeCalc = cfg.prizes
-    ? calcAlloc(
-        state.players,
-        state.prizes,
-        state.ranks,
-        state.entryCost,
-        state.prizePct,
-        state.prizePctRoundUp,
-        state.roundUpPct,
-        state.roundUpPctRoundUp,
-      )
-    : null;
+  const prizeMisconfigured =
+    cfg.prizes && (cfg.entryCost == null || cfg.prizePct == null || cfg.roundUpPct == null);
+  const prizeCalc =
+    cfg.prizes && !prizeMisconfigured
+      ? calcAlloc(
+          state.players,
+          state.prizes,
+          state.ranks,
+          cfg.entryCost,
+          cfg.prizePct,
+          cfg.prizePctRoundUp,
+          cfg.roundUpPct,
+          cfg.roundUpPctRoundUp,
+        )
+      : null;
   return (
     <div>
+      {prizeMisconfigured && (
+        <div
+          style={{
+            background: "#fff3cd",
+            border: "0.5px solid #f0ad4e",
+            borderRadius: 8,
+            padding: "10px 16px",
+            fontSize: 13,
+            color: "#7d4e00",
+            marginBottom: 12,
+          }}
+        >
+          Prizes enabled but <strong>entryCost</strong>, <strong>prizePct</strong>, and <strong>roundUpPct</strong> must be set in the Settings tab.
+        </div>
+      )}
       {winner && (
         <div
           style={{
@@ -99,7 +117,7 @@ function StandingsTab({ state, dispatch, config }) {
             <tbody>
               {sorted.map((p, i) => {
                 const pr = prizeCalc?.allocs?.[i] || null;
-                const elo = getElo(activeElo, p.name, cfg.eloDefault ?? ELO_DEFAULT);
+                const elo = getElo(activeElo, p.name, cfg.eloDefault);
                 const eloDelta = cfg.elo && p.eloStart != null ? elo - p.eloStart : null;
                 return (
                   <tr key={p.name}>

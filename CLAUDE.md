@@ -18,7 +18,7 @@ Single-page app with no bundler. React 18 + Babel Standalone loaded via CDN. All
 
 ### Source load order (from `build.sh`)
 
-1. `src/config.js` — Global constants: ELO defaults (`ELO_DEFAULT`, `ELO_K_MAX`, `ELO_SCALE`), localStorage key constants (`LS_ELO_DB`, `LS_SHEETS_URL`, `LS_BACKUP`, `LS_BACKUP_LAST`), default Apps Script URL (`DEFAULT_SHEETS_URL`)
+1. `src/config.js` — localStorage key constants (`LS_ELO_DB`, `LS_SHEETS_URL`, `LS_BACKUP`, `LS_BACKUP_LAST`), default Apps Script URL (`DEFAULT_SHEETS_URL`)
 2. `src/logic.js` — Pure functions: ELO math, pairing algorithms, prize allocation
 3. `src/storage.js` — localStorage helpers (`loadLS`, `saveLS`), `buildSnap()`, `autoSeedSave()`, `makePairings()` dispatcher, `now()`
 4. `src/reducer.js` — Initial state (`init`) + all state transitions (`reducer`)

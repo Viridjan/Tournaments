@@ -48,11 +48,6 @@ const init = {
     { name: "Token", value: 3, maxQty: 99, maxQtyPerPlayer: 1, guaranteed: "", avoid: "" },
   ],
   ranks: defRanks(),
-  entryCost: 3,
-  prizePct: 50,
-  prizePctRoundUp: false,
-  roundUpPct: 50,
-  roundUpPctRoundUp: true,
   spinnerOptions: [
     { name: "Small decks", weight: 20 },
     { name: "Plancia commanders", weight: 13 },
@@ -161,7 +156,7 @@ function reducer(st, a) {
         pLast: 0,
         eliminated: false,
         positionSum: 0,
-        eloStart: getElo(activeElo, p.name, cfg.eloDefault ?? ELO_DEFAULT),
+        eloStart: getElo(activeElo, p.name, cfg.eloDefault),
       }));
       const phase = initialPhase(cfg);
       const ns = {
@@ -310,16 +305,6 @@ function reducer(st, a) {
         ...st,
         ranks: st.ranks.map((r, i) => (i === a.index ? { ...r, [a.field]: a.value } : r)),
       };
-    case "SET_ENTRY_COST":
-      return { ...st, entryCost: a.value };
-    case "SET_PRIZE_PCT":
-      return { ...st, prizePct: a.value };
-    case "SET_PRIZE_PCT_ROUNDUP":
-      return { ...st, prizePctRoundUp: a.value };
-    case "SET_ROUNDUP_PCT":
-      return { ...st, roundUpPct: a.value };
-    case "SET_ROUNDUP_PCT_ROUNDUP":
-      return { ...st, roundUpPctRoundUp: a.value };
     case "ADD_SPINNER_OPTION":
       return { ...st, spinnerOptions: [...st.spinnerOptions, a.option] };
     case "REMOVE_SPINNER_OPTION":
@@ -470,11 +455,6 @@ function reducer(st, a) {
         tournamentId: snap.tournamentMode || st.tournamentId,
         prizes: snap.prizes || st.prizes,
         ranks: snap.ranks || st.ranks,
-        entryCost: snap.entryCost ?? st.entryCost,
-        prizePct: snap.prizePct ?? st.prizePct,
-        prizePctRoundUp: snap.prizePctRoundUp ?? st.prizePctRoundUp,
-        roundUpPct: snap.roundUpPct ?? st.roundUpPct,
-        roundUpPctRoundUp: snap.roundUpPctRoundUp ?? st.roundUpPctRoundUp,
         featureOverrides: snap.featureOverrides || st.featureOverrides,
         testMode: snap.testMode ?? st.testMode,
         experimental: snap.experimental ?? st.experimental,

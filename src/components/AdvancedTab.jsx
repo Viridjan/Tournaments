@@ -471,8 +471,8 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
             { col: "scoring",         vals: ["swiss", "lifepoints", "points"] },
             { col: "matchRound",      vals: ["none (BYE)", "up", "down"] },
             { col: "tiebreaker1/2/3", vals: ["elo", "elo_rev", "omw", "gwr", "none"] },
-            { col: "draft / elo / prizes / rules / playerOrder / grandPrix / gpGhostPoints / timeout / extraPoints / cumulativeDrawPenalty", vals: ["TRUE", "FALSE"] },
-            { col: "startScore / pts1 / pts2 / pts3 / ptsLast / winPoints / drawPoints / lossPoints / rrRounds / timerMinutes / eloKMax / eloScale / eloDefault / timeoutTime / matchMax / gpBestOfLast / gpDropWorst / extraPointsValue", vals: ["number"] },
+            { col: "draft / elo / prizes / rules / playerOrder / grandPrix / gpGhostPoints / timeout / extraPoints / cumulativeDrawPenalty / prizePctRoundUp / roundUpPctRoundUp", vals: ["TRUE", "FALSE"] },
+            { col: "startScore / pts1 / pts2 / pts3 / ptsLast / winPoints / drawPoints / lossPoints / rrRounds / timerMinutes / eloKMax / eloScale / eloDefault / timeoutTime / matchMax / gpBestOfLast / gpDropWorst / extraPointsValue / entryCost / prizePct / roundUpPct", vals: ["number"] },
             { col: "eloDB",           vals: ["ELO column name in your sheet"] },
             { col: "id",              vals: ["unique key (no spaces)"] },
           ].map(({ col, vals }) => (
@@ -500,12 +500,12 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
                 </thead>
                 <tbody>
                   {state.ranks.map((r, i) => {
-                    const pool = state.entryCost * state.players.length;
-                    const ppct = state.prizePct || 50;
+                    const pool = (cfg.entryCost || 0) * state.players.length;
+                    const ppct = cfg.prizePct || 0;
                     const rawAc = (state.players.length * ppct) / 100;
                     // Lightweight mirror of calcAlloc() — only used to gray out ranks that won't pay out.
                     // Intentionally not calling calcAlloc() here to avoid a full prize solve on every render.
-                    const allocated = state.prizePctRoundUp ? Math.ceil(rawAc) : Math.floor(rawAc);
+                    const allocated = cfg.prizePctRoundUp ? Math.ceil(rawAc) : Math.floor(rawAc);
                     const inact = state.players.length > 0 && i >= allocated;
                     return (
                       <tr key={i} style={{ opacity: inact ? 0.35 : 1 }}>
@@ -565,10 +565,11 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
                   <span style={{ flex: 1, fontSize: 13 }}>Players who get prizes</span>
                   <input
                     type="text"
-                    value={state.prizePct}
-                    onChange={(e) =>
-                      dispatch({ type: "SET_PRIZE_PCT", value: parseFloat(e.target.value) || 0 })
-                    }
+                    value={cfg.prizePct ?? ""}
+                    onChange={(e) => {
+                      const v = parseFloat(e.target.value);
+                      dispatch({ type: "SET_FEATURE", key: "prizePct", value: isNaN(v) ? "" : v });
+                    }}
                     style={{
                       ...S.input,
                       width: 50,
@@ -590,9 +591,9 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
                   >
                     <input
                       type="checkbox"
-                      checked={!!state.prizePctRoundUp}
+                      checked={!!cfg.prizePctRoundUp}
                       onChange={(e) =>
-                        dispatch({ type: "SET_PRIZE_PCT_ROUNDUP", value: e.target.checked })
+                        dispatch({ type: "SET_FEATURE", key: "prizePctRoundUp", value: e.target.checked })
                       }
                       style={{ width: 14, height: 14, accentColor: C.accent, cursor: "pointer" }}
                     />
@@ -603,10 +604,11 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
                   <span style={{ flex: 1, fontSize: 13 }}>Prizes rounded up</span>
                   <input
                     type="text"
-                    value={state.roundUpPct}
-                    onChange={(e) =>
-                      dispatch({ type: "SET_ROUNDUP_PCT", value: parseFloat(e.target.value) || 0 })
-                    }
+                    value={cfg.roundUpPct ?? ""}
+                    onChange={(e) => {
+                      const v = parseFloat(e.target.value);
+                      dispatch({ type: "SET_FEATURE", key: "roundUpPct", value: isNaN(v) ? "" : v });
+                    }}
                     style={{
                       ...S.input,
                       width: 50,
@@ -628,9 +630,9 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
                   >
                     <input
                       type="checkbox"
-                      checked={!!state.roundUpPctRoundUp}
+                      checked={!!cfg.roundUpPctRoundUp}
                       onChange={(e) =>
-                        dispatch({ type: "SET_ROUNDUP_PCT_ROUNDUP", value: e.target.checked })
+                        dispatch({ type: "SET_FEATURE", key: "roundUpPctRoundUp", value: e.target.checked })
                       }
                       style={{ width: 14, height: 14, accentColor: C.accent, cursor: "pointer" }}
                     />
@@ -898,15 +900,16 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
               <span style={{ fontSize: 13, color: C.muted }}>€</span>
               <input
                 type="text"
-                value={state.entryCost}
-                onChange={(e) =>
-                  dispatch({ type: "SET_ENTRY_COST", value: parseFloat(e.target.value) || 0 })
-                }
+                value={cfg.entryCost ?? ""}
+                onChange={(e) => {
+                  const v = parseFloat(e.target.value);
+                  dispatch({ type: "SET_FEATURE", key: "entryCost", value: isNaN(v) ? "" : v });
+                }}
                 style={{ ...S.input, width: 90 }}
               />
             </div>
             <div style={{ fontSize: 13, fontWeight: 500, whiteSpace: "nowrap" }}>
-              Pool: €{(state.entryCost * state.players.length).toFixed(2)}
+              Pool: €{((cfg.entryCost || 0) * state.players.length).toFixed(2)}
             </div>
           </div>
         </>

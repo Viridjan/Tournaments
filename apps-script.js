@@ -17,7 +17,8 @@
 //    id | name | icon | desc | scoring | startScore | pts1 | pts2 | pts3 | ptsLast |
 //    winPoints | drawPoints | lossPoints | cumulativeDrawPenalty | rrRounds |
 //    timerMinutes | draft | elo | eloKMax | eloScale | eloDB | playerOrder | grandPrix |
-//    prizes | timeout | timeoutTime | rules | matchRound | matchMax |
+//    prizes | entryCost | prizePct | prizePctRoundUp | roundUpPct | roundUpPctRoundUp |
+//    timeout | timeoutTime | rules | matchRound | matchMax |
 //    gpBestOfLast | gpDropWorst | gpGhostPoints | extraPoints | extraPointsValue |
 //    tiebreaker1 | tiebreaker2 | tiebreaker3
 //    Then add one row per tournament type.
@@ -86,10 +87,12 @@ function loadElo(colName) {
   for (var i = 1; i < data.length; i++) {
     var pName = String(data[i][nameIdx] || "").trim();
     if (!pName) continue;
+    var eloVal = parseInt(data[i][eloIdx]);
+    if (isNaN(eloVal)) continue; // no valid ELO in this column — client default applies
     var key = pName.toLowerCase();
     seen[key] = {
       name: pName,
-      elo: parseInt(data[i][eloIdx]) || 1000,
+      elo: eloVal,
       test: testIdx !== -1 && (data[i][testIdx] === true || String(data[i][testIdx]).toLowerCase() === "true")
     };
   }
@@ -169,7 +172,7 @@ function saveElo(data) {
       for (var h = 0; h < headers.length; h++) {
         var hl = headersLower[h];
         if (h !== nameIdx && h !== testIdx && hl !== "" && hl !== "name" && hl !== "test") {
-          newRow[h] = 1000;
+          newRow[h] = ""; // other ELO columns left blank — client uses cfg.eloDefault
         }
       }
       newRow[eloIdx] = e.elo;
@@ -285,6 +288,7 @@ var TOURNAMENT_FEATURE_KEYS = [
   "scoring", "startScore", "pts1", "pts2", "pts3", "ptsLast", "winPoints", "drawPoints", "lossPoints",
   "cumulativeDrawPenalty", "rrRounds", "timerMinutes", "draft", "elo", "eloKMax",
   "eloScale", "eloDefault", "eloDB", "playerOrder", "grandPrix", "prizes",
+  "entryCost", "prizePct", "prizePctRoundUp", "roundUpPct", "roundUpPctRoundUp",
   "timeout", "timeoutTime", "rules", "matchRound", "matchMax",
   "gpBestOfLast", "gpDropWorst", "gpGhostPoints", "extraPoints", "extraPointsValue",
   "tiebreaker1", "tiebreaker2", "tiebreaker3"
