@@ -28,9 +28,9 @@ function saveLS(k, v) {
 }
 function getSheetsUrl() {
   try {
-    return localStorage.getItem(SK) || DU;
+    return localStorage.getItem(LS_SHEETS_URL) || DEFAULT_SHEETS_URL;
   } catch {
-    return DU;
+    return DEFAULT_SHEETS_URL;
   }
 }
 // Serialize current state into a v3 snapshot object (used for remote seed saves and local backup).
@@ -89,7 +89,7 @@ function autoSeedSave(state) {
 // Bridge between reducer and genPairings() in logic.js.
 // Merges base tournament features with per-tournament overrides before delegating.
 function makePairings(st, pl, h, ph) {
-  const cfg = { ...st.tournaments?.[st.tournamentId]?.features, ...st.featureOverrides };
+  const cfg = { ...st.globalSettings, ...st.tournaments?.[st.tournamentId]?.features, ...st.featureOverrides };
   if (!cfg) return [];
   const activeElo = st.eloDb?.[cfg.eloDB || "ELO"] || {};
   return genPairings(pl, h, ph, cfg, activeElo);

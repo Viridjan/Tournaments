@@ -18,18 +18,18 @@ const{useState,useReducer,useEffect,useRef,useCallback,useMemo}=React;
 // Global constants — loaded before all other scripts
 
 // ELO system defaults
-const ED = 1000, // ED — default starting ELO for new players
-  EM = 50,       // EM — max K-factor (ELO sensitivity per match)
-  ES = 500,      // ES — ELO scale (controls rating spread; higher = flatter curve)
+const ELO_DEFAULT = 1000, // starting ELO for new players
+  ELO_K_MAX = 50,         // max K-factor (ELO sensitivity per match)
+  ELO_SCALE = 500,        // ELO scale (controls rating spread; higher = flatter curve)
 
 // localStorage keys
-  EK = "tournament_elo_db_v2",       // EK — ELO database (keyed by sheet name → player entries)
-  SK = "tournament_sheets_url_v1",   // SK — Google Sheets URL override
-  BK = "tournament_local_backup",    // BK — per-tournament backup key prefix (suffixed with tournamentId)
-  BK_LAST = "tournament_local_backup_last"; // BK_LAST — stores the most recently active tournament id
+  LS_ELO_DB = "tournament_elo_db_v2",       // ELO database (keyed by sheet name → player entries)
+  LS_SHEETS_URL = "tournament_sheets_url_v1",   // Google Sheets URL override
+  LS_BACKUP = "tournament_local_backup",    // per-tournament backup key prefix (suffixed with tournamentId)
+  LS_BACKUP_LAST = "tournament_local_backup_last"; // stores the most recently active tournament id
 
 // Default Google Apps Script endpoint (public deployment URL)
-const DU =
+const DEFAULT_SHEETS_URL =
   "https://script.google.com/macros/s/AKfycby_FEGovdBvl8oYWU1J40NXGdbQpL-B6wKaUTq4m1O9sb81s5pku3qjM6sGA0nFBWp6VQ/exec";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -78,15 +78,15 @@ function gpBestOf(scores, last, drop, ghost) {
 
 // Standard ELO expected score: probability that player A beats player B.
 // Formula: 1 / (1 + 10^((Rb - Ra) / scale))
-// Scale defaults to ES (config constant, typically 400 or 500).
+// Scale defaults to ELO_SCALE (config constant, typically 400 or 500).
 function eloExpected(a, b, scale) {
-  return 1 / (1 + Math.pow(10, (b - a) / (scale || ES)));
+  return 1 / (1 + Math.pow(10, (b - a) / (scale || ELO_SCALE)));
 }
 
 // Read a player's ELO from the db object. Keys are lowercased player names.
-// Returns ED (default starting ELO, e.g. 1000) if the player has no entry.
-function getElo(db, name) {
-  return db[name.toLowerCase()]?.elo ?? ED;
+// Returns defaultElo if the player has no entry.
+function getElo(db, name, defaultElo = ELO_DEFAULT) {
+  return db[name.toLowerCase()]?.elo ?? defaultElo;
 }
 
 // Write a player's ELO. Returns a new db object (immutable — never mutates in place).
@@ -98,12 +98,12 @@ function setElo(db, name, elo, isTest) {
 // Calculate ELO delta for a head-to-head result.
 //   ratingA, ratingB — current ELO ratings
 //   score            — actual score for player A (1 = win, 0.5 = draw, 0 = loss)
-//   kMax             — K-factor cap (sensitivity), default EM
+//   kMax             — K-factor cap (sensitivity), default ELO_K_MAX
 // Returns { dA, dB } — how many ELO points each player gains/loses.
 // NOTE: eCalc is defined here for completeness but not currently called by the app.
 // scoreRound() handles multi-player ELO inline since it needs to loop over all pairs.
 function eCalc(ratingA, ratingB, score, kMax, scale) {
-  const k = kMax || EM;
+  const k = kMax || ELO_K_MAX;
   const expected = eloExpected(ratingA, ratingB, scale),
     rawDelta = k * (score - expected),
     delta = Math.round(Math.max(-k, Math.min(k, rawDelta)));
@@ -117,7 +117,7 @@ function eCalc(ratingA, ratingB, score, kMax, scale) {
 // where no two players in a group have already faced each other (unless allow=true).
 //   names     — player name array (pre-sorted by seed/rank)
 //   prev      — map of { playerName → Set<opponentName> } from getPrev()
-//   groupSize — match size, typically 2 (1v1) but supports pods (3, 4, etc.)
+//   groupSize — match size (matchMax); 2 = head-to-head, 3+ = pod
 //   allow     — if true, rematches are permitted (fallback when no clean pairing exists)
 // Returns array of groups (each group is array of indices into `names`), or null if impossible.
 function findGroups(names, prev, groupSize, allow) {
@@ -215,7 +215,7 @@ function genPairings(players, history, phase, cfg, eloDb) {
   const activePlayers = players.filter(p => !p.eliminated);
   const sorted = [...activePlayers].sort((a, b) =>
     phase === "roundrobin"
-      ? getElo(eloDb, b.name) - getElo(eloDb, a.name)
+      ? getElo(eloDb, b.name, cfg.eloDefault ?? ELO_DEFAULT) - getElo(eloDb, a.name, cfg.eloDefault ?? ELO_DEFAULT)
       : b.w / (b.w + b.d + b.l || 1) - a.w / (a.w + a.d + a.l || 1) || b.score - a.score
   );
   const prev = getPrev(history, activePlayers);
@@ -500,10 +500,10 @@ function isGameOver(scoring, activePlayers) {
 // Target: ~5 players per table (floor(n/5) tables).
 // Snake distribution: row 0 fills left-to-right, row 1 fills right-to-left, alternating.
 // This balances ELO across tables — each table gets one top player, one bottom player, etc.
-function draftGroups(players, eloDb) {
+function draftGroups(players, eloDb, eloDefault = ELO_DEFAULT) {
   const n = players.length;
   const groupCount = Math.max(1, Math.floor(n / 5));
-  const sorted = [...players].sort((a, b) => getElo(eloDb, b.name) - getElo(eloDb, a.name));
+  const sorted = [...players].sort((a, b) => getElo(eloDb, b.name, eloDefault) - getElo(eloDb, a.name, eloDefault));
   const groups = Array.from({ length: groupCount }, () => []);
   sorted.forEach((p, i) => {
     const row = Math.floor(i / groupCount); // which row of the snake
@@ -528,7 +528,7 @@ function draftGroups(players, eloDb) {
 // each round's points are pushed into p.gpScores and gpBestOf() recalculates the total.
 //
 // ELO: after scoring, calculate pairwise ELO deltas for all player combinations in the match.
-// K is divided by player count so multi-player matches have the same total ELO at stake as 1v1.
+// K is divided by player count so pod matches have the same total ELO at stake as head-to-head.
 function scoreRound(roundPairings, players, cfg, db) {
   let _db = db; // local copy — setElo() returns a new object, so we reassign on each update
   const scoring = cfg.scoring;
@@ -638,8 +638,8 @@ function scoreRound(roundPairings, players, cfg, db) {
     }
 
     // ELO delta calculation for all pairs in this match.
-    // K-factor is split evenly across all pairings so multi-player matches
-    // have the same total ELO at stake as a standard 1v1.
+    // K-factor is split evenly across all pairings so pod matches
+    // have the same total ELO at stake as a standard head-to-head.
     if (cfg.elo && !m.noElo) {
       const playerCount = m.players.length,
         K = (cfg.eloKMax || 50) / playerCount,
@@ -648,7 +648,7 @@ function scoreRound(roundPairings, players, cfg, db) {
         for (let j = i + 1; j < playerCount; j++) {
           const pA = m.players[i], pB = m.players[j],
             sA = parseFloat(m.scores[pA] || 0), sB = parseFloat(m.scores[pB] || 0),
-            rA = getElo(_db, pA), rB = getElo(_db, pB),
+            rA = getElo(_db, pA, cfg.eloDefault ?? ELO_DEFAULT), rB = getElo(_db, pB, cfg.eloDefault ?? ELO_DEFAULT),
             eA = eloExpected(rA, rB, cfg.eloScale),
             scA = sA > sB ? 1 : sA < sB ? 0 : 0.5; // normalize to 0/0.5/1
           dl[pA] += K * (scA - eA);
@@ -658,7 +658,7 @@ function scoreRound(roundPairings, players, cfg, db) {
       m.players.forEach((p) => {
         const eloChange = Math.round(dl[p]);
         m.eloDeltas[p] = eloChange;
-        _db = setElo(_db, p, Math.max(0, getElo(_db, p) + eloChange), _db[p.toLowerCase()]?.test);
+        _db = setElo(_db, p, Math.max(0, getElo(_db, p, cfg.eloDefault ?? ELO_DEFAULT) + eloChange), _db[p.toLowerCase()]?.test);
       });
     }
   });
@@ -687,7 +687,7 @@ function calcOMW(playerName, history, players) {
 }
 
 // Game Win Rate: player's standings score divided by matches played.
-// Scales correctly for both 1v1 and multiplayer formats.
+// Scales correctly for both head-to-head and pod formats.
 function calcGWR(player) {
   const total = player.w + player.d + player.l;
   return total > 0 ? (player.score || 0) / total : 0;
@@ -738,9 +738,9 @@ function saveLS(k, v) {
 }
 function getSheetsUrl() {
   try {
-    return localStorage.getItem(SK) || DU;
+    return localStorage.getItem(LS_SHEETS_URL) || DEFAULT_SHEETS_URL;
   } catch {
-    return DU;
+    return DEFAULT_SHEETS_URL;
   }
 }
 // Serialize current state into a v3 snapshot object (used for remote seed saves and local backup).
@@ -799,7 +799,7 @@ function autoSeedSave(state) {
 // Bridge between reducer and genPairings() in logic.js.
 // Merges base tournament features with per-tournament overrides before delegating.
 function makePairings(st, pl, h, ph) {
-  const cfg = { ...st.tournaments?.[st.tournamentId]?.features, ...st.featureOverrides };
+  const cfg = { ...st.globalSettings, ...st.tournaments?.[st.tournamentId]?.features, ...st.featureOverrides };
   if (!cfg) return [];
   const activeElo = st.eloDb?.[cfg.eloDB || "ELO"] || {};
   return genPairings(pl, h, ph, cfg, activeElo);
@@ -826,7 +826,7 @@ const init = {
     // Legacy format (v1) stored entries flat at the top level (no sheet grouping).
     // Detect legacy by checking if any top-level value has an "elo" key directly,
     // and migrate it into the default "ELO" sheet on first load.
-    const raw = loadLS(EK, {});
+    const raw = loadLS(LS_ELO_DB, {});
     const vals = Object.values(raw);
     if (vals.length > 0 && vals.some((v) => v && typeof v === "object" && "elo" in v)) {
       // Legacy flat format — migrate to { "ELO": { ... } }
@@ -870,6 +870,7 @@ const init = {
     { name: "Pain rare", weight: 20 },
   ],
   tournaments: {},
+  globalSettings: {},
   featureOverrides: {},
   testMode: false,
   experimental: false,
@@ -931,7 +932,7 @@ function reducer(st, a) {
       const players = st.players.map((p, i) =>
         i === a.index ? { ...p, eliminated: true, score: 0 } : p,
       );
-      // Auto-resolve any open 1v1 match as a forfeit: opponent scores 1, abandoner scores 0.
+      // Auto-resolve any open 2-player match as a forfeit: opponent scores 1, abandoner scores 0.
       // noElo=true prevents ELO from changing on a forfeit — that would unfairly penalize the winner.
       // Only affects unresolved 2-player matches; byes and multi-player pods are left alone.
       const pairings = st.pairings.map((m) => {
@@ -950,7 +951,7 @@ function reducer(st, a) {
     }
     // ── Tournament flow ──
     case "START_TOURNAMENT": {
-      const cfg = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
+      const cfg = { ...st.globalSettings, ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
       if (!cfg) return st;
       const ss = cfg.startScore ?? 0;
       const activeElo = st.eloDb[cfg.eloDB || "ELO"] || {};
@@ -967,7 +968,7 @@ function reducer(st, a) {
         pLast: 0,
         eliminated: false,
         positionSum: 0,
-        eloStart: getElo(activeElo, p.name),
+        eloStart: getElo(activeElo, p.name, cfg.eloDefault ?? ELO_DEFAULT),
       }));
       const phase = initialPhase(cfg);
       const ns = {
@@ -1024,7 +1025,7 @@ function reducer(st, a) {
       };
     }
     case "NEXT_ROUND": {
-      const cfg = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
+      const cfg = { ...st.globalSettings, ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
       if (!cfg) return st;
       const eloSheet = cfg.eloDB || "ELO";
       const players = st.players.map((p) => ({ ...p })),
@@ -1053,13 +1054,13 @@ function reducer(st, a) {
         activeTab: "matches",
         matchSubTab: gameOver ? "standings" : st.matchSubTab,
       };
-      saveLS(EK, newEloDb);
+      saveLS(LS_ELO_DB, newEloDb);
       return { ...ns, pairings: gameOver ? [] : makePairings(ns, scoredPlayers, h, phase) };
     }
     case "END_TOURNAMENT": {
       try {
-        localStorage.removeItem(BK + "_" + st.tournamentId);
-        localStorage.removeItem(BK_LAST);
+        localStorage.removeItem(LS_BACKUP + "_" + st.tournamentId);
+        localStorage.removeItem(LS_BACKUP_LAST);
       } catch {}
       const sorted = [...st.players].sort((a, b) => b.score - a.score || b.w - a.w);
       return {
@@ -1070,7 +1071,7 @@ function reducer(st, a) {
       };
     }
     case "NEW_GP_SESSION": {
-      const cfg = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
+      const cfg = { ...st.globalSettings, ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
       if (!cfg) return st;
       const ph = initialPhase(cfg);
       const ns = { ...st, currentRound: 1, phase: ph, pairings: [] };
@@ -1082,6 +1083,8 @@ function reducer(st, a) {
       a.tournaments.forEach((t) => { if (t.id) tournaments[t.id] = t; });
       return { ...st, tournaments };
     }
+    case "SET_GLOBAL_SETTINGS":
+      return { ...st, globalSettings: a.settings || {} };
     case "SET_ELO_DB": {
       const sheet = a.col || "ELO";
       const db = {};
@@ -1089,7 +1092,7 @@ function reducer(st, a) {
         if (e?.name) db[e.name.toLowerCase()] = e;
       });
       const newEloDb = { ...st.eloDb, [sheet]: db };
-      saveLS(EK, newEloDb);
+      saveLS(LS_ELO_DB, newEloDb);
       return { ...st, eloDb: newEloDb };
     }
 
@@ -1176,7 +1179,7 @@ function reducer(st, a) {
         "Julia",
       ];
       const testNs = (st.tournaments?.[st.tournamentId] ?
-        { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides }.eloDB
+        { ...st.globalSettings, ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides }.eloDB
         : null) || "ELO";
       let db = { ...(st.eloDb[testNs] || {}) };
       const newPlayers = [];
@@ -1197,7 +1200,7 @@ function reducer(st, a) {
       return { ...st, players: newPlayers, eloDb: { ...st.eloDb, [testNs]: db } };
     }
     case "AUTO_SELECT_WINNERS": {
-      const autoC = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
+      const autoC = { ...st.globalSettings, ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
       return {
         ...st,
         pairings: st.pairings.map((m) => {
@@ -1216,8 +1219,8 @@ function reducer(st, a) {
     // ── Session / settings ──
     case "FULL_RESET":
       try {
-        localStorage.removeItem(BK + "_" + st.tournamentId);
-        localStorage.removeItem(BK_LAST);
+        localStorage.removeItem(LS_BACKUP + "_" + st.tournamentId);
+        localStorage.removeItem(LS_BACKUP_LAST);
       } catch {}
       return {
         ...init,
@@ -1229,8 +1232,8 @@ function reducer(st, a) {
       };
     case "SET_SHEETS_URL":
       try {
-        if (a.url) localStorage.setItem(SK, a.url);
-        else localStorage.removeItem(SK);
+        if (a.url) localStorage.setItem(LS_SHEETS_URL, a.url);
+        else localStorage.removeItem(LS_SHEETS_URL);
       } catch {}
       return { ...st, sheetsUrl: a.url };
     case "DRAFT_END":
@@ -1630,7 +1633,7 @@ function Timer({ minutes }) {
 }
 
 // Draft groups — snake-draft seating by ELO across tables
-function DraftGroups({ players, eloDb, dispatch }) {
+function DraftGroups({ players, eloDb, dispatch, eloDefault = ELO_DEFAULT }) {
   const n = players.length;
   if (n < 2)
     return (
@@ -1638,7 +1641,7 @@ function DraftGroups({ players, eloDb, dispatch }) {
         Add at least 2 players.
       </div>
     );
-  const groups = draftGroups(players, eloDb),
+  const groups = draftGroups(players, eloDb, eloDefault),
     groupCount = groups.length;
   const groupColors = ["#185fa5", "#0f6e56", "#a32d2d", "#854f0b", "#534ab7", "#3b6d11"];
   return (
@@ -1655,8 +1658,8 @@ function DraftGroups({ players, eloDb, dispatch }) {
               tables: groups.map((gr) =>
                 gr
                   .slice()
-                  .sort((a, b) => getElo(eloDb, b.name) - getElo(eloDb, a.name))
-                  .map((p) => ({ name: p.name, elo: getElo(eloDb, p.name) }))
+                  .sort((a, b) => getElo(eloDb, b.name, eloDefault) - getElo(eloDb, a.name, eloDefault))
+                  .map((p) => ({ name: p.name, elo: getElo(eloDb, p.name, eloDefault) }))
               ),
             });
           }}
@@ -1674,7 +1677,7 @@ function DraftGroups({ players, eloDb, dispatch }) {
       >
         {groups.map((gr, groupIdx) => {
           const color = groupColors[groupIdx % groupColors.length],
-            elos = gr.map((p) => getElo(eloDb, p.name)),
+            elos = gr.map((p) => getElo(eloDb, p.name, eloDefault)),
             avg = Math.round(elos.reduce((a, v) => a + v, 0) / elos.length);
           return (
             <Card key={groupIdx} style={{ borderLeft: `3px solid ${color}`, padding: "14px 16px" }}>
@@ -1685,7 +1688,7 @@ function DraftGroups({ players, eloDb, dispatch }) {
                 </span>
               </div>
               {gr
-                .sort((a, b) => getElo(eloDb, b.name) - getElo(eloDb, a.name))
+                .sort((a, b) => getElo(eloDb, b.name, eloDefault) - getElo(eloDb, a.name, eloDefault))
                 .map((p) => (
                   <div
                     key={p.name}
@@ -1698,7 +1701,7 @@ function DraftGroups({ players, eloDb, dispatch }) {
                     }}
                   >
                     <span>{p.name}</span>
-                    <span style={{ color: C.muted, fontSize: 11 }}>{getElo(eloDb, p.name)}</span>
+                    <span style={{ color: C.muted, fontSize: 11 }}>{getElo(eloDb, p.name, eloDefault)}</span>
                   </div>
                 ))}
             </Card>
@@ -2008,425 +2011,7 @@ function SpinnerTab({ state, dispatch }) {
   );
 }
 
-const APPS_SCRIPT = `// ══════════════════════════════════════════════════════════════
-// Tournament Manager — Google Apps Script Backend
-// ══════════════════════════════════════════════════════════════
-//
-// SETUP:
-// 1. Create a new Google Sheet
-// 2. Create tabs (sheets): "ELO", "Seeds", "Rules", "Settings"
-// 3. In the ELO tab, add headers in row 1: Test | ELO Magic | ELO Risk | Name
-//    (ELO column names must match the eloCol setting in each tournament's Settings row)
-// 4. In the Seeds tab, add headers in row 1: ID | Label | Timestamp | Data
-// 5. In the Rules tab, add headers in row 1: Tournament | Category | Rule | Description | Update
-//    Then add your rules with the tournament name matching exactly
-//    (e.g., "Drunken Draft", "Vintage Draft", "Risk Grand Prix")
-// 6. In the Settings tab, add headers in row 1:
-//    id | name | icon | desc | matchMax | matchRound | timerMinutes | rrRounds |
-//    extraPoints | extraPointsValue | scoring | winPoints | drawPoints | lossPoints |
-//    startScore | cumulativeDrawPenalty | pts1 | pts2 | pts3 | ptsLast |
-//    tiebreaker1 | tiebreaker2 | tiebreaker3 | draft | timeout | timeoutTime |
-//    playerOrder | prizes | rules | grandPrix | gpBestOfLast | gpDropWorst |
-//    gpGhostPoints | elo | eloKMax | eloScale | eloDB
-//    Then add one row per tournament type.
-// 7. Go to Extensions > Apps Script
-// 8. Paste this entire script, replacing any existing code
-// 9. Click Deploy > New deployment
-// 10. Type: Web app
-// 11. Execute as: Me
-// 12. Who has access: Anyone
-// 13. Click Deploy and copy the URL
-// 14. Paste the URL into the Tournament Manager's Database URL field
-//
-// ══════════════════════════════════════════════════════════════
-
-function doGet(e) {
-  var action = e.parameter.action || "load";
-
-  if (action === "load") return loadElo(e.parameter.col);
-  if (action === "seed_load") return loadSeed(e.parameter.id);
-  if (action === "seed_list") return listSeeds();
-  if (action === "rules") return loadRules(e.parameter.tournament);
-  if (action === "tournament_list") return loadTournaments();
-  if (action === "debug_settings") return debugSettings();
-  if (action === "debug_elo") return debugElo();
-  if (action === "elo_cols") return eloColumns();
-
-  return jsonResponse({ error: "Unknown action" });
-}
-
-function doPost(e) {
-  try {
-    var data = JSON.parse(e.postData.contents);
-    var action = data.action || "save";
-
-    if (action === "save") return saveElo(data);
-    if (action === "seed_save") return saveSeed(data);
-    if (action === "seed_delete") return deleteSeed(data);
-    if (action === "tournament_save") return saveTournament(data);
-
-    return jsonResponse({ error: "Unknown action" });
-  } catch (err) {
-    return jsonResponse({ error: err.message });
-  }
-}
-
-// ── ELO Database ──
-
-function loadElo(colName) {
-  var col = colName || "ELO";
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("ELO");
-  if (!sheet) return jsonResponse({ entries: [] });
-
-  var data = sheet.getDataRange().getValues();
-  if (data.length < 1) return jsonResponse({ entries: [] });
-
-  var headers = data[0].map(function(h) { return String(h).trim().toLowerCase(); });
-  var nameIdx = headers.indexOf("name");
-  var eloIdx = headers.indexOf(col.toLowerCase());
-  var testIdx = headers.indexOf("test");
-
-  if (nameIdx === -1 || eloIdx === -1) return jsonResponse({ entries: [] });
-
-  var seen = {};
-  for (var i = 1; i < data.length; i++) {
-    var pName = String(data[i][nameIdx] || "").trim();
-    if (!pName) continue;
-    var key = pName.toLowerCase();
-    seen[key] = {
-      name: pName,
-      elo: parseInt(data[i][eloIdx]) || 1000,
-      test: testIdx !== -1 && (data[i][testIdx] === true || String(data[i][testIdx]).toLowerCase() === "true")
-    };
-  }
-
-  var entries = [];
-  for (var k in seen) entries.push(seen[k]);
-  return jsonResponse({ entries: entries });
-}
-
-function saveElo(data) {
-  var colName = data.col || "ELO";
-  var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = spreadsheet.getSheetByName("ELO");
-  if (!sheet) {
-    sheet = spreadsheet.insertSheet("ELO");
-    sheet.getRange(1, 1, 1, 3).setValues([["Test", colName, "Name"]]);
-  }
-
-  var entries = data.entries || [];
-  if (!entries.length) return jsonResponse({ ok: true, count: 0 });
-
-  var allData = sheet.getDataRange().getValues();
-  var headers = allData[0].map(function(h) { return String(h).trim(); });
-
-  var nameIdx = headers.indexOf("Name");
-  var eloIdx = headers.indexOf(colName);
-  var testIdx = headers.indexOf("Test");
-
-  // Add Name column if sheet is empty/malformed
-  if (nameIdx === -1) {
-    sheet.getRange(1, 1).setValue("Name");
-    nameIdx = 0;
-  }
-  // Add this ELO column if missing
-  if (eloIdx === -1) {
-    var insertAt = testIdx !== -1 ? testIdx : headers.length;
-    // Shift Test column right if it exists
-    if (testIdx !== -1) {
-      sheet.insertColumnBefore(testIdx + 1);
-      sheet.getRange(1, testIdx + 1).setValue(colName);
-      eloIdx = testIdx;
-      testIdx = testIdx + 1;
-    } else {
-      sheet.getRange(1, headers.length + 1).setValue(colName);
-      eloIdx = headers.length;
-    }
-  }
-  // Add Test column if missing
-  if (testIdx === -1) {
-    allData = sheet.getDataRange().getValues();
-    headers = allData[0].map(function(h) { return String(h).trim(); });
-    testIdx = headers.length;
-    sheet.getRange(1, testIdx + 1).setValue("Test");
-  }
-
-  // Re-read after any column additions
-  allData = sheet.getDataRange().getValues();
-  headers = allData[0].map(function(h) { return String(h).trim(); });
-  nameIdx = headers.indexOf("Name");
-  eloIdx = headers.indexOf(colName);
-  testIdx = headers.indexOf("Test");
-
-  // Build name→row map
-  var rowMap = {};
-  for (var i = 1; i < allData.length; i++) {
-    var n = String(allData[i][nameIdx] || "").trim().toLowerCase();
-    if (n) rowMap[n] = i + 1;
-  }
-
-  // Update or append
-  for (var j = 0; j < entries.length; j++) {
-    var e = entries[j];
-    var key = e.name.toLowerCase();
-    var testVal = e.test === true || e.test === "true";
-
-    if (rowMap[key]) {
-      sheet.getRange(rowMap[key], eloIdx + 1).setValue(e.elo);
-      sheet.getRange(rowMap[key], testIdx + 1).setValue(testVal);
-    } else {
-      // New player: fill row with 1000 for all ELO columns, then set this one
-      var newRow = new Array(headers.length).fill("");
-      newRow[nameIdx] = e.name;
-      newRow[testIdx] = testVal;
-      for (var h = 0; h < headers.length; h++) {
-        if (h !== nameIdx && h !== testIdx && headers[h] !== "") newRow[h] = 1000;
-      }
-      newRow[eloIdx] = e.elo;
-      sheet.appendRow(newRow);
-      rowMap[key] = sheet.getLastRow();
-    }
-  }
-
-  return jsonResponse({ ok: true, count: entries.length });
-}
-
-// ── Seeds ──
-
-function saveSeed(data) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Seeds");
-  if (!sheet) {
-    sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet("Seeds");
-    sheet.getRange(1, 1, 1, 4).setValues([["ID", "Label", "Timestamp", "Data"]]);
-  }
-
-  var id = data.id || "";
-  var label = data.label || "";
-  var timestamp = new Date().toISOString();
-  var stored = data.data || JSON.stringify(data.chunks || []);
-
-  sheet.appendRow([id, label, timestamp, stored]);
-
-  return jsonResponse({ ok: true, id: id });
-}
-
-function loadSeed(id) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Seeds");
-  if (!sheet) return jsonResponse({ ok: false, error: "No Seeds sheet" });
-
-  id = (id || "").toUpperCase();
-  var data = sheet.getDataRange().getValues();
-
-  for (var i = data.length - 1; i >= 1; i--) {
-    if (String(data[i][0]).toUpperCase() === id) {
-      var raw = String(data[i][3]);
-      try {
-        var parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          return jsonResponse({ ok: true, chunks: parsed });
-        } else {
-          return jsonResponse({ ok: true, data: raw });
-        }
-      } catch (e) {
-        return jsonResponse({ ok: false, error: "Corrupt seed data" });
-      }
-    }
-  }
-
-  return jsonResponse({ ok: false, error: "Seed not found: " + id });
-}
-
-function deleteSeed(data) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Seeds");
-  if (!sheet) return jsonResponse({ ok: false, error: "No Seeds sheet" });
-
-  var id = (data.id || "").toUpperCase();
-  var rows = sheet.getDataRange().getValues();
-
-  for (var i = rows.length - 1; i >= 1; i--) {
-    if (String(rows[i][0]).toUpperCase() === id) {
-      sheet.deleteRow(i + 1);
-    }
-  }
-
-  return jsonResponse({ ok: true, id: id });
-}
-
-function listSeeds() {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Seeds");
-  if (!sheet) return jsonResponse({ seeds: [] });
-
-  var data = sheet.getDataRange().getValues();
-  var seeds = [];
-
-  for (var i = 1; i < data.length; i++) {
-    seeds.push({
-      id: String(data[i][0]),
-      label: String(data[i][1]),
-      timestamp: String(data[i][2])
-    });
-  }
-
-  return jsonResponse({ seeds: seeds });
-}
-
-// ── Rules ──
-
-function loadRules(tournament) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Rules");
-  if (!sheet) return jsonResponse({ rows: [] });
-
-  tournament = (tournament || "").toLowerCase();
-  var data = sheet.getDataRange().getValues();
-  var rows = [];
-
-  for (var i = 1; i < data.length; i++) {
-    if (String(data[i][0]).toLowerCase() === tournament) {
-      rows.push(data[i].slice(1).filter(function(c) { return c !== ""; }));
-    }
-  }
-
-  return jsonResponse({ rows: rows });
-}
-
-// ── Tournaments ──
-
-var TOURNAMENT_FEATURE_KEYS = [
-  // Left card — Rounds & Matches
-  "matchMax", "matchRound", "timerMinutes", "rrRounds",
-  // Left card — Scoring
-  "extraPoints", "extraPointsValue", "scoring",
-  "winPoints", "drawPoints", "lossPoints", "startScore",
-  "cumulativeDrawPenalty", "pts1", "pts2", "pts3", "ptsLast",
-  "tiebreaker1", "tiebreaker2", "tiebreaker3",
-  // Right card — Features
-  "draft", "timeout", "timeoutTime", "playerOrder", "prizes", "rules",
-  // Right card — Grand Prix
-  "grandPrix", "gpBestOfLast", "gpDropWorst", "gpGhostPoints",
-  // Right card — ELO
-  "elo", "eloKMax", "eloScale", "eloDB",
-];
-
-function loadTournaments() {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Settings");
-  if (!sheet) return jsonResponse({ tournaments: [] });
-
-  var data = sheet.getDataRange().getValues();
-  if (data.length < 2) return jsonResponse({ tournaments: [] });
-
-  var headers = data[0].map(function(h) { return String(h).trim().toLowerCase(); });
-  var tournaments = [];
-
-  function hIdx(key) { return headers.indexOf(key.toLowerCase()); }
-
-  var idColIdx = hIdx("id") !== -1 ? hIdx("id") : 0;
-
-  for (var i = 1; i < data.length; i++) {
-    var row = data[i];
-    var id = String(row[idColIdx] || "").trim();
-    if (!id) continue;
-
-    var t = {
-      id: id,
-      name: String(row[hIdx("name")] !== undefined ? row[hIdx("name")] : ""),
-      icon: String(row[hIdx("icon")] !== undefined ? row[hIdx("icon")] : ""),
-      desc: String(row[hIdx("desc")] !== undefined ? row[hIdx("desc")] : ""),
-      features: {}
-    };
-
-    TOURNAMENT_FEATURE_KEYS.forEach(function(key) {
-      var idx = hIdx(key);
-      if (idx === -1) return;
-      var val = row[idx];
-      if (val instanceof Date) {
-        var hh = val.getHours(), mm = val.getMinutes();
-        val = (hh < 10 ? "0" : "") + hh + ":" + (mm < 10 ? "0" : "") + mm;
-      }
-      t.features[key] = val;
-    });
-
-    tournaments.push(t);
-  }
-
-  return jsonResponse({ tournaments: tournaments });
-}
-
-function saveTournament(data) {
-  var t = data.tournament;
-  if (!t || !t.id) return jsonResponse({ error: "Missing tournament id" });
-
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Settings");
-  if (!sheet) {
-    sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet("Settings");
-    var initHeaders = ["id", "name", "icon", "desc"].concat(TOURNAMENT_FEATURE_KEYS);
-    sheet.getRange(1, 1, 1, initHeaders.length).setValues([initHeaders]);
-  }
-
-  var existing = sheet.getDataRange().getValues();
-  var headers = existing[0].map(function(h) { return String(h).trim(); });
-
-  var row = headers.map(function(h) {
-    if (h === "id") return t.id;
-    if (h === "name") return t.name || "";
-    if (h === "icon") return t.icon || "";
-    if (h === "desc") return t.desc || "";
-    return t.features && t.features[h] !== undefined ? t.features[h] : "";
-  });
-
-  var idIdx = headers.indexOf("id");
-  for (var i = 1; i < existing.length; i++) {
-    if (String(existing[i][idIdx]).trim() === t.id) {
-      sheet.getRange(i + 1, 1, 1, row.length).setValues([row]);
-      return jsonResponse({ ok: true, id: t.id });
-    }
-  }
-
-  sheet.appendRow(row);
-  return jsonResponse({ ok: true, id: t.id });
-}
-
-// ── Debug ──
-
-function eloColumns() {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("ELO");
-  if (!sheet) return jsonResponse({ cols: [] });
-  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-  var cols = headers.map(function(h) { return String(h).trim(); }).filter(function(h) {
-    return h && h.toLowerCase() !== "test" && h.toLowerCase() !== "name";
-  });
-  return jsonResponse({ cols: cols });
-}
-
-function debugElo() {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("ELO");
-  if (!sheet) return jsonResponse({ error: "No sheet named ELO" });
-  var data = sheet.getDataRange().getValues();
-  return jsonResponse({
-    rowCount: data.length,
-    headers: data.length > 0 ? data[0] : [],
-    firstDataRow: data.length > 1 ? data[1] : []
-  });
-}
-
-function debugSettings() {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Settings");
-  if (!sheet) return jsonResponse({ error: "No sheet named Settings" });
-  var data = sheet.getDataRange().getValues();
-  return jsonResponse({
-    rowCount: data.length,
-    headers: data.length > 0 ? data[0] : [],
-    firstDataRow: data.length > 1 ? data[1] : []
-  });
-}
-
-// ── Helpers ──
-
-function jsonResponse(obj) {
-  return ContentService
-    .createTextOutput(JSON.stringify(obj))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-`;
+const APPS_SCRIPT = "// ══════════════════════════════════════════════════════════════\n// Tournament Manager — Google Apps Script Backend\n// ══════════════════════════════════════════════════════════════\n//\n// SETUP:\n// 1. Create a new Google Sheet\n// 2. Create tabs (sheets): \"ELO\", \"Seeds\", \"Rules\", \"Settings\"\n// 3. In the ELO tab, add headers in row 1: Test | Name | ELO Magic | ELO Risk (etc.)\n//    In the Global Settings tab, add headers in row 1: key | value\n//    Then add one row per global setting (eloDefault, eloKMax, eloScale, …)\n//    (ELO column names must match the eloCol setting in each tournament's Settings row)\n// 4. In the Seeds tab, add headers in row 1: ID | Label | Timestamp | Data\n// 5. In the Rules tab, add headers in row 1: Tournament | Category | Rule | Description | Update\n//    Then add your rules with the tournament name matching exactly\n//    (e.g., \"Drunken Draft\", \"Vintage Draft\", \"Risk Grand Prix\")\n// 6. In the Settings tab, add headers in row 1:\n//    id | name | icon | desc | scoring | startScore | pts1 | pts2 | pts3 | ptsLast |\n//    winPoints | drawPoints | lossPoints | cumulativeDrawPenalty | rrRounds |\n//    timerMinutes | draft | elo | eloKMax | eloScale | eloDB | playerOrder | grandPrix |\n//    prizes | timeout | timeoutTime | rules | matchRound | matchMax |\n//    gpBestOfLast | gpDropWorst | gpGhostPoints | extraPoints | extraPointsValue |\n//    tiebreaker1 | tiebreaker2 | tiebreaker3\n//    Then add one row per tournament type.\n// 7. Go to Extensions > Apps Script\n// 8. Paste this entire script, replacing any existing code\n// 9. Click Deploy > New deployment\n// 10. Type: Web app\n// 11. Execute as: Me\n// 12. Who has access: Anyone\n// 13. Click Deploy and copy the URL\n// 14. Paste the URL into the Tournament Manager's Database URL field\n//\n// ══════════════════════════════════════════════════════════════\n\nfunction doGet(e) {\n  var action = e.parameter.action || \"load\";\n\n  if (action === \"load\") return loadElo(e.parameter.col);\n  if (action === \"seed_load\") return loadSeed(e.parameter.id);\n  if (action === \"seed_list\") return listSeeds();\n  if (action === \"rules\") return loadRules(e.parameter.tournament);\n  if (action === \"tournament_list\") return loadTournaments();\n  if (action === \"debug_settings\") return debugSettings();\n  if (action === \"debug_elo\") return debugElo();\n  if (action === \"elo_cols\") return eloColumns();\n  if (action === \"global_settings\") return loadGlobalSettings();\n\n  return jsonResponse({ error: \"Unknown action\" });\n}\n\nfunction doPost(e) {\n  try {\n    var data = JSON.parse(e.postData.contents);\n    var action = data.action || \"save\";\n\n    if (action === \"save\") return saveElo(data);\n    if (action === \"seed_save\") return saveSeed(data);\n    if (action === \"seed_delete\") return deleteSeed(data);\n    if (action === \"tournament_save\") return saveTournament(data);\n    if (action === \"global_settings_save\") return saveGlobalSettings(data);\n\n    return jsonResponse({ error: \"Unknown action\" });\n  } catch (err) {\n    return jsonResponse({ error: err.message });\n  }\n}\n\n// ── ELO Database ──\n\nfunction loadElo(colName) {\n  var col = colName || \"ELO\";\n  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(\"ELO\");\n  if (!sheet) return jsonResponse({ entries: [] });\n\n  var data = sheet.getDataRange().getValues();\n  if (data.length < 1) return jsonResponse({ entries: [] });\n\n  var headers = data[0].map(function(h) { return String(h).trim().toLowerCase(); });\n  var nameIdx = headers.indexOf(\"name\");\n  var eloIdx = headers.indexOf(col.toLowerCase());\n  var testIdx = headers.indexOf(\"test\");\n\n  if (nameIdx === -1 || eloIdx === -1) return jsonResponse({ entries: [] });\n\n  var seen = {};\n  for (var i = 1; i < data.length; i++) {\n    var pName = String(data[i][nameIdx] || \"\").trim();\n    if (!pName) continue;\n    var key = pName.toLowerCase();\n    seen[key] = {\n      name: pName,\n      elo: parseInt(data[i][eloIdx]) || 1000,\n      test: testIdx !== -1 && (data[i][testIdx] === true || String(data[i][testIdx]).toLowerCase() === \"true\")\n    };\n  }\n\n  var entries = [];\n  for (var k in seen) entries.push(seen[k]);\n  return jsonResponse({ entries: entries });\n}\n\nfunction saveElo(data) {\n  var colName = data.col || \"ELO\";\n  var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();\n  var sheet = spreadsheet.getSheetByName(\"ELO\");\n  if (!sheet) {\n    sheet = spreadsheet.insertSheet(\"ELO\");\n    sheet.getRange(1, 1, 1, 3).setValues([[\"Test\", \"Name\", colName]]);\n  }\n\n  var entries = data.entries || [];\n  if (!entries.length) return jsonResponse({ ok: true, count: 0 });\n\n  var allData = sheet.getDataRange().getValues();\n  var headers = allData[0].map(function(h) { return String(h).trim(); });\n  var headersLower = headers.map(function(h) { return h.toLowerCase(); });\n\n  // Case-insensitive lookups — loadElo does the same; saveElo must match.\n  var nameIdx = headersLower.indexOf(\"name\");\n  var eloIdx  = headersLower.indexOf(colName.toLowerCase());\n  var testIdx = headersLower.indexOf(\"test\");\n\n  // Add missing columns at the end (never overwrite existing headers).\n  if (nameIdx === -1) {\n    nameIdx = headers.length;\n    sheet.getRange(1, nameIdx + 1).setValue(\"Name\");\n    headers.push(\"Name\"); headersLower.push(\"name\");\n  }\n  if (eloIdx === -1) {\n    eloIdx = headers.length;\n    sheet.getRange(1, eloIdx + 1).setValue(colName);\n    headers.push(colName); headersLower.push(colName.toLowerCase());\n  }\n  if (testIdx === -1) {\n    testIdx = headers.length;\n    sheet.getRange(1, testIdx + 1).setValue(\"Test\");\n    headers.push(\"Test\"); headersLower.push(\"test\");\n  }\n\n  // Re-read after any column additions\n  allData = sheet.getDataRange().getValues();\n  headers = allData[0].map(function(h) { return String(h).trim(); });\n  headersLower = headers.map(function(h) { return h.toLowerCase(); });\n  nameIdx = headersLower.indexOf(\"name\");\n  eloIdx  = headersLower.indexOf(colName.toLowerCase());\n  testIdx = headersLower.indexOf(\"test\");\n\n  // Build name→row map\n  var rowMap = {};\n  for (var i = 1; i < allData.length; i++) {\n    var n = String(allData[i][nameIdx] || \"\").trim().toLowerCase();\n    if (n) rowMap[n] = i + 1;\n  }\n\n  // Update existing row or append new one\n  for (var j = 0; j < entries.length; j++) {\n    var e = entries[j];\n    var key = e.name.toLowerCase();\n    var testVal = e.test === true || e.test === \"true\";\n\n    if (rowMap[key]) {\n      sheet.getRange(rowMap[key], eloIdx + 1).setValue(e.elo);\n      sheet.getRange(rowMap[key], testIdx + 1).setValue(testVal);\n    } else {\n      // New player: seed 1000 in every ELO column, then overwrite this column.\n      var newRow = new Array(headers.length).fill(\"\");\n      newRow[nameIdx] = e.name;\n      newRow[testIdx] = testVal;\n      for (var h = 0; h < headers.length; h++) {\n        var hl = headersLower[h];\n        if (h !== nameIdx && h !== testIdx && hl !== \"\" && hl !== \"name\" && hl !== \"test\") {\n          newRow[h] = 1000;\n        }\n      }\n      newRow[eloIdx] = e.elo;\n      sheet.appendRow(newRow);\n      rowMap[key] = sheet.getLastRow();\n    }\n  }\n\n  return jsonResponse({ ok: true, count: entries.length });\n}\n\n// ── Seeds ──\n\nfunction saveSeed(data) {\n  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(\"Seeds\");\n  if (!sheet) {\n    sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(\"Seeds\");\n    sheet.getRange(1, 1, 1, 4).setValues([[\"ID\", \"Label\", \"Timestamp\", \"Data\"]]);\n  }\n\n  var id = data.id || \"\";\n  var label = data.label || \"\";\n  var timestamp = new Date().toISOString();\n  var stored = data.data || JSON.stringify(data.chunks || []);\n\n  sheet.appendRow([id, label, timestamp, stored]);\n\n  return jsonResponse({ ok: true, id: id });\n}\n\nfunction loadSeed(id) {\n  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(\"Seeds\");\n  if (!sheet) return jsonResponse({ ok: false, error: \"No Seeds sheet\" });\n\n  id = (id || \"\").toUpperCase();\n  var data = sheet.getDataRange().getValues();\n\n  for (var i = data.length - 1; i >= 1; i--) {\n    if (String(data[i][0]).toUpperCase() === id) {\n      var raw = String(data[i][3]);\n      try {\n        var parsed = JSON.parse(raw);\n        if (Array.isArray(parsed)) {\n          return jsonResponse({ ok: true, chunks: parsed });\n        } else {\n          return jsonResponse({ ok: true, data: raw });\n        }\n      } catch (e) {\n        return jsonResponse({ ok: false, error: \"Corrupt seed data\" });\n      }\n    }\n  }\n\n  return jsonResponse({ ok: false, error: \"Seed not found: \" + id });\n}\n\nfunction deleteSeed(data) {\n  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(\"Seeds\");\n  if (!sheet) return jsonResponse({ ok: false, error: \"No Seeds sheet\" });\n\n  var id = (data.id || \"\").toUpperCase();\n  var rows = sheet.getDataRange().getValues();\n\n  for (var i = rows.length - 1; i >= 1; i--) {\n    if (String(rows[i][0]).toUpperCase() === id) {\n      sheet.deleteRow(i + 1);\n    }\n  }\n\n  return jsonResponse({ ok: true, id: id });\n}\n\nfunction listSeeds() {\n  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(\"Seeds\");\n  if (!sheet) return jsonResponse({ seeds: [] });\n\n  var data = sheet.getDataRange().getValues();\n  var seeds = [];\n\n  for (var i = 1; i < data.length; i++) {\n    seeds.push({\n      id: String(data[i][0]),\n      label: String(data[i][1]),\n      timestamp: String(data[i][2])\n    });\n  }\n\n  return jsonResponse({ seeds: seeds });\n}\n\n// ── Rules ──\n\nfunction loadRules(tournament) {\n  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(\"Rules\");\n  if (!sheet) return jsonResponse({ rows: [] });\n\n  tournament = (tournament || \"\").toLowerCase();\n  var data = sheet.getDataRange().getValues();\n  var rows = [];\n\n  for (var i = 1; i < data.length; i++) {\n    if (String(data[i][0]).toLowerCase() === tournament) {\n      rows.push(data[i].slice(1).filter(function(c) { return c !== \"\"; }));\n    }\n  }\n\n  return jsonResponse({ rows: rows });\n}\n\n// ── Tournaments ──\n\nvar TOURNAMENT_FEATURE_KEYS = [\n  \"scoring\", \"startScore\", \"pts1\", \"pts2\", \"pts3\", \"ptsLast\", \"winPoints\", \"drawPoints\", \"lossPoints\",\n  \"cumulativeDrawPenalty\", \"rrRounds\", \"timerMinutes\", \"draft\", \"elo\", \"eloKMax\",\n  \"eloScale\", \"eloDefault\", \"eloDB\", \"playerOrder\", \"grandPrix\", \"prizes\",\n  \"timeout\", \"timeoutTime\", \"rules\", \"matchRound\", \"matchMax\",\n  \"gpBestOfLast\", \"gpDropWorst\", \"gpGhostPoints\", \"extraPoints\", \"extraPointsValue\",\n  \"tiebreaker1\", \"tiebreaker2\", \"tiebreaker3\"\n];\n\nfunction loadTournaments() {\n  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(\"Settings\");\n  if (!sheet) return jsonResponse({ tournaments: [] });\n\n  var data = sheet.getDataRange().getValues();\n  if (data.length < 2) return jsonResponse({ tournaments: [] });\n\n  var headers = data[0].map(function(h) { return String(h).trim().toLowerCase(); });\n  var tournaments = [];\n\n  function hIdx(key) { return headers.indexOf(key.toLowerCase()); }\n\n  var idColIdx = hIdx(\"id\") !== -1 ? hIdx(\"id\") : 0;\n\n  for (var i = 1; i < data.length; i++) {\n    var row = data[i];\n    var id = String(row[idColIdx] || \"\").trim();\n    if (!id) continue;\n\n    var t = {\n      id: id,\n      name: String(row[hIdx(\"name\")] !== undefined ? row[hIdx(\"name\")] : \"\"),\n      icon: String(row[hIdx(\"icon\")] !== undefined ? row[hIdx(\"icon\")] : \"\"),\n      desc: String(row[hIdx(\"desc\")] !== undefined ? row[hIdx(\"desc\")] : \"\"),\n      features: {}\n    };\n\n    TOURNAMENT_FEATURE_KEYS.forEach(function(key) {\n      var idx = hIdx(key);\n      if (idx === -1) return;\n      var val = row[idx];\n      if (val instanceof Date) {\n        var hh = val.getHours(), mm = val.getMinutes();\n        val = (hh < 10 ? \"0\" : \"\") + hh + \":\" + (mm < 10 ? \"0\" : \"\") + mm;\n      }\n      t.features[key] = val;\n    });\n\n    tournaments.push(t);\n  }\n\n  return jsonResponse({ tournaments: tournaments });\n}\n\nfunction saveTournament(data) {\n  var t = data.tournament;\n  if (!t || !t.id) return jsonResponse({ error: \"Missing tournament id\" });\n\n  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(\"Settings\");\n  if (!sheet) {\n    sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(\"Settings\");\n    var initHeaders = [\"id\", \"name\", \"icon\", \"desc\"].concat(TOURNAMENT_FEATURE_KEYS);\n    sheet.getRange(1, 1, 1, initHeaders.length).setValues([initHeaders]);\n  }\n\n  var existing = sheet.getDataRange().getValues();\n  var headers = existing[0].map(function(h) { return String(h).trim(); });\n\n  var row = headers.map(function(h) {\n    if (h === \"id\") return t.id;\n    if (h === \"name\") return t.name || \"\";\n    if (h === \"icon\") return t.icon || \"\";\n    if (h === \"desc\") return t.desc || \"\";\n    return t.features && t.features[h] !== undefined ? t.features[h] : \"\";\n  });\n\n  var idIdx = headers.indexOf(\"id\");\n  for (var i = 1; i < existing.length; i++) {\n    if (String(existing[i][idIdx]).trim() === t.id) {\n      sheet.getRange(i + 1, 1, 1, row.length).setValues([row]);\n      return jsonResponse({ ok: true, id: t.id });\n    }\n  }\n\n  sheet.appendRow(row);\n  return jsonResponse({ ok: true, id: t.id });\n}\n\n// ── Global Settings ──\n\nfunction loadGlobalSettings() {\n  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(\"Global Settings\");\n  if (!sheet) return jsonResponse({ settings: {} });\n\n  var data = sheet.getDataRange().getValues();\n  if (data.length < 2) return jsonResponse({ settings: {} });\n\n  var headers = data[0].map(function(h) { return String(h).trim().toLowerCase(); });\n  var keyIdx = headers.indexOf(\"key\");\n  var valIdx = headers.indexOf(\"value\");\n  if (keyIdx === -1 || valIdx === -1) return jsonResponse({ settings: {} });\n\n  var settings = {};\n  for (var i = 1; i < data.length; i++) {\n    var key = String(data[i][keyIdx] || \"\").trim();\n    if (!key) continue;\n    var raw = data[i][valIdx];\n    // Coerce: boolean → bool, numeric string → number, else string\n    if (raw === true || raw === false) {\n      settings[key] = raw;\n    } else if (raw !== \"\" && !isNaN(Number(raw))) {\n      settings[key] = Number(raw);\n    } else {\n      settings[key] = String(raw);\n    }\n  }\n\n  return jsonResponse({ settings: settings });\n}\n\nfunction saveGlobalSettings(data) {\n  var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();\n  var sheet = spreadsheet.getSheetByName(\"Global Settings\");\n  if (!sheet) {\n    sheet = spreadsheet.insertSheet(\"Global Settings\");\n    sheet.getRange(1, 1, 1, 2).setValues([[\"key\", \"value\"]]);\n  }\n\n  var incoming = data.settings || {};\n  var allData = sheet.getDataRange().getValues();\n  var headers = allData[0].map(function(h) { return String(h).trim().toLowerCase(); });\n  var keyIdx = headers.indexOf(\"key\");\n  var valIdx = headers.indexOf(\"value\");\n\n  if (keyIdx === -1) { keyIdx = 0; sheet.getRange(1, 1).setValue(\"key\"); }\n  if (valIdx === -1) { valIdx = 1; sheet.getRange(1, 2).setValue(\"value\"); }\n\n  // Build key → row map\n  var rowMap = {};\n  for (var i = 1; i < allData.length; i++) {\n    var k = String(allData[i][keyIdx] || \"\").trim();\n    if (k) rowMap[k] = i + 1;\n  }\n\n  for (var key in incoming) {\n    var val = incoming[key];\n    if (rowMap[key]) {\n      sheet.getRange(rowMap[key], valIdx + 1).setValue(val);\n    } else {\n      var newRow = [\"\", \"\"];\n      newRow[keyIdx] = key;\n      newRow[valIdx] = val;\n      sheet.appendRow(newRow);\n      rowMap[key] = sheet.getLastRow();\n    }\n  }\n\n  return jsonResponse({ ok: true });\n}\n\n// ── Debug ──\n\nfunction eloColumns() {\n  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(\"ELO\");\n  if (!sheet) return jsonResponse({ cols: [] });\n  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];\n  var cols = headers.map(function(h) { return String(h).trim(); }).filter(function(h) {\n    return h && h.toLowerCase() !== \"test\" && h.toLowerCase() !== \"name\";\n  });\n  return jsonResponse({ cols: cols });\n}\n\nfunction debugElo() {\n  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(\"ELO\");\n  if (!sheet) return jsonResponse({ error: \"No sheet named ELO\" });\n  var data = sheet.getDataRange().getValues();\n  return jsonResponse({\n    rowCount: data.length,\n    headers: data.length > 0 ? data[0] : [],\n    firstDataRow: data.length > 1 ? data[1] : []\n  });\n}\n\nfunction debugSettings() {\n  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(\"Settings\");\n  if (!sheet) return jsonResponse({ error: \"No sheet named Settings\" });\n  var data = sheet.getDataRange().getValues();\n  return jsonResponse({\n    rowCount: data.length,\n    headers: data.length > 0 ? data[0] : [],\n    firstDataRow: data.length > 1 ? data[1] : []\n  });\n}\n\n// ── Helpers ──\n\nfunction jsonResponse(obj) {\n  return ContentService\n    .createTextOutput(JSON.stringify(obj))\n    .setMimeType(ContentService.MimeType.JSON);\n}\n";
 
 // Google Sheets integration — Database card in Advanced tab
 // Sheets sync — pull/push ELO, validate, copy script
@@ -2449,7 +2034,7 @@ function SheetsSync({ state, dispatch, config }) {
         const db = {};
         d.entries.forEach((e) => {
           if (e?.name)
-            db[e.name.toLowerCase()] = { elo: parseInt(e.elo) || ED, name: e.name, test: !!e.test };
+            db[e.name.toLowerCase()] = { elo: parseInt(e.elo) || ELO_DEFAULT, name: e.name, test: !!e.test };
         });
         dispatch({ type: "SET_ELO_DB", db, col });
         setStatus(`✓ Pulled ${Object.keys(db).length} (${col})`);
@@ -3155,7 +2740,7 @@ function PlayersTab({ state, dispatch, config, eloLoadedCols }) {
                       )}
                     </span>
                     <span style={{ fontSize: 11, color: C.faint, flexShrink: 0 }}>
-                      {eloReady ? getElo(activeElo, p.name) : "…"}
+                      {eloReady ? getElo(activeElo, p.name, config?.features?.eloDefault ?? ELO_DEFAULT) : "…"}
                     </span>
                     <Btn
                       onClick={() => dispatch({ type: "TOGGLE_PAID", index: i })}
@@ -3327,7 +2912,7 @@ function StandingsTab({ state, dispatch, config }) {
     tb3 = cfg.tiebreaker3 || "none";
   const playerStats = Object.fromEntries(
     state.players.map((p) => [p.name, {
-      elo: getElo(activeElo, p.name),
+      elo: getElo(activeElo, p.name, cfg.eloDefault ?? ELO_DEFAULT),
       omw: calcOMW(p.name, state.history, state.players),
       gwr: calcGWR(p),
     }]),
@@ -3417,7 +3002,7 @@ function StandingsTab({ state, dispatch, config }) {
             <tbody>
               {sorted.map((p, i) => {
                 const pr = prizeCalc?.allocs?.[i] || null;
-                const elo = getElo(activeElo, p.name);
+                const elo = getElo(activeElo, p.name, cfg.eloDefault ?? ELO_DEFAULT);
                 const eloDelta = cfg.elo && p.eloStart != null ? elo - p.eloStart : null;
                 return (
                   <tr key={p.name}>
@@ -3517,7 +3102,7 @@ function StandingsTab({ state, dispatch, config }) {
 
 // Sub-tabs: Draft (groups) | Pairings (cards) | Log (history)
 // Matches tab — pairing cards, match log, timer, draft sub-tabs
-function MatchCard({ match, index, dispatch, scoring, eloDb, extraPoints, extraPointsValue, playerOrder }) {
+function MatchCard({ match, index, dispatch, scoring, eloDb, eloDefault = ELO_DEFAULT, extraPoints, extraPointsValue, playerOrder }) {
   if (match.isBye)
     return (
       <Card variant="bye">
@@ -3543,7 +3128,7 @@ function MatchCard({ match, index, dispatch, scoring, eloDb, extraPoints, extraP
               style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: `0.5px solid ${C.bL}` }}
             >
               <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{n}</span>
-              <span style={{ fontSize: 11, color: C.faint }}>{getElo(eloDb, n)}</span>
+              <span style={{ fontSize: 11, color: C.faint }}>{getElo(eloDb, n, eloDefault)}</span>
               <input
                 type="text"
                 inputMode="numeric"
@@ -3656,7 +3241,7 @@ function MatchCard({ match, index, dispatch, scoring, eloDb, extraPoints, extraP
                 </span>
               )}
               <span style={{ flex: 1 }}>{n}</span>
-              <span style={{ fontSize: 11, color: C.faint }}>{getElo(eloDb, n)}</span>
+              <span style={{ fontSize: 11, color: C.faint }}>{getElo(eloDb, n, eloDefault)}</span>
               {isWinner && <span style={{ fontSize: 11 }}>Win</span>}
               {isDraw && <span style={{ fontSize: 11 }}>Draw</span>}
             </button>
@@ -3816,7 +3401,7 @@ function MatchesTab({ state, dispatch, config, eloLoadedCols }) {
         onSelect={(id) => dispatch({ type: "SET_MATCH_SUBTAB", tab: id })}
       />
       {state.matchSubTab === "draft" && (
-        <DraftGroups players={state.players} eloDb={state.eloDb} dispatch={dispatch} />
+        <DraftGroups players={state.players} eloDb={state.eloDb[cfg.eloDB || "ELO"] || {}} dispatch={dispatch} eloDefault={cfg.eloDefault ?? ELO_DEFAULT} />
       )}
       {state.matchSubTab === "pairings" && (
         <div>
@@ -3870,7 +3455,7 @@ function MatchesTab({ state, dispatch, config, eloLoadedCols }) {
             <div style={{ textAlign: "center", padding: 32, color: C.faint }}>No pairings.</div>
           )}
           {state.pairings.map((m, i) => (
-            <MatchCard key={i} match={m} index={i} dispatch={dispatch} scoring={cfg.scoring} eloDb={state.eloDb[cfg.eloDB || "ELO"] || {}} extraPoints={cfg.extraPoints} extraPointsValue={cfg.extraPointsValue || 1} playerOrder={cfg.playerOrder} />
+            <MatchCard key={i} match={m} index={i} dispatch={dispatch} scoring={cfg.scoring} eloDb={state.eloDb[cfg.eloDB || "ELO"] || {}} eloDefault={cfg.eloDefault ?? ELO_DEFAULT} extraPoints={cfg.extraPoints} extraPointsValue={cfg.extraPointsValue || 1} playerOrder={cfg.playerOrder} />
           ))}
         </div>
       )}
@@ -4469,6 +4054,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
           <BoolF label="Player order" k="playerOrder" />
           <BoolF label="Prizes" k="prizes" />
           <BoolF label="Rules tab" k="rules" />
+          <BoolF label="Spinner" k="spinner" />
 
           <div style={S.sectionLabel}>Grand Prix</div>
           <div style={S.fieldRow}>
@@ -4521,7 +4107,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
             }}
           >
             <span style={{ flex: 1, fontSize: 13 }}>ELO parameters</span>
-            {[["eloKMax", "K-max"], ["eloScale", "Scale"]].map(([k, lbl]) => (
+            {[["eloKMax", "K-max"], ["eloScale", "Scale"], ["eloDefault", "Default"]].map(([k, lbl]) => (
               <div key={k} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
                 <span style={{ fontSize: 10, color: C.muted }}>{lbl}</span>
                 <input
@@ -4536,7 +4122,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
                 />
               </div>
             ))}
-            {["eloKMax", "eloScale"].some((k) => state.featureOverrides[k] !== undefined) && (
+            {["eloKMax", "eloScale", "eloDefault"].some((k) => state.featureOverrides[k] !== undefined) && (
               <span style={S.modTag}>mod</span>
             )}
           </div>
@@ -4590,7 +4176,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
             { col: "matchRound",      vals: ["none (BYE)", "up", "down"] },
             { col: "tiebreaker1/2/3", vals: ["elo", "elo_rev", "omw", "gwr", "none"] },
             { col: "draft / elo / prizes / rules / playerOrder / grandPrix / gpGhostPoints / timeout / extraPoints / cumulativeDrawPenalty", vals: ["TRUE", "FALSE"] },
-            { col: "startScore / pts1 / pts2 / pts3 / ptsLast / winPoints / drawPoints / lossPoints / rrRounds / timerMinutes / eloKMax / eloScale / timeoutTime / matchMax / gpBestOfLast / gpDropWorst / extraPointsValue", vals: ["number"] },
+            { col: "startScore / pts1 / pts2 / pts3 / ptsLast / winPoints / drawPoints / lossPoints / rrRounds / timerMinutes / eloKMax / eloScale / eloDefault / timeoutTime / matchMax / gpBestOfLast / gpDropWorst / extraPointsValue", vals: ["number"] },
             { col: "eloDB",           vals: ["ELO column name in your sheet"] },
             { col: "id",              vals: ["unique key (no spaces)"] },
           ].map(({ col, vals }) => (
@@ -5041,7 +4627,7 @@ const STATUS_ERROR_MS  =  8_000; // how long an error sync status message stays 
 function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
   const rawConfig = state.tournaments?.[state.tournamentId];
   if (!rawConfig) return null;
-  const config = { ...rawConfig, features: { ...rawConfig.features, ...state.featureOverrides } };
+  const config = { ...rawConfig, features: { ...state.globalSettings, ...rawConfig.features, ...state.featureOverrides } };
   const cfg = config.features,
     activePlayers = state.players.filter((p) => !p.eliminated),
     go = state.tournamentStarted && isGameOver(cfg.scoring, activePlayers);
@@ -5097,7 +4683,7 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
   // buildSnap() is used for remote seed saves which are async and less frequent.
   useEffect(() => {
     if (!state.players.length) return;
-    saveLS(BK + "_" + state.tournamentId, {
+    saveLS(LS_BACKUP + "_" + state.tournamentId, {
       state: {
         players: state.players,
         currentRound: state.currentRound,
@@ -5120,7 +4706,7 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
       featureOverrides: state.featureOverrides,
       savedAt: Date.now(),
     });
-    try { localStorage.setItem(BK_LAST, state.tournamentId); } catch {}
+    try { localStorage.setItem(LS_BACKUP_LAST, state.tournamentId); } catch {}
   }, [state.players, state.pairings, state.currentRound, state.tournamentStarted, state.history, state.matchLog, state.draftEnded]);
   // Auto-push ELO to Google Sheets after each completed round.
   // lastPushedRound tracks history.length at last push so this only fires once per new round,
@@ -5312,6 +4898,10 @@ function App() {
     if (!u) { setLoading(false); return; }
     setLoading(true);
     setFetchError(null);
+    fetch(u + "?action=global_settings")
+      .then((r) => r.json())
+      .then((d) => { if (d?.settings) dispatch({ type: "SET_GLOBAL_SETTINGS", settings: d.settings }); })
+      .catch(() => {});
     fetch(u + "?action=tournament_list")
       .then((r) => r.json())
       .then((d) => {
@@ -5324,7 +4914,7 @@ function App() {
               .then((ed) => {
                 if (ed?.entries) {
                   const db = {};
-                  ed.entries.forEach((e) => { if (e?.name) db[e.name.toLowerCase()] = { elo: parseInt(e.elo) ?? ED, name: e.name, test: !!e.test }; });
+                  ed.entries.forEach((e) => { if (e?.name) db[e.name.toLowerCase()] = { elo: parseInt(e.elo) ?? ELO_DEFAULT, name: e.name, test: !!e.test }; });
                   dispatch({ type: "SET_ELO_DB", db, col });
                   setEloLoadedCols((prev) => ({ ...prev, [col]: true }));
                 }
@@ -5365,7 +4955,7 @@ function App() {
       .then((ed) => {
         if (ed?.entries) {
           const db = {};
-          ed.entries.forEach((e) => { if (e?.name) db[e.name.toLowerCase()] = { elo: parseInt(e.elo) ?? ED, name: e.name, test: !!e.test }; });
+          ed.entries.forEach((e) => { if (e?.name) db[e.name.toLowerCase()] = { elo: parseInt(e.elo) ?? ELO_DEFAULT, name: e.name, test: !!e.test }; });
           dispatch({ type: "SET_ELO_DB", db, col });
           setEloLoadedCols((prev) => ({ ...prev, [col]: true }));
         }
@@ -5382,8 +4972,8 @@ function App() {
     if (restored.current) return;
     restored.current = true;
     try {
-      const lastId = localStorage.getItem(BK_LAST);
-      const raw = lastId ? localStorage.getItem(BK + "_" + lastId) : null;
+      const lastId = localStorage.getItem(LS_BACKUP_LAST);
+      const raw = lastId ? localStorage.getItem(LS_BACKUP + "_" + lastId) : null;
       if (!raw) return;
       const snap = JSON.parse(raw);
       if (snap?.tournamentStarted && snap?.state?.players?.length) {
@@ -5394,8 +4984,8 @@ function App() {
         ) {
           dispatch({ type: "RESTORE_SNAPSHOT", snapshot: snap });
         } else {
-          localStorage.removeItem(BK + "_" + lastId);
-          localStorage.removeItem(BK_LAST);
+          localStorage.removeItem(LS_BACKUP + "_" + lastId);
+          localStorage.removeItem(LS_BACKUP_LAST);
         }
       }
     } catch {}

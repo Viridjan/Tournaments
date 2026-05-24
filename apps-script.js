@@ -5,7 +5,9 @@
 // SETUP:
 // 1. Create a new Google Sheet
 // 2. Create tabs (sheets): "ELO", "Seeds", "Rules", "Settings"
-// 3. In the ELO tab, add headers in row 1: Test | ELO Magic | ELO Risk | Name
+// 3. In the ELO tab, add headers in row 1: Test | Name | ELO Magic | ELO Risk (etc.)
+//    In the Global Settings tab, add headers in row 1: key | value
+//    Then add one row per global setting (eloDefault, eloKMax, eloScale, …)
 //    (ELO column names must match the eloCol setting in each tournament's Settings row)
 // 4. In the Seeds tab, add headers in row 1: ID | Label | Timestamp | Data
 // 5. In the Rules tab, add headers in row 1: Tournament | Category | Rule | Description | Update
@@ -41,6 +43,7 @@ function doGet(e) {
   if (action === "debug_settings") return debugSettings();
   if (action === "debug_elo") return debugElo();
   if (action === "elo_cols") return eloColumns();
+  if (action === "global_settings") return loadGlobalSettings();
 
   return jsonResponse({ error: "Unknown action" });
 }
@@ -54,6 +57,7 @@ function doPost(e) {
     if (action === "seed_save") return saveSeed(data);
     if (action === "seed_delete") return deleteSeed(data);
     if (action === "tournament_save") return saveTournament(data);
+    if (action === "global_settings_save") return saveGlobalSettings(data);
 
     return jsonResponse({ error: "Unknown action" });
   } catch (err) {
@@ -101,7 +105,7 @@ function saveElo(data) {
   var sheet = spreadsheet.getSheetByName("ELO");
   if (!sheet) {
     sheet = spreadsheet.insertSheet("ELO");
-    sheet.getRange(1, 1, 1, 3).setValues([["Test", colName, "Name"]]);
+    sheet.getRange(1, 1, 1, 3).setValues([["Test", "Name", colName]]);
   }
 
   var entries = data.entries || [];
@@ -109,44 +113,37 @@ function saveElo(data) {
 
   var allData = sheet.getDataRange().getValues();
   var headers = allData[0].map(function(h) { return String(h).trim(); });
+  var headersLower = headers.map(function(h) { return h.toLowerCase(); });
 
-  var nameIdx = headers.indexOf("Name");
-  var eloIdx = headers.indexOf(colName);
-  var testIdx = headers.indexOf("Test");
+  // Case-insensitive lookups — loadElo does the same; saveElo must match.
+  var nameIdx = headersLower.indexOf("name");
+  var eloIdx  = headersLower.indexOf(colName.toLowerCase());
+  var testIdx = headersLower.indexOf("test");
 
-  // Add Name column if sheet is empty/malformed
+  // Add missing columns at the end (never overwrite existing headers).
   if (nameIdx === -1) {
-    sheet.getRange(1, 1).setValue("Name");
-    nameIdx = 0;
+    nameIdx = headers.length;
+    sheet.getRange(1, nameIdx + 1).setValue("Name");
+    headers.push("Name"); headersLower.push("name");
   }
-  // Add this ELO column if missing
   if (eloIdx === -1) {
-    var insertAt = testIdx !== -1 ? testIdx : headers.length;
-    // Shift Test column right if it exists
-    if (testIdx !== -1) {
-      sheet.insertColumnBefore(testIdx + 1);
-      sheet.getRange(1, testIdx + 1).setValue(colName);
-      eloIdx = testIdx;
-      testIdx = testIdx + 1;
-    } else {
-      sheet.getRange(1, headers.length + 1).setValue(colName);
-      eloIdx = headers.length;
-    }
+    eloIdx = headers.length;
+    sheet.getRange(1, eloIdx + 1).setValue(colName);
+    headers.push(colName); headersLower.push(colName.toLowerCase());
   }
-  // Add Test column if missing
   if (testIdx === -1) {
-    allData = sheet.getDataRange().getValues();
-    headers = allData[0].map(function(h) { return String(h).trim(); });
     testIdx = headers.length;
     sheet.getRange(1, testIdx + 1).setValue("Test");
+    headers.push("Test"); headersLower.push("test");
   }
 
   // Re-read after any column additions
   allData = sheet.getDataRange().getValues();
   headers = allData[0].map(function(h) { return String(h).trim(); });
-  nameIdx = headers.indexOf("Name");
-  eloIdx = headers.indexOf(colName);
-  testIdx = headers.indexOf("Test");
+  headersLower = headers.map(function(h) { return h.toLowerCase(); });
+  nameIdx = headersLower.indexOf("name");
+  eloIdx  = headersLower.indexOf(colName.toLowerCase());
+  testIdx = headersLower.indexOf("test");
 
   // Build name→row map
   var rowMap = {};
@@ -155,7 +152,7 @@ function saveElo(data) {
     if (n) rowMap[n] = i + 1;
   }
 
-  // Update or append
+  // Update existing row or append new one
   for (var j = 0; j < entries.length; j++) {
     var e = entries[j];
     var key = e.name.toLowerCase();
@@ -165,12 +162,15 @@ function saveElo(data) {
       sheet.getRange(rowMap[key], eloIdx + 1).setValue(e.elo);
       sheet.getRange(rowMap[key], testIdx + 1).setValue(testVal);
     } else {
-      // New player: fill row with 1000 for all ELO columns, then set this one
+      // New player: seed 1000 in every ELO column, then overwrite this column.
       var newRow = new Array(headers.length).fill("");
       newRow[nameIdx] = e.name;
       newRow[testIdx] = testVal;
       for (var h = 0; h < headers.length; h++) {
-        if (h !== nameIdx && h !== testIdx && headers[h] !== "") newRow[h] = 1000;
+        var hl = headersLower[h];
+        if (h !== nameIdx && h !== testIdx && hl !== "" && hl !== "name" && hl !== "test") {
+          newRow[h] = 1000;
+        }
       }
       newRow[eloIdx] = e.elo;
       sheet.appendRow(newRow);
@@ -284,7 +284,7 @@ function loadRules(tournament) {
 var TOURNAMENT_FEATURE_KEYS = [
   "scoring", "startScore", "pts1", "pts2", "pts3", "ptsLast", "winPoints", "drawPoints", "lossPoints",
   "cumulativeDrawPenalty", "rrRounds", "timerMinutes", "draft", "elo", "eloKMax",
-  "eloScale", "eloDB", "playerOrder", "grandPrix", "prizes",
+  "eloScale", "eloDefault", "eloDB", "playerOrder", "grandPrix", "prizes",
   "timeout", "timeoutTime", "rules", "matchRound", "matchMax",
   "gpBestOfLast", "gpDropWorst", "gpGhostPoints", "extraPoints", "extraPointsValue",
   "tiebreaker1", "tiebreaker2", "tiebreaker3"
@@ -366,6 +366,78 @@ function saveTournament(data) {
 
   sheet.appendRow(row);
   return jsonResponse({ ok: true, id: t.id });
+}
+
+// ── Global Settings ──
+
+function loadGlobalSettings() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Global Settings");
+  if (!sheet) return jsonResponse({ settings: {} });
+
+  var data = sheet.getDataRange().getValues();
+  if (data.length < 2) return jsonResponse({ settings: {} });
+
+  var headers = data[0].map(function(h) { return String(h).trim().toLowerCase(); });
+  var keyIdx = headers.indexOf("key");
+  var valIdx = headers.indexOf("value");
+  if (keyIdx === -1 || valIdx === -1) return jsonResponse({ settings: {} });
+
+  var settings = {};
+  for (var i = 1; i < data.length; i++) {
+    var key = String(data[i][keyIdx] || "").trim();
+    if (!key) continue;
+    var raw = data[i][valIdx];
+    // Coerce: boolean → bool, numeric string → number, else string
+    if (raw === true || raw === false) {
+      settings[key] = raw;
+    } else if (raw !== "" && !isNaN(Number(raw))) {
+      settings[key] = Number(raw);
+    } else {
+      settings[key] = String(raw);
+    }
+  }
+
+  return jsonResponse({ settings: settings });
+}
+
+function saveGlobalSettings(data) {
+  var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = spreadsheet.getSheetByName("Global Settings");
+  if (!sheet) {
+    sheet = spreadsheet.insertSheet("Global Settings");
+    sheet.getRange(1, 1, 1, 2).setValues([["key", "value"]]);
+  }
+
+  var incoming = data.settings || {};
+  var allData = sheet.getDataRange().getValues();
+  var headers = allData[0].map(function(h) { return String(h).trim().toLowerCase(); });
+  var keyIdx = headers.indexOf("key");
+  var valIdx = headers.indexOf("value");
+
+  if (keyIdx === -1) { keyIdx = 0; sheet.getRange(1, 1).setValue("key"); }
+  if (valIdx === -1) { valIdx = 1; sheet.getRange(1, 2).setValue("value"); }
+
+  // Build key → row map
+  var rowMap = {};
+  for (var i = 1; i < allData.length; i++) {
+    var k = String(allData[i][keyIdx] || "").trim();
+    if (k) rowMap[k] = i + 1;
+  }
+
+  for (var key in incoming) {
+    var val = incoming[key];
+    if (rowMap[key]) {
+      sheet.getRange(rowMap[key], valIdx + 1).setValue(val);
+    } else {
+      var newRow = ["", ""];
+      newRow[keyIdx] = key;
+      newRow[valIdx] = val;
+      sheet.appendRow(newRow);
+      rowMap[key] = sheet.getLastRow();
+    }
+  }
+
+  return jsonResponse({ ok: true });
 }
 
 // ── Debug ──

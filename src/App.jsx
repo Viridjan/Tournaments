@@ -10,6 +10,10 @@ function App() {
     if (!u) { setLoading(false); return; }
     setLoading(true);
     setFetchError(null);
+    fetch(u + "?action=global_settings")
+      .then((r) => r.json())
+      .then((d) => { if (d?.settings) dispatch({ type: "SET_GLOBAL_SETTINGS", settings: d.settings }); })
+      .catch(() => {});
     fetch(u + "?action=tournament_list")
       .then((r) => r.json())
       .then((d) => {
@@ -22,7 +26,7 @@ function App() {
               .then((ed) => {
                 if (ed?.entries) {
                   const db = {};
-                  ed.entries.forEach((e) => { if (e?.name) db[e.name.toLowerCase()] = { elo: parseInt(e.elo) ?? ED, name: e.name, test: !!e.test }; });
+                  ed.entries.forEach((e) => { if (e?.name) db[e.name.toLowerCase()] = { elo: parseInt(e.elo) ?? ELO_DEFAULT, name: e.name, test: !!e.test }; });
                   dispatch({ type: "SET_ELO_DB", db, col });
                   setEloLoadedCols((prev) => ({ ...prev, [col]: true }));
                 }
@@ -63,7 +67,7 @@ function App() {
       .then((ed) => {
         if (ed?.entries) {
           const db = {};
-          ed.entries.forEach((e) => { if (e?.name) db[e.name.toLowerCase()] = { elo: parseInt(e.elo) ?? ED, name: e.name, test: !!e.test }; });
+          ed.entries.forEach((e) => { if (e?.name) db[e.name.toLowerCase()] = { elo: parseInt(e.elo) ?? ELO_DEFAULT, name: e.name, test: !!e.test }; });
           dispatch({ type: "SET_ELO_DB", db, col });
           setEloLoadedCols((prev) => ({ ...prev, [col]: true }));
         }
@@ -80,8 +84,8 @@ function App() {
     if (restored.current) return;
     restored.current = true;
     try {
-      const lastId = localStorage.getItem(BK_LAST);
-      const raw = lastId ? localStorage.getItem(BK + "_" + lastId) : null;
+      const lastId = localStorage.getItem(LS_BACKUP_LAST);
+      const raw = lastId ? localStorage.getItem(LS_BACKUP + "_" + lastId) : null;
       if (!raw) return;
       const snap = JSON.parse(raw);
       if (snap?.tournamentStarted && snap?.state?.players?.length) {
@@ -92,8 +96,8 @@ function App() {
         ) {
           dispatch({ type: "RESTORE_SNAPSHOT", snapshot: snap });
         } else {
-          localStorage.removeItem(BK + "_" + lastId);
-          localStorage.removeItem(BK_LAST);
+          localStorage.removeItem(LS_BACKUP + "_" + lastId);
+          localStorage.removeItem(LS_BACKUP_LAST);
         }
       }
     } catch {}

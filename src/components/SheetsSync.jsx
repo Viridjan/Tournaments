@@ -19,7 +19,7 @@ function SheetsSync({ state, dispatch, config }) {
         const db = {};
         d.entries.forEach((e) => {
           if (e?.name)
-            db[e.name.toLowerCase()] = { elo: parseInt(e.elo) || ED, name: e.name, test: !!e.test };
+            db[e.name.toLowerCase()] = { elo: parseInt(e.elo) || ELO_DEFAULT, name: e.name, test: !!e.test };
         });
         dispatch({ type: "SET_ELO_DB", db, col });
         setStatus(`✓ Pulled ${Object.keys(db).length} (${col})`);

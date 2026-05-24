@@ -6,7 +6,7 @@ const STATUS_ERROR_MS  =  8_000; // how long an error sync status message stays 
 function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
   const rawConfig = state.tournaments?.[state.tournamentId];
   if (!rawConfig) return null;
-  const config = { ...rawConfig, features: { ...rawConfig.features, ...state.featureOverrides } };
+  const config = { ...rawConfig, features: { ...state.globalSettings, ...rawConfig.features, ...state.featureOverrides } };
   const cfg = config.features,
     activePlayers = state.players.filter((p) => !p.eliminated),
     go = state.tournamentStarted && isGameOver(cfg.scoring, activePlayers);
@@ -62,7 +62,7 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
   // buildSnap() is used for remote seed saves which are async and less frequent.
   useEffect(() => {
     if (!state.players.length) return;
-    saveLS(BK + "_" + state.tournamentId, {
+    saveLS(LS_BACKUP + "_" + state.tournamentId, {
       state: {
         players: state.players,
         currentRound: state.currentRound,
@@ -85,7 +85,7 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
       featureOverrides: state.featureOverrides,
       savedAt: Date.now(),
     });
-    try { localStorage.setItem(BK_LAST, state.tournamentId); } catch {}
+    try { localStorage.setItem(LS_BACKUP_LAST, state.tournamentId); } catch {}
   }, [state.players, state.pairings, state.currentRound, state.tournamentStarted, state.history, state.matchLog, state.draftEnded]);
   // Auto-push ELO to Google Sheets after each completed round.
   // lastPushedRound tracks history.length at last push so this only fires once per new round,

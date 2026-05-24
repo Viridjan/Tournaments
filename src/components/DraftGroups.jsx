@@ -1,5 +1,5 @@
 // Draft groups — snake-draft seating by ELO across tables
-function DraftGroups({ players, eloDb, dispatch }) {
+function DraftGroups({ players, eloDb, dispatch, eloDefault = ELO_DEFAULT }) {
   const n = players.length;
   if (n < 2)
     return (
@@ -7,7 +7,7 @@ function DraftGroups({ players, eloDb, dispatch }) {
         Add at least 2 players.
       </div>
     );
-  const groups = draftGroups(players, eloDb),
+  const groups = draftGroups(players, eloDb, eloDefault),
     groupCount = groups.length;
   const groupColors = ["#185fa5", "#0f6e56", "#a32d2d", "#854f0b", "#534ab7", "#3b6d11"];
   return (
@@ -24,8 +24,8 @@ function DraftGroups({ players, eloDb, dispatch }) {
               tables: groups.map((gr) =>
                 gr
                   .slice()
-                  .sort((a, b) => getElo(eloDb, b.name) - getElo(eloDb, a.name))
-                  .map((p) => ({ name: p.name, elo: getElo(eloDb, p.name) }))
+                  .sort((a, b) => getElo(eloDb, b.name, eloDefault) - getElo(eloDb, a.name, eloDefault))
+                  .map((p) => ({ name: p.name, elo: getElo(eloDb, p.name, eloDefault) }))
               ),
             });
           }}
@@ -43,7 +43,7 @@ function DraftGroups({ players, eloDb, dispatch }) {
       >
         {groups.map((gr, groupIdx) => {
           const color = groupColors[groupIdx % groupColors.length],
-            elos = gr.map((p) => getElo(eloDb, p.name)),
+            elos = gr.map((p) => getElo(eloDb, p.name, eloDefault)),
             avg = Math.round(elos.reduce((a, v) => a + v, 0) / elos.length);
           return (
             <Card key={groupIdx} style={{ borderLeft: `3px solid ${color}`, padding: "14px 16px" }}>
@@ -54,7 +54,7 @@ function DraftGroups({ players, eloDb, dispatch }) {
                 </span>
               </div>
               {gr
-                .sort((a, b) => getElo(eloDb, b.name) - getElo(eloDb, a.name))
+                .sort((a, b) => getElo(eloDb, b.name, eloDefault) - getElo(eloDb, a.name, eloDefault))
                 .map((p) => (
                   <div
                     key={p.name}
@@ -67,7 +67,7 @@ function DraftGroups({ players, eloDb, dispatch }) {
                     }}
                   >
                     <span>{p.name}</span>
-                    <span style={{ color: C.muted, fontSize: 11 }}>{getElo(eloDb, p.name)}</span>
+                    <span style={{ color: C.muted, fontSize: 11 }}>{getElo(eloDb, p.name, eloDefault)}</span>
                   </div>
                 ))}
             </Card>

@@ -44,15 +44,15 @@ function gpBestOf(scores, last, drop, ghost) {
 
 // Standard ELO expected score: probability that player A beats player B.
 // Formula: 1 / (1 + 10^((Rb - Ra) / scale))
-// Scale defaults to ES (config constant, typically 400 or 500).
+// Scale defaults to ELO_SCALE (config constant, typically 400 or 500).
 function eloExpected(a, b, scale) {
-  return 1 / (1 + Math.pow(10, (b - a) / (scale || ES)));
+  return 1 / (1 + Math.pow(10, (b - a) / (scale || ELO_SCALE)));
 }
 
 // Read a player's ELO from the db object. Keys are lowercased player names.
-// Returns ED (default starting ELO, e.g. 1000) if the player has no entry.
-function getElo(db, name) {
-  return db[name.toLowerCase()]?.elo ?? ED;
+// Returns defaultElo if the player has no entry.
+function getElo(db, name, defaultElo = ELO_DEFAULT) {
+  return db[name.toLowerCase()]?.elo ?? defaultElo;
 }
 
 // Write a player's ELO. Returns a new db object (immutable — never mutates in place).
@@ -64,12 +64,12 @@ function setElo(db, name, elo, isTest) {
 // Calculate ELO delta for a head-to-head result.
 //   ratingA, ratingB — current ELO ratings
 //   score            — actual score for player A (1 = win, 0.5 = draw, 0 = loss)
-//   kMax             — K-factor cap (sensitivity), default EM
+//   kMax             — K-factor cap (sensitivity), default ELO_K_MAX
 // Returns { dA, dB } — how many ELO points each player gains/loses.
 // NOTE: eCalc is defined here for completeness but not currently called by the app.
 // scoreRound() handles multi-player ELO inline since it needs to loop over all pairs.
 function eCalc(ratingA, ratingB, score, kMax, scale) {
-  const k = kMax || EM;
+  const k = kMax || ELO_K_MAX;
   const expected = eloExpected(ratingA, ratingB, scale),
     rawDelta = k * (score - expected),
     delta = Math.round(Math.max(-k, Math.min(k, rawDelta)));
@@ -83,7 +83,7 @@ function eCalc(ratingA, ratingB, score, kMax, scale) {
 // where no two players in a group have already faced each other (unless allow=true).
 //   names     — player name array (pre-sorted by seed/rank)
 //   prev      — map of { playerName → Set<opponentName> } from getPrev()
-//   groupSize — match size, typically 2 (1v1) but supports pods (3, 4, etc.)
+//   groupSize — match size (matchMax); 2 = head-to-head, 3+ = pod
 //   allow     — if true, rematches are permitted (fallback when no clean pairing exists)
 // Returns array of groups (each group is array of indices into `names`), or null if impossible.
 function findGroups(names, prev, groupSize, allow) {
@@ -181,7 +181,7 @@ function genPairings(players, history, phase, cfg, eloDb) {
   const activePlayers = players.filter(p => !p.eliminated);
   const sorted = [...activePlayers].sort((a, b) =>
     phase === "roundrobin"
-      ? getElo(eloDb, b.name) - getElo(eloDb, a.name)
+      ? getElo(eloDb, b.name, cfg.eloDefault ?? ELO_DEFAULT) - getElo(eloDb, a.name, cfg.eloDefault ?? ELO_DEFAULT)
       : b.w / (b.w + b.d + b.l || 1) - a.w / (a.w + a.d + a.l || 1) || b.score - a.score
   );
   const prev = getPrev(history, activePlayers);
@@ -466,10 +466,10 @@ function isGameOver(scoring, activePlayers) {
 // Target: ~5 players per table (floor(n/5) tables).
 // Snake distribution: row 0 fills left-to-right, row 1 fills right-to-left, alternating.
 // This balances ELO across tables — each table gets one top player, one bottom player, etc.
-function draftGroups(players, eloDb) {
+function draftGroups(players, eloDb, eloDefault = ELO_DEFAULT) {
   const n = players.length;
   const groupCount = Math.max(1, Math.floor(n / 5));
-  const sorted = [...players].sort((a, b) => getElo(eloDb, b.name) - getElo(eloDb, a.name));
+  const sorted = [...players].sort((a, b) => getElo(eloDb, b.name, eloDefault) - getElo(eloDb, a.name, eloDefault));
   const groups = Array.from({ length: groupCount }, () => []);
   sorted.forEach((p, i) => {
     const row = Math.floor(i / groupCount); // which row of the snake
@@ -494,7 +494,7 @@ function draftGroups(players, eloDb) {
 // each round's points are pushed into p.gpScores and gpBestOf() recalculates the total.
 //
 // ELO: after scoring, calculate pairwise ELO deltas for all player combinations in the match.
-// K is divided by player count so multi-player matches have the same total ELO at stake as 1v1.
+// K is divided by player count so pod matches have the same total ELO at stake as head-to-head.
 function scoreRound(roundPairings, players, cfg, db) {
   let _db = db; // local copy — setElo() returns a new object, so we reassign on each update
   const scoring = cfg.scoring;
@@ -604,8 +604,8 @@ function scoreRound(roundPairings, players, cfg, db) {
     }
 
     // ELO delta calculation for all pairs in this match.
-    // K-factor is split evenly across all pairings so multi-player matches
-    // have the same total ELO at stake as a standard 1v1.
+    // K-factor is split evenly across all pairings so pod matches
+    // have the same total ELO at stake as a standard head-to-head.
     if (cfg.elo && !m.noElo) {
       const playerCount = m.players.length,
         K = (cfg.eloKMax || 50) / playerCount,
@@ -614,7 +614,7 @@ function scoreRound(roundPairings, players, cfg, db) {
         for (let j = i + 1; j < playerCount; j++) {
           const pA = m.players[i], pB = m.players[j],
             sA = parseFloat(m.scores[pA] || 0), sB = parseFloat(m.scores[pB] || 0),
-            rA = getElo(_db, pA), rB = getElo(_db, pB),
+            rA = getElo(_db, pA, cfg.eloDefault ?? ELO_DEFAULT), rB = getElo(_db, pB, cfg.eloDefault ?? ELO_DEFAULT),
             eA = eloExpected(rA, rB, cfg.eloScale),
             scA = sA > sB ? 1 : sA < sB ? 0 : 0.5; // normalize to 0/0.5/1
           dl[pA] += K * (scA - eA);
@@ -624,7 +624,7 @@ function scoreRound(roundPairings, players, cfg, db) {
       m.players.forEach((p) => {
         const eloChange = Math.round(dl[p]);
         m.eloDeltas[p] = eloChange;
-        _db = setElo(_db, p, Math.max(0, getElo(_db, p) + eloChange), _db[p.toLowerCase()]?.test);
+        _db = setElo(_db, p, Math.max(0, getElo(_db, p, cfg.eloDefault ?? ELO_DEFAULT) + eloChange), _db[p.toLowerCase()]?.test);
       });
     }
   });
@@ -653,7 +653,7 @@ function calcOMW(playerName, history, players) {
 }
 
 // Game Win Rate: player's standings score divided by matches played.
-// Scales correctly for both 1v1 and multiplayer formats.
+// Scales correctly for both head-to-head and pod formats.
 function calcGWR(player) {
   const total = player.w + player.d + player.l;
   return total > 0 ? (player.score || 0) / total : 0;

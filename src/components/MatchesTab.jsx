@@ -1,6 +1,6 @@
 // Sub-tabs: Draft (groups) | Pairings (cards) | Log (history)
 // Matches tab — pairing cards, match log, timer, draft sub-tabs
-function MatchCard({ match, index, dispatch, scoring, eloDb, extraPoints, extraPointsValue, playerOrder }) {
+function MatchCard({ match, index, dispatch, scoring, eloDb, eloDefault = ELO_DEFAULT, extraPoints, extraPointsValue, playerOrder }) {
   if (match.isBye)
     return (
       <Card variant="bye">
@@ -26,7 +26,7 @@ function MatchCard({ match, index, dispatch, scoring, eloDb, extraPoints, extraP
               style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: `0.5px solid ${C.bL}` }}
             >
               <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{n}</span>
-              <span style={{ fontSize: 11, color: C.faint }}>{getElo(eloDb, n)}</span>
+              <span style={{ fontSize: 11, color: C.faint }}>{getElo(eloDb, n, eloDefault)}</span>
               <input
                 type="text"
                 inputMode="numeric"
@@ -139,7 +139,7 @@ function MatchCard({ match, index, dispatch, scoring, eloDb, extraPoints, extraP
                 </span>
               )}
               <span style={{ flex: 1 }}>{n}</span>
-              <span style={{ fontSize: 11, color: C.faint }}>{getElo(eloDb, n)}</span>
+              <span style={{ fontSize: 11, color: C.faint }}>{getElo(eloDb, n, eloDefault)}</span>
               {isWinner && <span style={{ fontSize: 11 }}>Win</span>}
               {isDraw && <span style={{ fontSize: 11 }}>Draw</span>}
             </button>
@@ -299,7 +299,7 @@ function MatchesTab({ state, dispatch, config, eloLoadedCols }) {
         onSelect={(id) => dispatch({ type: "SET_MATCH_SUBTAB", tab: id })}
       />
       {state.matchSubTab === "draft" && (
-        <DraftGroups players={state.players} eloDb={state.eloDb} dispatch={dispatch} />
+        <DraftGroups players={state.players} eloDb={state.eloDb[cfg.eloDB || "ELO"] || {}} dispatch={dispatch} eloDefault={cfg.eloDefault ?? ELO_DEFAULT} />
       )}
       {state.matchSubTab === "pairings" && (
         <div>
@@ -353,7 +353,7 @@ function MatchesTab({ state, dispatch, config, eloLoadedCols }) {
             <div style={{ textAlign: "center", padding: 32, color: C.faint }}>No pairings.</div>
           )}
           {state.pairings.map((m, i) => (
-            <MatchCard key={i} match={m} index={i} dispatch={dispatch} scoring={cfg.scoring} eloDb={state.eloDb[cfg.eloDB || "ELO"] || {}} extraPoints={cfg.extraPoints} extraPointsValue={cfg.extraPointsValue || 1} playerOrder={cfg.playerOrder} />
+            <MatchCard key={i} match={m} index={i} dispatch={dispatch} scoring={cfg.scoring} eloDb={state.eloDb[cfg.eloDB || "ELO"] || {}} eloDefault={cfg.eloDefault ?? ELO_DEFAULT} extraPoints={cfg.extraPoints} extraPointsValue={cfg.extraPointsValue || 1} playerOrder={cfg.playerOrder} />
           ))}
         </div>
       )}

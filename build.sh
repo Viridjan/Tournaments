@@ -7,6 +7,18 @@ set -e
 OUT="index.html"
 SRC="src"
 
+# Regenerate apps-script embed from source so they never drift
+if command -v node >/dev/null 2>&1; then
+  node -e "
+const c = require('fs').readFileSync('apps-script.js','utf8');
+const e = JSON.stringify(c);
+require('fs').writeFileSync('src/apps-script-embed.js','const APPS_SCRIPT = ' + e + ';\n');
+"
+  echo "✓ Regenerated src/apps-script-embed.js"
+else
+  echo "⚠ node not found — skipping embed regeneration (src/apps-script-embed.js may be stale)" >&2
+fi
+
 cat > "$OUT" << 'HTML_HEAD'
 <!DOCTYPE html>
 <html lang="en">

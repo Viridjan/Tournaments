@@ -350,6 +350,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
           <BoolF label="Player order" k="playerOrder" />
           <BoolF label="Prizes" k="prizes" />
           <BoolF label="Rules tab" k="rules" />
+          <BoolF label="Spinner" k="spinner" />
 
           <div style={S.sectionLabel}>Grand Prix</div>
           <div style={S.fieldRow}>
@@ -402,7 +403,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
             }}
           >
             <span style={{ flex: 1, fontSize: 13 }}>ELO parameters</span>
-            {[["eloKMax", "K-max"], ["eloScale", "Scale"]].map(([k, lbl]) => (
+            {[["eloKMax", "K-max"], ["eloScale", "Scale"], ["eloDefault", "Default"]].map(([k, lbl]) => (
               <div key={k} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
                 <span style={{ fontSize: 10, color: C.muted }}>{lbl}</span>
                 <input
@@ -417,7 +418,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
                 />
               </div>
             ))}
-            {["eloKMax", "eloScale"].some((k) => state.featureOverrides[k] !== undefined) && (
+            {["eloKMax", "eloScale", "eloDefault"].some((k) => state.featureOverrides[k] !== undefined) && (
               <span style={S.modTag}>mod</span>
             )}
           </div>
@@ -471,7 +472,7 @@ function AdvancedTab({ state, dispatch, config, eloColOptions }) {
             { col: "matchRound",      vals: ["none (BYE)", "up", "down"] },
             { col: "tiebreaker1/2/3", vals: ["elo", "elo_rev", "omw", "gwr", "none"] },
             { col: "draft / elo / prizes / rules / playerOrder / grandPrix / gpGhostPoints / timeout / extraPoints / cumulativeDrawPenalty", vals: ["TRUE", "FALSE"] },
-            { col: "startScore / pts1 / pts2 / pts3 / ptsLast / winPoints / drawPoints / lossPoints / rrRounds / timerMinutes / eloKMax / eloScale / timeoutTime / matchMax / gpBestOfLast / gpDropWorst / extraPointsValue", vals: ["number"] },
+            { col: "startScore / pts1 / pts2 / pts3 / ptsLast / winPoints / drawPoints / lossPoints / rrRounds / timerMinutes / eloKMax / eloScale / eloDefault / timeoutTime / matchMax / gpBestOfLast / gpDropWorst / extraPointsValue", vals: ["number"] },
             { col: "eloDB",           vals: ["ELO column name in your sheet"] },
             { col: "id",              vals: ["unique key (no spaces)"] },
           ].map(({ col, vals }) => (

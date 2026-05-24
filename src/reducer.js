@@ -19,7 +19,7 @@ const init = {
     // Legacy format (v1) stored entries flat at the top level (no sheet grouping).
     // Detect legacy by checking if any top-level value has an "elo" key directly,
     // and migrate it into the default "ELO" sheet on first load.
-    const raw = loadLS(EK, {});
+    const raw = loadLS(LS_ELO_DB, {});
     const vals = Object.values(raw);
     if (vals.length > 0 && vals.some((v) => v && typeof v === "object" && "elo" in v)) {
       // Legacy flat format — migrate to { "ELO": { ... } }
@@ -63,6 +63,7 @@ const init = {
     { name: "Pain rare", weight: 20 },
   ],
   tournaments: {},
+  globalSettings: {},
   featureOverrides: {},
   testMode: false,
   experimental: false,
@@ -124,7 +125,7 @@ function reducer(st, a) {
       const players = st.players.map((p, i) =>
         i === a.index ? { ...p, eliminated: true, score: 0 } : p,
       );
-      // Auto-resolve any open 1v1 match as a forfeit: opponent scores 1, abandoner scores 0.
+      // Auto-resolve any open 2-player match as a forfeit: opponent scores 1, abandoner scores 0.
       // noElo=true prevents ELO from changing on a forfeit — that would unfairly penalize the winner.
       // Only affects unresolved 2-player matches; byes and multi-player pods are left alone.
       const pairings = st.pairings.map((m) => {
@@ -143,7 +144,7 @@ function reducer(st, a) {
     }
     // ── Tournament flow ──
     case "START_TOURNAMENT": {
-      const cfg = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
+      const cfg = { ...st.globalSettings, ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
       if (!cfg) return st;
       const ss = cfg.startScore ?? 0;
       const activeElo = st.eloDb[cfg.eloDB || "ELO"] || {};
@@ -160,7 +161,7 @@ function reducer(st, a) {
         pLast: 0,
         eliminated: false,
         positionSum: 0,
-        eloStart: getElo(activeElo, p.name),
+        eloStart: getElo(activeElo, p.name, cfg.eloDefault ?? ELO_DEFAULT),
       }));
       const phase = initialPhase(cfg);
       const ns = {
@@ -217,7 +218,7 @@ function reducer(st, a) {
       };
     }
     case "NEXT_ROUND": {
-      const cfg = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
+      const cfg = { ...st.globalSettings, ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
       if (!cfg) return st;
       const eloSheet = cfg.eloDB || "ELO";
       const players = st.players.map((p) => ({ ...p })),
@@ -246,13 +247,13 @@ function reducer(st, a) {
         activeTab: "matches",
         matchSubTab: gameOver ? "standings" : st.matchSubTab,
       };
-      saveLS(EK, newEloDb);
+      saveLS(LS_ELO_DB, newEloDb);
       return { ...ns, pairings: gameOver ? [] : makePairings(ns, scoredPlayers, h, phase) };
     }
     case "END_TOURNAMENT": {
       try {
-        localStorage.removeItem(BK + "_" + st.tournamentId);
-        localStorage.removeItem(BK_LAST);
+        localStorage.removeItem(LS_BACKUP + "_" + st.tournamentId);
+        localStorage.removeItem(LS_BACKUP_LAST);
       } catch {}
       const sorted = [...st.players].sort((a, b) => b.score - a.score || b.w - a.w);
       return {
@@ -263,7 +264,7 @@ function reducer(st, a) {
       };
     }
     case "NEW_GP_SESSION": {
-      const cfg = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
+      const cfg = { ...st.globalSettings, ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
       if (!cfg) return st;
       const ph = initialPhase(cfg);
       const ns = { ...st, currentRound: 1, phase: ph, pairings: [] };
@@ -275,6 +276,8 @@ function reducer(st, a) {
       a.tournaments.forEach((t) => { if (t.id) tournaments[t.id] = t; });
       return { ...st, tournaments };
     }
+    case "SET_GLOBAL_SETTINGS":
+      return { ...st, globalSettings: a.settings || {} };
     case "SET_ELO_DB": {
       const sheet = a.col || "ELO";
       const db = {};
@@ -282,7 +285,7 @@ function reducer(st, a) {
         if (e?.name) db[e.name.toLowerCase()] = e;
       });
       const newEloDb = { ...st.eloDb, [sheet]: db };
-      saveLS(EK, newEloDb);
+      saveLS(LS_ELO_DB, newEloDb);
       return { ...st, eloDb: newEloDb };
     }
 
@@ -369,7 +372,7 @@ function reducer(st, a) {
         "Julia",
       ];
       const testNs = (st.tournaments?.[st.tournamentId] ?
-        { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides }.eloDB
+        { ...st.globalSettings, ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides }.eloDB
         : null) || "ELO";
       let db = { ...(st.eloDb[testNs] || {}) };
       const newPlayers = [];
@@ -390,7 +393,7 @@ function reducer(st, a) {
       return { ...st, players: newPlayers, eloDb: { ...st.eloDb, [testNs]: db } };
     }
     case "AUTO_SELECT_WINNERS": {
-      const autoC = { ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
+      const autoC = { ...st.globalSettings, ...st.tournaments[st.tournamentId]?.features, ...st.featureOverrides };
       return {
         ...st,
         pairings: st.pairings.map((m) => {
@@ -409,8 +412,8 @@ function reducer(st, a) {
     // ── Session / settings ──
     case "FULL_RESET":
       try {
-        localStorage.removeItem(BK + "_" + st.tournamentId);
-        localStorage.removeItem(BK_LAST);
+        localStorage.removeItem(LS_BACKUP + "_" + st.tournamentId);
+        localStorage.removeItem(LS_BACKUP_LAST);
       } catch {}
       return {
         ...init,
@@ -422,8 +425,8 @@ function reducer(st, a) {
       };
     case "SET_SHEETS_URL":
       try {
-        if (a.url) localStorage.setItem(SK, a.url);
-        else localStorage.removeItem(SK);
+        if (a.url) localStorage.setItem(LS_SHEETS_URL, a.url);
+        else localStorage.removeItem(LS_SHEETS_URL);
       } catch {}
       return { ...st, sheetsUrl: a.url };
     case "DRAFT_END":

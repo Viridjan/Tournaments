@@ -179,7 +179,7 @@ function PlayersTab({ state, dispatch, config, eloLoadedCols }) {
                       )}
                     </span>
                     <span style={{ fontSize: 11, color: C.faint, flexShrink: 0 }}>
-                      {eloReady ? getElo(activeElo, p.name) : "…"}
+                      {eloReady ? getElo(activeElo, p.name, config?.features?.eloDefault ?? ELO_DEFAULT) : "…"}
                     </span>
                     <Btn
                       onClick={() => dispatch({ type: "TOGGLE_PAID", index: i })}

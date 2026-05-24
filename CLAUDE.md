@@ -18,7 +18,7 @@ Single-page app with no bundler. React 18 + Babel Standalone loaded via CDN. All
 
 ### Source load order (from `build.sh`)
 
-1. `src/config.js` — Global constants: ELO defaults (`ED`, `EM`, `ES`), localStorage key constants (`EK`, `SK`, `BK`, `BK_LAST`), default Apps Script URL (`DU`)
+1. `src/config.js` — Global constants: ELO defaults (`ELO_DEFAULT`, `ELO_K_MAX`, `ELO_SCALE`), localStorage key constants (`LS_ELO_DB`, `LS_SHEETS_URL`, `LS_BACKUP`, `LS_BACKUP_LAST`), default Apps Script URL (`DEFAULT_SHEETS_URL`)
 2. `src/logic.js` — Pure functions: ELO math, pairing algorithms, prize allocation
 3. `src/storage.js` — localStorage helpers (`loadLS`, `saveLS`), `buildSnap()`, `autoSeedSave()`, `makePairings()` dispatcher, `now()`
 4. `src/reducer.js` — Initial state (`init`) + all state transitions (`reducer`)
@@ -35,9 +35,9 @@ Single `useReducer(reducer, init)` in `App.jsx`. All state transitions go throug
 - `tournaments` — `{id: {id, name, icon, desc, features{}}}` loaded from Sheets on mount via `SET_TOURNAMENTS`
 - `featureOverrides` — runtime overrides merged over tournament features; merged at action time via `{ ...state.tournaments[id]?.features, ...featureOverrides }`
 - `players` — `{name, score, w, d, l, eliminated, paid, positionSum, gpScores?, eloStart?}`
-- `eloDb` — `{colName: {nameLower: {elo, name, test}}}` persisted under `EK`; auto-synced from Sheets on mount
+- `eloDb` — `{colName: {nameLower: {elo, name, test}}}` persisted under `LS_ELO_DB`; auto-synced from Sheets on mount
 - `draftEnded` — hides Draft sub-tab after draft phase completes
-- State auto-backed-up to `localStorage` under `BK + "_" + tournamentId` during a tournament; restored on next load
+- State auto-backed-up to `localStorage` under `LS_BACKUP + "_" + tournamentId` during a tournament; restored on next load
 
 **Feature config access pattern** (used everywhere components need feature flags):
 ```js
@@ -56,8 +56,9 @@ Loaded dynamically from the Google Sheet's Settings tab on mount — **not hardc
 
 ### Pairing modes
 
-- `1v1` — `gen1v1()`: backtracking algorithm avoiding rematches; falls back to allowing rematches if no clean pairing exists; handles BYEs for odd player counts
-- `multi` — `genMulti()`: splits active players into groups of `[matchMin, matchMax]` size
+Mode is determined solely by `cfg.matchMax` (no separate flag):
+- `matchMax = 2` — `genPairings()`: backtracking avoids rematches; falls back to allowing them if no clean solution; assigns BYE for odd player counts
+- `matchMax > 2` — `genPairings()` + `splitGroups()`: splits active players into pods of up to `matchMax` size; `matchRound` controls rounding (BYE / up / down)
 
 ### Google Apps Script backend
 
@@ -81,10 +82,10 @@ require('fs').writeFileSync('src/apps-script-embed.js','const APPS_SCRIPT = ' + 
 
 | Constant | Key string | Content |
 |---|---|---|
-| `EK` | `tournament_elo_db_v2` | ELO database |
-| `SK` | `tournament_sheets_url_v1` | Apps Script URL |
-| `BK` | `tournament_local_backup` | Prefix; suffixed `_<tournamentId>` |
-| `BK_LAST` | `tournament_local_backup_last` | Most recently active tournament id |
+| `LS_ELO_DB` | `tournament_elo_db_v2` | ELO database |
+| `LS_SHEETS_URL` | `tournament_sheets_url_v1` | Apps Script URL |
+| `LS_BACKUP` | `tournament_local_backup` | Prefix; suffixed `_<tournamentId>` |
+| `LS_BACKUP_LAST` | `tournament_local_backup_last` | Most recently active tournament id |
 
 ## Expansion patterns
 

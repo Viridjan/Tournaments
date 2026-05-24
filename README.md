@@ -14,7 +14,7 @@ Single-page tournament manager built with React 18 + Babel Standalone (CDN), no 
 2. Copy the deployment URL
 3. Open the app → paste the URL into the **Database URL** field in Settings → save
 
-On load the app fetches ELO data and all tournament configurations from the Sheet. If no URL is configured it still runs with a hardcoded default URL (`DU` in `src/config.js`).
+On load the app fetches ELO data and all tournament configurations from the Sheet. If no URL is configured it still runs with a hardcoded default URL (`DEFAULT_SHEETS_URL` in `src/config.js`).
 
 ### Running a tournament
 
@@ -216,7 +216,7 @@ Concatenates `src/` files in fixed order into `index.html`. Edit source files, t
 
 | # | File | Exports (globals) |
 |---|---|---|
-| 1 | `src/config.js` | `ED`, `EM`, `ES`, `EK`, `SK`, `BK`, `DU` |
+| 1 | `src/config.js` | `ELO_DEFAULT`, `ELO_K_MAX`, `ELO_SCALE`, `LS_ELO_DB`, `LS_SHEETS_URL`, `LS_BACKUP`, `LS_BACKUP_LAST`, `DEFAULT_SHEETS_URL` |
 | 2 | `src/logic.js` | `gpBestOf`, `eCalc`, `genPairings`, `calcAlloc`, … |
 | 3 | `src/storage.js` | `now`, `mkId`, `lLS`, `sLS`, `gSU`, `buildSnap`, `autoSeedSave`, `makePairings` |
 | 4 | `src/reducer.js` | `init`, `reducer` |
@@ -261,9 +261,10 @@ const c = { ...state.tournaments[state.tournamentId]?.features, ...state.feature
 
 | Constant | Key | Content |
 |---|---|---|
-| `EK` | `tournament_elo_db_v2` | ELO database object |
-| `SK` | `tournament_sheets_url_v1` | Apps Script URL |
-| `BK` | `tournament_local_backup` | Full in-progress snapshot (auto-restored on next open) |
+| `LS_ELO_DB` | `tournament_elo_db_v2` | ELO database object |
+| `LS_SHEETS_URL` | `tournament_sheets_url_v1` | Apps Script URL |
+| `LS_BACKUP` | `tournament_local_backup` | Full in-progress snapshot (auto-restored on next open) |
+| `LS_BACKUP_LAST` | `tournament_local_backup_last` | Most recently active tournament id |
 
 ### Auto-save
 

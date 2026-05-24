@@ -9,7 +9,7 @@ function StandingsTab({ state, dispatch, config }) {
     tb3 = cfg.tiebreaker3 || "none";
   const playerStats = Object.fromEntries(
     state.players.map((p) => [p.name, {
-      elo: getElo(activeElo, p.name),
+      elo: getElo(activeElo, p.name, cfg.eloDefault ?? ELO_DEFAULT),
       omw: calcOMW(p.name, state.history, state.players),
       gwr: calcGWR(p),
     }]),
@@ -99,7 +99,7 @@ function StandingsTab({ state, dispatch, config }) {
             <tbody>
               {sorted.map((p, i) => {
                 const pr = prizeCalc?.allocs?.[i] || null;
-                const elo = getElo(activeElo, p.name);
+                const elo = getElo(activeElo, p.name, cfg.eloDefault ?? ELO_DEFAULT);
                 const eloDelta = cfg.elo && p.eloStart != null ? elo - p.eloStart : null;
                 return (
                   <tr key={p.name}>
