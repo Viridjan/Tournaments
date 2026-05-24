@@ -25,7 +25,7 @@ Config JSON files are embedded as globals first, then source files in dependency
 3. `config/tournaments.json` → `TOURNAMENTS` global
 4. `config/scoring.json` → `SCORING_PRESETS` global
 5. `config/global-settings.json` → `GLOBAL_SETTINGS` global
-6. `src/config.js` — localStorage key constants (`LS_ELO_DB`, `LS_SHEETS_URL`, `LS_BACKUP`, `LS_BACKUP_LAST`), default Apps Script URL (`DEFAULT_SHEETS_URL`)
+6. `src/config.js` — localStorage key constants (`LS_ELO_DB`, `LS_BACKUP`, `LS_BACKUP_LAST`), Apps Script URL constant (`DEFAULT_SHEETS_URL`); `getSheetsUrl()` in `storage.js` returns this directly — no localStorage override
 7. `src/logic.js` — Pure functions: ELO math, pairing algorithms, prize allocation
 8. `src/storage.js` — localStorage helpers (`loadLS`, `saveLS`), `buildSnap()`, `autoSeedSave()`, `makePairings()` dispatcher, `now()`
 9. `src/reducer.js` — Initial state (`init`) + all state transitions (`reducer`)
@@ -114,7 +114,6 @@ On mount, `App.jsx` fetches `?action=elo_cols` then `?action=load&col=NAME` for 
 | Constant | Key string | Content |
 |---|---|---|
 | `LS_ELO_DB` | `tournament_elo_db_v2` | ELO database |
-| `LS_SHEETS_URL` | `tournament_sheets_url_v1` | Apps Script URL |
 | `LS_BACKUP` | `tournament_local_backup` | Prefix; suffixed `_<tournamentId>` |
 | `LS_BACKUP_LAST` | `tournament_local_backup_last` | Most recently active tournament id |
 
