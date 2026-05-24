@@ -2,7 +2,6 @@
 // Landing screen — tournament type picker
 // Clicking a card dispatches OPEN_TOURNAMENT
 function LandingScreen({ dispatch, tournaments, onRetry }) {
-  const [customUrl, setCustomUrl] = React.useState("");
   const empty = Object.keys(tournaments).length === 0;
   return (
     <div
@@ -22,15 +21,8 @@ function LandingScreen({ dispatch, tournaments, onRetry }) {
             No tournaments loaded. Check config/tournaments.json is not empty and rebuild.
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <input
-              type="text"
-              value={customUrl}
-              onChange={(e) => setCustomUrl(e.target.value.trim())}
-              placeholder="Override Apps Script URL…"
-              style={{ ...S.input, flex: 1, fontSize: 12, padding: "6px 10px" }}
-            />
             <Btn
-              onClick={() => { if (customUrl) { dispatch({ type: "SET_SHEETS_URL", url: customUrl }); onRetry(customUrl); } else onRetry(); }}
+              onClick={() => onRetry()}
               style={{ fontSize: 12, whiteSpace: "nowrap" }}
             >
               ↺ Retry

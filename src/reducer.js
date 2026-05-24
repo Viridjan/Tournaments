@@ -50,7 +50,6 @@ const init = {
   testMode: false,
   experimental: false,
   advancedSetup: false,
-  sheetsUrl: getSheetsUrl(),
 };
 
 function featureBase(st) {
@@ -393,14 +392,7 @@ function reducer(st, a) {
         screen: "tournament",
         tournamentId: st.tournamentId,
         activeTab: "players",
-        sheetsUrl: st.sheetsUrl,
       };
-    case "SET_SHEETS_URL":
-      try {
-        if (a.url) localStorage.setItem(LS_SHEETS_URL, a.url);
-        else localStorage.removeItem(LS_SHEETS_URL);
-      } catch {}
-      return { ...st, sheetsUrl: a.url };
     case "DRAFT_END":
       return {
         ...st,

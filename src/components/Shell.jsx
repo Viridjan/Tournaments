@@ -94,18 +94,20 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
     )
       return;
     lastPushedRound.current = state.history.length;
-    const url = state.sheetsUrl;
-    if (!url) return;
+    const url = getSheetsUrl();
+    const eloSheet = cfg.eloDB;
+    if (!url || !cfg.elo || !eloSheet) return;
     setSyncStatus("syncing");
-    const eloEntries = Object.values(state.eloDb)
-      .flatMap((sheet) => Object.values(sheet || {}))
+    // Push only this tournament's ELO column — never flatten across sheets,
+    // or duplicate names across columns clobber each other in the Sheet.
+    const eloEntries = Object.values(state.eloDb[eloSheet] || {})
       .filter((v) => v?.name)
       .map((v) => ({ name: v.name, elo: v.elo, test: !!v.test }));
     fetch(url, {
       method: "POST",
       mode: "no-cors",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: "save", test: false, entries: eloEntries }),
+      body: JSON.stringify({ action: "save", col: eloSheet, test: false, entries: eloEntries }),
     })
       .then(() => {
         setSyncStatus("synced");

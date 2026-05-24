@@ -27,11 +27,7 @@ function saveLS(k, v) {
   } catch {}
 }
 function getSheetsUrl() {
-  try {
-    return localStorage.getItem(LS_SHEETS_URL) || DEFAULT_SHEETS_URL;
-  } catch {
-    return DEFAULT_SHEETS_URL;
-  }
+  return DEFAULT_SHEETS_URL;
 }
 // Serialize current state into a v3 snapshot object (used for remote seed saves and local backup).
 // v3 format: top-level metadata + nested `state` block with runtime data + prize/feature config.

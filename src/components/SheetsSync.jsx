@@ -3,7 +3,7 @@
 // Pull: fetches ELO entries (preserves test flag)
 function SheetsSync({ state, dispatch, config }) {
   const [status, setStatus] = useState("");
-  const url = state.sheetsUrl;
+  const url = getSheetsUrl();
   const col = config?.features?.eloDB || "ELO";
   const pull = async () => {
     if (!url) {
@@ -107,18 +107,6 @@ function SheetsSync({ state, dispatch, config }) {
   return (
     <Card>
       <h3 style={S.cardTitle}>Database</h3>
-      <label
-        style={{ fontSize: 13, color: C.text, fontWeight: 500, marginBottom: 6, display: "block" }}
-      >
-        Google Sheet URL
-      </label>
-      <input
-        type="text"
-        value={url || ""}
-        placeholder="Apps Script URL"
-        onChange={(e) => dispatch({ type: "SET_SHEETS_URL", url: e.target.value.trim() })}
-        style={{ ...S.input, fontSize: 12, padding: "5px 8px", marginBottom: 6 }}
-      />
       <div style={{ display: "flex", gap: 6, marginBottom: 4 }}>
         <Btn onClick={pull} style={{ flex: 1, fontSize: 12 }}>
           ⬇ Pull

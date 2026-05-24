@@ -13,7 +13,7 @@ function RulesTab({ state }) {
           setStatus("Cached");
         }
       } catch {}
-    const url = state.sheetsUrl;
+    const url = getSheetsUrl();
     if (!url) {
       setStatus("⚠ No URL");
       return;

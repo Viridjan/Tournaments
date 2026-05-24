@@ -496,6 +496,26 @@ function draftGroups(players, eloDb, eloDefault = 0, tableSize) {
 function scoreRound(roundPairings, players, cfg, db) {
   let _db = db; // local copy — setElo() returns a new object, so we reassign on each update
   const scoring = cfg.scoring;
+  // BYE = free win: player gets the same outcome as winning a normal match.
+  roundPairings.forEach((m) => {
+    if (!m.isBye) return;
+    const p = players.find((x) => x.name === m.players[0]);
+    if (!p) return;
+    p.w++;
+    if (scoring === "swiss") {
+      p.score += cfg.winPoints;
+    } else if (scoring === "points") {
+      const pts = Number(cfg.pts1);
+      if (cfg.grandPrix) {
+        if (!p.gpScores) p.gpScores = [];
+        p.gpScores.push(pts);
+        p.score = gpBestOf(p.gpScores, cfg.gpBestOfLast, cfg.gpDropWorst, cfg.gpGhostPoints);
+      } else {
+        p.score += pts;
+      }
+    }
+    // lifepoints: winPoints = 0; no score change, but w++ records the result
+  });
   roundPairings.forEach((m) => {
     if (m.isBye || m.result !== "done") return;
     const scored = m.players.filter((n) => String(m.scores[n]).trim() !== "");

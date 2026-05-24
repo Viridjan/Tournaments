@@ -4,32 +4,24 @@
 //
 // SETUP:
 // 1. Create a new Google Sheet
-// 2. Create tabs (sheets): "ELO", "Seeds", "Rules", "Settings"
+// 2. Create tabs (sheets): "ELO", "Seeds", "Rules"
 // 3. In the ELO tab, add headers in row 1: Test | Name | ELO Magic | ELO Risk (etc.)
-//    In the Global Settings tab, add headers in row 1: key | value
-//    Then add one row per global setting (eloDefault, eloKMax, eloScale, …)
-//    (ELO column names must match the eloCol setting in each tournament's Settings row)
+//    (ELO column names must match the eloDB setting in each tournament's config)
 // 4. In the Seeds tab, add headers in row 1: ID | Label | Timestamp | Data
 // 5. In the Rules tab, add headers in row 1: Tournament | Category | Rule | Description | Update
 //    Then add your rules with the tournament name matching exactly
 //    (e.g., "Drunken Draft", "Vintage Draft", "Risk Grand Prix")
-// 6. In the Settings tab, add headers in row 1:
-//    id | name | icon | desc | scoring | startScore | pts1 | pts2 | pts3 | ptsLast |
-//    winPoints | drawPoints | lossPoints | cumulativeDrawPenalty | rrRounds |
-//    timerMinutes | draft | elo | eloKMax | eloScale | eloDB | playerOrder | grandPrix |
-//    prizes | entryCost | prizrPlCount | prizePlCountRUp | rUpPlCount | rUpPlCountRUp | draftTableSize |
-//    timeout | timeoutTime | rules | matchRound | matchMax |
-//    gpBestOfLast | gpDropWorst | gpGhostPoints | extraPoints | extraPointsValue |
-//    tiebreaker1 | tiebreaker2 | tiebreaker3
-//    Then add one row per tournament type.
-// 7. Go to Extensions > Apps Script
-// 8. Paste this entire script, replacing any existing code
-// 9. Click Deploy > New deployment
-// 10. Type: Web app
-// 11. Execute as: Me
-// 12. Who has access: Anyone
-// 13. Click Deploy and copy the URL
-// 14. Paste the URL into the Tournament Manager's Database URL field
+// 6. Go to Extensions > Apps Script
+// 7. Paste this entire script, replacing any existing code
+// 8. Click Deploy > New deployment
+// 9. Type: Web app
+// 10. Execute as: Me
+// 11. Who has access: Anyone
+// 12. Click Deploy and copy the URL
+// 13. Paste the URL into the Tournament Manager's Database URL field
+//
+// Tournament config and global settings are managed in config/ files in the repo,
+// not in the Sheet. Only ELO data, seeds, and rules live here.
 //
 // ══════════════════════════════════════════════════════════════
 
@@ -40,11 +32,8 @@ function doGet(e) {
   if (action === "seed_load") return loadSeed(e.parameter.id);
   if (action === "seed_list") return listSeeds();
   if (action === "rules") return loadRules(e.parameter.tournament);
-  if (action === "tournament_list") return loadTournaments();
-  if (action === "debug_settings") return debugSettings();
   if (action === "debug_elo") return debugElo();
   if (action === "elo_cols") return eloColumns();
-  if (action === "global_settings") return loadGlobalSettings();
 
   return jsonResponse({ error: "Unknown action" });
 }
@@ -57,8 +46,6 @@ function doPost(e) {
     if (action === "save") return saveElo(data);
     if (action === "seed_save") return saveSeed(data);
     if (action === "seed_delete") return deleteSeed(data);
-    if (action === "tournament_save") return saveTournament(data);
-    if (action === "global_settings_save") return saveGlobalSettings(data);
 
     return jsonResponse({ error: "Unknown action" });
   } catch (err) {
@@ -282,169 +269,6 @@ function loadRules(tournament) {
   return jsonResponse({ rows: rows });
 }
 
-// ── Tournaments ──
-
-var TOURNAMENT_FEATURE_KEYS = [
-  "scoring", "startScore", "pts1", "pts2", "pts3", "ptsLast", "winPoints", "drawPoints", "lossPoints",
-  "cumulativeDrawPenalty", "rrRounds", "timerMinutes", "draft", "elo", "eloKMax",
-  "eloScale", "eloDefault", "eloDB", "playerOrder", "grandPrix", "prizes",
-  "entryCost", "prizrPlCount", "prizePlCountRUp", "rUpPlCount", "rUpPlCountRUp",
-  "draftTableSize",
-  "timeout", "timeoutTime", "rules", "matchRound", "matchMax",
-  "gpBestOfLast", "gpDropWorst", "gpGhostPoints", "extraPoints", "extraPointsValue",
-  "tiebreaker1", "tiebreaker2", "tiebreaker3"
-];
-
-function loadTournaments() {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Settings");
-  if (!sheet) return jsonResponse({ tournaments: [] });
-
-  var data = sheet.getDataRange().getValues();
-  if (data.length < 2) return jsonResponse({ tournaments: [] });
-
-  var headers = data[0].map(function(h) { return String(h).trim().toLowerCase(); });
-  var tournaments = [];
-
-  function hIdx(key) { return headers.indexOf(key.toLowerCase()); }
-
-  var idColIdx = hIdx("id") !== -1 ? hIdx("id") : 0;
-
-  for (var i = 1; i < data.length; i++) {
-    var row = data[i];
-    var id = String(row[idColIdx] || "").trim();
-    if (!id) continue;
-
-    var t = {
-      id: id,
-      name: String(row[hIdx("name")] !== undefined ? row[hIdx("name")] : ""),
-      icon: String(row[hIdx("icon")] !== undefined ? row[hIdx("icon")] : ""),
-      desc: String(row[hIdx("desc")] !== undefined ? row[hIdx("desc")] : ""),
-      features: {}
-    };
-
-    TOURNAMENT_FEATURE_KEYS.forEach(function(key) {
-      var idx = hIdx(key);
-      if (idx === -1) return;
-      var val = row[idx];
-      if (val instanceof Date) {
-        var hh = val.getHours(), mm = val.getMinutes();
-        val = (hh < 10 ? "0" : "") + hh + ":" + (mm < 10 ? "0" : "") + mm;
-      }
-      t.features[key] = val;
-    });
-
-    tournaments.push(t);
-  }
-
-  return jsonResponse({ tournaments: tournaments });
-}
-
-function saveTournament(data) {
-  var t = data.tournament;
-  if (!t || !t.id) return jsonResponse({ error: "Missing tournament id" });
-
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Settings");
-  if (!sheet) {
-    sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet("Settings");
-    var initHeaders = ["id", "name", "icon", "desc"].concat(TOURNAMENT_FEATURE_KEYS);
-    sheet.getRange(1, 1, 1, initHeaders.length).setValues([initHeaders]);
-  }
-
-  var existing = sheet.getDataRange().getValues();
-  var headers = existing[0].map(function(h) { return String(h).trim(); });
-
-  var row = headers.map(function(h) {
-    if (h === "id") return t.id;
-    if (h === "name") return t.name || "";
-    if (h === "icon") return t.icon || "";
-    if (h === "desc") return t.desc || "";
-    return t.features && t.features[h] !== undefined ? t.features[h] : "";
-  });
-
-  var idIdx = headers.indexOf("id");
-  for (var i = 1; i < existing.length; i++) {
-    if (String(existing[i][idIdx]).trim() === t.id) {
-      sheet.getRange(i + 1, 1, 1, row.length).setValues([row]);
-      return jsonResponse({ ok: true, id: t.id });
-    }
-  }
-
-  sheet.appendRow(row);
-  return jsonResponse({ ok: true, id: t.id });
-}
-
-// ── Global Settings ──
-
-function loadGlobalSettings() {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Global Settings");
-  if (!sheet) return jsonResponse({ settings: {} });
-
-  var data = sheet.getDataRange().getValues();
-  if (data.length < 2) return jsonResponse({ settings: {} });
-
-  var headers = data[0].map(function(h) { return String(h).trim().toLowerCase(); });
-  var keyIdx = headers.indexOf("key");
-  var valIdx = headers.indexOf("value");
-  if (keyIdx === -1 || valIdx === -1) return jsonResponse({ settings: {} });
-
-  var settings = {};
-  for (var i = 1; i < data.length; i++) {
-    var key = String(data[i][keyIdx] || "").trim();
-    if (!key) continue;
-    var raw = data[i][valIdx];
-    // Coerce: boolean → bool, numeric string → number, else string
-    if (raw === true || raw === false) {
-      settings[key] = raw;
-    } else if (raw !== "" && !isNaN(Number(raw))) {
-      settings[key] = Number(raw);
-    } else {
-      settings[key] = String(raw);
-    }
-  }
-
-  return jsonResponse({ settings: settings });
-}
-
-function saveGlobalSettings(data) {
-  var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = spreadsheet.getSheetByName("Global Settings");
-  if (!sheet) {
-    sheet = spreadsheet.insertSheet("Global Settings");
-    sheet.getRange(1, 1, 1, 2).setValues([["key", "value"]]);
-  }
-
-  var incoming = data.settings || {};
-  var allData = sheet.getDataRange().getValues();
-  var headers = allData[0].map(function(h) { return String(h).trim().toLowerCase(); });
-  var keyIdx = headers.indexOf("key");
-  var valIdx = headers.indexOf("value");
-
-  if (keyIdx === -1) { keyIdx = 0; sheet.getRange(1, 1).setValue("key"); }
-  if (valIdx === -1) { valIdx = 1; sheet.getRange(1, 2).setValue("value"); }
-
-  // Build key → row map
-  var rowMap = {};
-  for (var i = 1; i < allData.length; i++) {
-    var k = String(allData[i][keyIdx] || "").trim();
-    if (k) rowMap[k] = i + 1;
-  }
-
-  for (var key in incoming) {
-    var val = incoming[key];
-    if (rowMap[key]) {
-      sheet.getRange(rowMap[key], valIdx + 1).setValue(val);
-    } else {
-      var newRow = ["", ""];
-      newRow[keyIdx] = key;
-      newRow[valIdx] = val;
-      sheet.appendRow(newRow);
-      rowMap[key] = sheet.getLastRow();
-    }
-  }
-
-  return jsonResponse({ ok: true });
-}
-
 // ── Debug ──
 
 function eloColumns() {
@@ -460,17 +284,6 @@ function eloColumns() {
 function debugElo() {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("ELO");
   if (!sheet) return jsonResponse({ error: "No sheet named ELO" });
-  var data = sheet.getDataRange().getValues();
-  return jsonResponse({
-    rowCount: data.length,
-    headers: data.length > 0 ? data[0] : [],
-    firstDataRow: data.length > 1 ? data[1] : []
-  });
-}
-
-function debugSettings() {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Settings");
-  if (!sheet) return jsonResponse({ error: "No sheet named Settings" });
   var data = sheet.getDataRange().getValues();
   return jsonResponse({
     rowCount: data.length,

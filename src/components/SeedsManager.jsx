@@ -5,7 +5,7 @@ function SeedsManager({ state, dispatch }) {
   const [status, setStatus] = useState(""),
     [seedId, setSeedId] = useState(""),
     [seeds, setSeeds] = useState([]);
-  const url = state.sheetsUrl;
+  const url = getSheetsUrl();
   const save = async () => {
     if (!url) {
       setStatus("⚠ No URL");
