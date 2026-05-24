@@ -4772,7 +4772,7 @@ function Shell({ state, dispatch, eloLoadedCols, eloColOptions }) {
   if (!rawConfig) return null;
   const config = { ...rawConfig, features: { ...state.globalSettings, ...rawConfig.features, ...state.featureOverrides } };
   const cfg = config.features,
-    activePlayers = state.players.filter((p) => !p.eliminated),
+    activePlayers = state.players.filter((p) => !p.eliminated).sort((a, b) => b.score - a.score),
     go = state.tournamentStarted && isGameOver(cfg.scoring, activePlayers);
   const [el, setEl] = useState("");
   const [timedOut, setTimedOut] = useState(false);
